@@ -35,6 +35,13 @@ const $ = (id) => document.getElementById(id);
 const setText = (id, txt) => { const el = $(id); if (el) el.innerText = txt; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const fmtNum = (n) => Number(n || 0).toLocaleString("ru-RU");
+const pluralYears = (n) => {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return "лет";
+  if (b === 1) return "год";
+  if (b >= 2 && b <= 4) return "года";
+  return "лет";
+};
 
 function closeModalIfOpen(id) {
   const el = $(id);
@@ -62,13 +69,14 @@ function grantBirthYearBonus() {
 function syncTelegramBackButton() {
   const bb = tg?.BackButton;
   if (!bb) return;
-  const modals = ["event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modals = ["year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   const anyOpen = modals.some(id => $(id) && $(id).style.display && $(id).style.display !== "none");
   try { if (anyOpen) bb.show(); else bb.hide(); } catch (e) { /* Telegram может быть недоступен — не критично */ }
 }
 
 function handleTelegramBack() {
   const closers = [
+    ["year-summary-modal", closeYearSummary],
     ["portrait-modal", closePortraitModal],
     ["save-modal", closeSaveModal],
     ["confirm-modal", closeConfirmModal],
@@ -92,7 +100,7 @@ function handleTelegramBack() {
 
 if (tg?.BackButton) {
   try { tg.BackButton.onClick(handleTelegramBack); } catch (e) {}
-  const modalIds = ["event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modalIds = ["year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   try {
     const observer = new MutationObserver(() => syncTelegramBackButton());
     modalIds.forEach(id => { const el = $(id); if (el) observer.observe(el, { attributes: true, attributeFilter: ["style"] }); });
@@ -362,7 +370,10 @@ function calcCombatPower(p) {
   if (p.perugiusTrials?.includes(2)) cp += 2500;
   if (p.injuries?.some(i => i.id === "lost_arm") && p.equipment?.accessory?.id !== "prosthetic_arm") cp = Math.floor(cp * 0.72);
   const karma = getReincarnationKarma();
-  if (karma > 0) cp = Math.floor(cp * (1 + karma * 0.04));
+  if (karma > 0) {
+    const bonus = Math.min(BALANCE.karma.cpBonusMax, karma * BALANCE.karma.cpBonusPerLevel);
+    cp = Math.floor(cp * (1 + bonus));
+  }
   const cap = p.trait?.id === "god_mode" ? 999999 : (GENERATION_CP_CAPS[p.generation] || 120000);
   return Math.min(cap, Math.floor(cp));
 }
@@ -478,7 +489,7 @@ function randomCreation() {
 
 function initCharacter(fName, sName, gender, race, regionKey, origin, trait, familyStatus, startAge = 0, customRelations = null) {
   const karma = getReincarnationKarma(), isGod = trait?.id === "god_mode";
-  const baseMana = isGod ? 9999 : Math.round(((race.bonus.baseMana || 25) + (origin.manaBonus || 0) + (trait.manaBonus || 0) + (familyStatus.manaBonus || 0) + karma * 8) * (race.bonus.manaMod || 1)) + (startAge > 5 ? Math.min(180, startAge * 6) : 0);
+  const baseMana = isGod ? 9999 : Math.round(((race.bonus.baseMana || 25) + (origin.manaBonus || 0) + (trait.manaBonus || 0) + (familyStatus.manaBonus || 0) + karma * BALANCE.karma.startManaPerLevel) * (race.bonus.manaMod || 1)) + (startAge > 5 ? Math.min(180, startAge * 6) : 0);
   const baseHp = isGod ? 9999 : 100 + (trait.hp || 0) + (race.bonus.hp || 0) + (familyStatus.hp || 0) + karma * 8;
 
   const fatherName = SYLLABLES.male[Math.floor(Math.random() * SYLLABLES.male.length)] + " " + sName;
@@ -531,6 +542,7 @@ function initCharacter(fName, sName, gender, race, regionKey, origin, trait, fam
   log(`🏛️ Семья: <b>${familyStatus.name}</b> • ${origin.log}`);
   if (karma > 0) log(`✨ Карма Сансары ур. ${karma}.`);
   grantBirthYearBonus();
+  yearSnapshot = takeYearSnapshot();
   updateUI();
 }
 
@@ -1002,14 +1014,14 @@ function renderForge() {
   cont.innerHTML = slots.map(s => {
     const it = player.equipment[s], lvl = it.forgeLevel || 0, cost = Math.round((it.cost * 0.4 + 35) * (lvl + 1));
     return `<div class="shop-item"><div><b>${it.name} ${lvl ? `[+${lvl}]` : ""}</b><div style="font-size:11px; color:var(--muted);">Мощь: ${getItemPower(it).toLocaleString()} БМ (+15% за ур.)</div></div>
-      <button ${lvl >= 5 || player.coins < cost ? "disabled" : ""} style="background:#b45309; font-size:11px;" onclick="forgeEquipSlot('${s}')">${lvl >= 5 ? "MAX +5" : `🔨 +${lvl + 1} (${cost}🪙)`}</button></div>`;
+      <button ${lvl >= BALANCE.economy.forgeMaxLevel || player.coins < cost ? "disabled" : ""} style="background:#b45309; font-size:11px;" onclick="forgeEquipSlot('${s}')">${lvl >= BALANCE.economy.forgeMaxLevel ? `MAX +${BALANCE.economy.forgeMaxLevel}` : `🔨 +${lvl + 1} (${cost}🪙)`}</button></div>`;
   }).join("");
 }
 
 function forgeEquipSlot(slot) {
   const it = player.equipment[slot]; if (!it) return;
   const lvl = it.forgeLevel || 0, cost = Math.round((it.cost * 0.4 + 35) * (lvl + 1));
-  if (lvl >= 5 || player.coins < cost) return;
+  if (lvl >= BALANCE.economy.forgeMaxLevel || player.coins < cost) return;
   player.coins -= cost; it.forgeLevel = lvl + 1;
   log(`🔨 <b>${it.name}</b> закалено до <b>+${it.forgeLevel}</b>!`);
   playSound("sword"); updateUI(); renderForge();
@@ -1091,12 +1103,13 @@ function dispatchCaravan(id) {
   if (!r || player.coins < r.cost) return showActionModal("Золото", `Нужно ${r?.cost}🪙!`, "🪙");
   player.ap -= 1; player.coins -= r.cost;
   const hasVault = player.castleUpgrades.includes("grand_vault");
-  const risk = Math.max(0.05, r.risk - (hasVault ? 0.05 : 0) - (player.squad.length >= 3 ? 0.1 : 0));
+  const cfg = BALANCE.caravans;
+  const risk = Math.max(0.05, r.risk - (hasVault ? cfg.grandVaultRiskBonus : 0) - (player.squad.length >= 3 ? cfg.squadRiskBonus : 0));
   if (Math.random() < risk) {
     const msg = `⚠️ Засада на пути «${r.name}»! Потеряно ${r.cost}🪙.`;
     log(msg); playSound("death"); showActionModal("Нападение!", msg, "⚔️");
   } else {
-    const reward = hasVault ? Math.round(r.reward * 1.15) : r.reward;
+    const reward = hasVault ? Math.round(r.reward * (1 + BALANCE.caravans.grandVaultRewardBonus)) : r.reward;
     player.coins += reward;
     const msg = `🎉 Караван прибыл! Получено <b>+${reward}🪙</b>!`;
     log(msg); playSound("coin"); showActionModal("Прибыль!", msg, "🐪");
@@ -1136,7 +1149,7 @@ function renderInventoryTab() {
     html += player.inventory.map((it, i) => `
       <div class="shop-item"><div><b>${it.name}${it.forgeLevel ? ` [+${it.forgeLevel}]` : ""}</b> (+${getItemPower(it)} БМ)<div style="font-size:11px; color:var(--muted);">${it.desc}</div></div>
       <div style="display:flex; gap:5px;"><button style="background:#4338ca; padding:6px 9px; font-size:11px;" onclick="equipItem(${i})">Надеть</button>
-      <button class="btn-sell" onclick="sellInventoryItem(${i})">+${Math.max(3, Math.floor(it.cost * 0.5))}🪙</button></div></div>`).join("");
+      <button class="btn-sell" onclick="sellInventoryItem(${i})">+${Math.max(BALANCE.economy.minSellPrice, Math.floor(it.cost * BALANCE.economy.sellRatio))}🪙</button></div></div>`).join("");
     inv.innerHTML = html || `<div style="font-size:12px; color:var(--muted);">Рюкзак пуст.</div>`;
   }
   const shop = $("shop-list");
@@ -1166,7 +1179,7 @@ function buyShopItem(id) {
 }
 function sellInventoryItem(idx) {
   const it = player.inventory[idx]; if (!it) return;
-  const val = Math.max(3, Math.floor(it.cost * 0.5));
+  const val = Math.max(BALANCE.economy.minSellPrice, Math.floor(it.cost * BALANCE.economy.sellRatio));
   player.coins += val; player.inventory.splice(idx, 1);
   log(`🪙 Продано: ${it.name} (+${val}🪙).`); playSound("coin"); updateUI(); renderInventoryTab();
 }
@@ -1464,18 +1477,36 @@ function combatAction(type) {
     if (logBox) logBox.innerHTML += `<div style="color:#c084fc;"><b>${tech.name}: -${myDmg} HP!</b>${tech.stun ? " (Враг оглушён!)" : ""}</div>`;
     playSound(tech.kind === "magic" ? "magic" : "sword");
   } else if (type === "parry") {
-    dmgReduction = Math.max(0.2, 0.55 - (player.waterGodExp / 1500));
-    myDmg = Math.floor((player.waterGodExp + 20) * (squadCp / (currentBattle.enemyCp + 80)) * 1.3) + 10;
+    const school = BALANCE.schools.water;
+    dmgReduction = Math.max(0.2, school.blockBase - (player.waterGodExp / school.blockPerExp));
+    myDmg = Math.floor((player.waterGodExp + 20) * (squadCp / (currentBattle.enemyCp + 80)) * school.counterMult) + 10;
     if (logBox) logBox.innerHTML += `<div>💧 Парирование и контрудар: <b>-${myDmg} HP</b>!</div>`;
     playSound("sword");
-  } else if (type === "sword") {
-    const pwr = Math.max(15, player.swordGodExp + player.waterGodExp + player.northGodExp);
-    myDmg = Math.floor(pwr * (squadCp / (currentBattle.enemyCp + 80)) * 1.9) + Math.floor(Math.random() * 20) + 12;
-    if (hasAppraisal) myDmg = Math.floor(myDmg * 1.3);
-    if (logBox) logBox.innerHTML += `<div>⚔️ Выпад клинком: <b>-${myDmg} HP</b>!</div>`;
+  } else if (type === "north") {
+    // Финт Севера: чуть слабее меча, но даёт шанс уйти от ответного удара
+    const school = BALANCE.schools.north;
+    const pwr = Math.max(15, player.northGodExp + player.waterGodExp);
+    myDmg = Math.floor(pwr * (squadCp / (currentBattle.enemyCp + 80)) * 1.9 * school.dmgMult) + Math.floor(Math.random() * 15) + 10;
+    if (hasAppraisal) myDmg = Math.floor(myDmg * 1.2);
+    if (logBox) logBox.innerHTML += `<div>🌪️ Стремительный финт: <b>-${myDmg} HP</b>!</div>`;
     playSound("sword");
+  } else if (type === "sword") {
+    const school = BALANCE.schools.sword;
+    const pwr = Math.max(15, player.swordGodExp + player.waterGodExp + player.northGodExp);
+    const accuracy = Math.min(1, school.accuracy + (hasAppraisal ? 0.08 : 0));
+    if (Math.random() > accuracy) {
+      myDmg = 0;
+      if (logBox) logBox.innerHTML += `<div style="color:var(--muted);">⚔️ Размашистый удар ушёл в пустоту — промах!</div>`;
+      playSound("sword");
+    } else {
+      myDmg = Math.floor(pwr * (squadCp / (currentBattle.enemyCp + 80)) * 1.9 * school.dmgMult) + Math.floor(Math.random() * 20) + 12;
+      if (hasAppraisal) myDmg = Math.floor(myDmg * 1.3);
+      if (logBox) logBox.innerHTML += `<div>⚔️ Выпад клинком: <b>-${myDmg} HP</b>!</div>`;
+      playSound("sword");
+    }
   } else if (type === "magic") {
-    const manaCost = silentCast ? 5 : 10;
+    const school = BALANCE.schools.magic;
+    const manaCost = silentCast ? school.manaCostSilent : school.manaCost;
     if (player.mana < manaCost) {
       myDmg = 8; if (logBox) logBox.innerHTML += `<div style="color:var(--muted);">Мана на нуле (-8 HP)!</div>`;
     } else {
@@ -1534,6 +1565,9 @@ function combatAction(type) {
     if (logBox) logBox.innerHTML += `<div style="color:#38bdf8;">💫 Противник оглушён и пропускает атаку!</div>`;
   } else if (hasForesight && Math.random() < 0.35) {
     if (logBox) logBox.innerHTML += `<div style="color:var(--accent-light);">👁️ Вы уклонились от ответного удара!</div>`;
+  } else if (type === "north" && Math.random() < BALANCE.schools.north.evadeChance) {
+    // Север — стиль уклонения: после финта враг бьёт по пустому месту
+    if (logBox) logBox.innerHTML += `<div style="color:#38bdf8;">🌪️ Финт Бога Севера — враг промахнулся!</div>`;
   } else {
     const eDmg = Math.max(4, Math.floor((currentBattle.enemyCp / (squadCp + 50) * 16 + Math.random() * 12 + 6) * dmgReduction));
     player.hp -= eDmg;
@@ -1832,6 +1866,7 @@ function meetStranger() {
 // ТЕЧЕНИЕ ГОДА (AGE UP)
 // =========================================================================
 function ageUp() {
+  yearSnapshot = takeYearSnapshot(); // точка отсчёта для дневника года
   player.age++; worldState.currentWorldYear++;
   saveGame(); // страховка: год уже прожит, даже если игрок закроет приложение посреди события
   player.maxAp = getMaxAP(player.age); player.ap = player.maxAp; player.mana = player.maxMana;
@@ -1854,7 +1889,17 @@ function ageUp() {
 
   if (player.estates.length) {
     const inc = player.estates.reduce((s, id) => s + (ESTATES.find(e => e.id === id)?.income || 0), 0);
-    player.coins += inc; log(`💰 Доход от имений: +${inc}🪙.`);
+    player.coins += inc;
+    // Содержание имущества: доход не бесплатный
+    const upkeep = Math.floor(inc * BALANCE.upkeepPercent);
+    if (upkeep > 0 && player.coins >= upkeep) {
+      player.coins -= upkeep;
+      log(`💰 Имения: +${inc}🪙 дохода, −${upkeep}🪙 содержания (итого +${inc - upkeep}🪙).`);
+    } else if (upkeep > 0) {
+      player.coins = 0;
+      player.hp = Math.max(1, player.hp - BALANCE.hp.starvationDamage);
+      log(`⚠️ На содержание имений не хватило ${upkeep}🪙: слуги разбегаются, замок ветшает (−${BALANCE.hp.starvationDamage} HP).`);
+    }
   }
   if (player.currentJob) {
     const sal = getJobDataById(player.currentJob)?.ranks[player.jobRankIndex]?.salary || 0;
@@ -1914,8 +1959,9 @@ function ageUp() {
     return;
   }
 
-  if (player.age > player.maxAge - 15 && player.trait.id !== "god_mode") {
-    const decay = Math.floor(Math.random() * 10) + 5;
+  if (player.age > player.maxAge - BALANCE.hp.oldAgeYears && player.trait.id !== "god_mode") {
+    const span = BALANCE.hp.newAgeDecayMax - BALANCE.hp.newAgeDecayMin;
+    const decay = BALANCE.hp.newAgeDecayMin + Math.floor(Math.random() * (span + 1));
     player.hp -= decay; log(`Старость даёт о себе знать (-${decay} HP).`);
   }
   if (player.hp <= 0 || player.age >= player.maxAge) {
@@ -1943,8 +1989,105 @@ function ageUp() {
 
   log(player.age <= 3 ? "Безмятежное детство в кругу семьи (+10 HP)." : "Год прошёл в трудах и тренировках.");
   if (player.age <= 3) player.hp = Math.min(player.maxHp, player.hp + 10);
+
+  // Пассивный рост: годы сами по себе учат героя, иначе первое поколение упирается в потолок.
+  // Восстановление стоит после увядания — иначе отдых за год «съедал» эффект старости.
+  applyYearlyGrowth();
   playSound("year");
+  showYearSummary();
   updateUI();
+}
+
+// =========================================================================
+// ДНЕВНИК ГОДА: короткая сводка вместо копания в ленте событий
+// =========================================================================
+let yearSnapshot = null;
+let yearSummary = null;
+
+function takeYearSnapshot() {
+  if (!player) return null;
+  return {
+    year: worldState.currentWorldYear,
+    age: player.age,
+    hp: player.hp, maxHp: player.maxHp,
+    mana: player.mana, maxMana: player.maxMana,
+    coins: player.coins,
+    intellect: player.intellect,
+    sword: player.swordGodExp, magic: player.magicExp,
+    water: player.waterGodExp, north: player.northGodExp,
+    guildExp: player.guildExp, guildRank: player.guildRank,
+    reputation: player.reputation,
+    relations: (player.relations || []).filter(r => !r.isDead).length,
+    estateIncome: (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0)
+  };
+}
+
+function buildYearSummary() {
+  if (!player || !yearSnapshot) return null;
+  const before = yearSnapshot, now = takeYearSnapshot();
+  const diff = (now, before) => now - before;
+  const lines = [];
+  const coinDelta = diff(now.coins, before.coins);
+  if (coinDelta) lines.push(`${coinDelta > 0 ? "💰" : "💸"} Золото: ${coinDelta > 0 ? "+" : ""}${fmtNum(coinDelta)}🪙 (всего ${fmtNum(now.coins)})`);
+  const expDelta = diff(now.sword, before.sword) + diff(now.magic, before.magic) + diff(now.water, before.water) + diff(now.north, before.north);
+  if (expDelta > 0) lines.push(`⚔️ Боевой опыт: +${fmtNum(expDelta)} за год`);
+  const intDelta = diff(now.intellect, before.intellect);
+  if (intDelta) lines.push(`📚 Знания: ${intDelta > 0 ? "+" : ""}${intDelta} (всего ${fmtNum(now.intellect)})`);
+  const hpDelta = now.hp - before.hp;
+  if (hpDelta) lines.push(`❤️ Здоровье: ${hpDelta > 0 ? "+" : ""}${fmtNum(hpDelta)} (${now.hp}/${now.maxHp})`);
+  if (now.guildRank !== before.guildRank) lines.push(`🌟 Ранг гильдии: ${before.guildRank} → <b>${now.guildRank}</b>`);
+  const relDelta = now.relations - before.relations;
+  if (relDelta) lines.push(`${relDelta > 0 ? "👥" : "🕯️"} Близких людей: ${relDelta > 0 ? "+" : ""}${relDelta}`);
+  if (now.reputation !== before.reputation) lines.push(`⚖️ Репутация: ${now.reputation > before.reputation ? "+" : ""}${now.reputation - before.reputation}`);
+  if (now.estateIncome) lines.push(`🏰 Имения приносят ${fmtNum(now.estateIncome)}🪙 в год`);
+  const verdict = now.hp / Math.max(1, now.maxHp) > 0.7 ? "Год сложился удачно."
+    : now.hp / Math.max(1, now.maxHp) > 0.35 ? "Год был непростым, но вы держитесь."
+    : "Вы на последнем издыхании — отдохните и подлечитесь!";
+  return { year: now.year, age: now.age, lines, verdict };
+}
+
+// Запоминаем состояние перед прожитым годом
+const takeYearSnapshotBeforeAgeUp = takeYearSnapshot;
+
+function showYearSummary() {
+  yearSummary = buildYearSummary();
+  if (!yearSummary) return;
+  const box = $("year-summary-body");
+  if (!box) return;
+  box.innerHTML = (
+    yearSummary.lines.length
+      ? yearSummary.lines.map(l => `<div style="margin:3px 0;">${l}</div>`).join("")
+      : `<div style="color:var(--muted);">Год прошёл спокойно, без перемен.</div>`
+  ) + `<div style="margin-top:8px; color:var(--accent-light); font-size:11px;">${yearSummary.verdict}</div>`;
+  setText("year-summary-title", `${yearSummary.year} г. К.Д. • ${yearSummary.age} ${pluralYears(yearSummary.age)}`);
+  if ($("year-summary-modal")) $("year-summary-modal").style.display = "flex";
+  yearSnapshot = takeYearSnapshot();
+}
+
+function closeYearSummary() {
+  if ($("year-summary-modal")) $("year-summary-modal").style.display = "none";
+  playSound("click");
+  syncTelegramBackButton();
+}
+
+// Небольшой рост за прожитый год
+function applyYearlyGrowth() {
+  const g = BALANCE.growth;
+  const perExp = player.age < 16 ? g.expPerYearUntilAdult : g.expPerYearAfterAdult;
+  if (perExp > 0) {
+    player.magicExp += perExp;
+    player.swordGodExp += perExp;
+    player.waterGodExp += perExp;
+    player.northGodExp += perExp;
+  }
+  player.intellect += g.intellectPerYear;
+  // В старости силы уже не восстанавливаются сами — иначе увядание незаметно
+  const isOld = player.age > player.maxAge - BALANCE.hp.oldAgeYears;
+  const naturalHeal = isOld ? 0 : g.freeRestHeal;
+  if (naturalHeal > 0 && player.hp < player.maxHp) {
+    player.hp = Math.min(player.maxHp, player.hp + naturalHeal);
+  }
+  if (g.freeManaRestore) player.mana = player.maxMana;
 }
 
 function triggerRandomEvent(ev) {
@@ -1961,6 +2104,7 @@ function triggerRandomEvent(ev) {
       if ($("event-modal")) $("event-modal").style.display = "none";
       log(`<b>[Выбор]</b> ${out}`); playSound("click");
       showActionModal("Итог", out, ev.icon || "⚡");
+      showYearSummary();
       updateUI();
       if (player.hp <= 0) handleDeath("Пал жертвой роковых событий года");
     };

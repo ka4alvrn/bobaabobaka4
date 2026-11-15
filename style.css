@@ -32,6 +32,7 @@ html, body {
 #creation-overlay, #death-overlay { z-index: 200; }
 #birth-modal { z-index: 250; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 #battle-modal, #dungeon-modal { z-index: 300; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
+#year-summary-modal { z-index: 345; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 #event-modal { z-index: 350; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 #portrait-modal, #action-modal, #confirm-modal, #save-modal { z-index: 400; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 

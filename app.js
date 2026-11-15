@@ -69,13 +69,14 @@ function grantBirthYearBonus() {
 function syncTelegramBackButton() {
   const bb = tg?.BackButton;
   if (!bb) return;
-  const modals = ["year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modals = ["destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   const anyOpen = modals.some(id => $(id) && $(id).style.display && $(id).style.display !== "none");
   try { if (anyOpen) bb.show(); else bb.hide(); } catch (e) { /* Telegram может быть недоступен — не критично */ }
 }
 
 function handleTelegramBack() {
   const closers = [
+    ["destiny-modal", closeDestinyWindow],
     ["year-summary-modal", closeYearSummary],
     ["portrait-modal", closePortraitModal],
     ["save-modal", closeSaveModal],
@@ -100,7 +101,7 @@ function handleTelegramBack() {
 
 if (tg?.BackButton) {
   try { tg.BackButton.onClick(handleTelegramBack); } catch (e) {}
-  const modalIds = ["year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modalIds = ["destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   try {
     const observer = new MutationObserver(() => syncTelegramBackButton());
     modalIds.forEach(id => { const el = $(id); if (el) observer.observe(el, { attributes: true, attributeFilter: ["style"] }); });
@@ -535,6 +536,8 @@ function initCharacter(fName, sName, gender, race, regionKey, origin, trait, fam
   };
 
   selectedMapRegion = regionKey;
+  ensureStoryState();
+  ensureSevenPowersLore();
   generateYearlyGuildQuests();
   if ($("logs")) $("logs").innerHTML = "";
   logHistory = [];
@@ -820,7 +823,13 @@ function travelToRegion(destKey) {
 // =========================================================================
 // СЮЖЕТНЫЕ ВЕХИ (1-Я ЖИЗНЬ + СЛЕДУЮЩИЕ ВЕКА)
 // =========================================================================
+// =========================================================================
+// СУДЬБА РОДА: единое окно — дневник года, вехи, линии, эхо прошлого
+// =========================================================================
+let currentDestinyTab = "year";
+
 function getAvailableStories() {
+  // Старые «вехи эпохи» оставляем как часть окна судьбы
   return STORY_ACTIVITIES.filter(s => {
     if (player.storyCompleted.includes(s.id) || player.age < s.age) return false;
     if (s.reqFaction && player.dynastyFaction !== s.reqFaction) return false;
@@ -835,23 +844,216 @@ function getAvailableStories() {
   });
 }
 
-function renderLifeStorySection() {
-  const container = $("life-story-container"), badge = $("story-notify-badge");
-  if (!container) return;
-  const list = getAvailableStories();
-  if (badge) badge.style.display = list.length ? "inline-block" : "none";
-  if (!list.length) {
-    container.innerHTML = `<div style="font-size:11px; color:var(--muted); padding:6px;">Вехи текущего возраста и эпохи завершены.</div>`;
+function countPendingDestiny() {
+  if (!player) return 0;
+  ensureStoryState();
+  return getAvailableStoryNodes().length + getAvailableStories().length;
+}
+
+function updateDestinyBadge() {
+  const badge = $("destiny-badge");
+  if (!badge) return;
+  const n = countPendingDestiny();
+  badge.style.display = n ? "inline-block" : "none";
+  badge.innerText = n > 1 ? `${n} новых` : "новое";
+}
+
+function openDestinyWindow(tab) {
+  if (!player) return;
+  ensureStoryState();
+  ensureSevenPowersLore();
+  if (tab) currentDestinyTab = tab;
+  renderDestinyWindow();
+  if ($("destiny-modal")) $("destiny-modal").style.display = "flex";
+  playSound("click");
+  syncTelegramBackButton();
+}
+
+function closeDestinyWindow() {
+  if ($("destiny-modal")) $("destiny-modal").style.display = "none";
+  playSound("click");
+  syncTelegramBackButton();
+}
+
+function setDestinyTab(tab, btnEl) {
+  currentDestinyTab = tab;
+  document.querySelectorAll(".destiny-tab").forEach(b => b.classList.remove("active"));
+  btnEl?.classList.add("active");
+  renderDestinyWindow();
+  playSound("click");
+}
+
+function renderDestinyWindow() {
+  const body = $("destiny-body");
+  if (!body || !player) return;
+  const sub = $("destiny-sub");
+  if (sub) sub.innerText = `${player.name} • ${player.age} ${pluralYears(player.age)} • ${worldState.currentWorldYear} г. К.Д.`;
+
+  if (currentDestinyTab === "year") body.innerHTML = renderDestinyYearTab();
+  else if (currentDestinyTab === "lines") body.innerHTML = renderDestinyLinesTab();
+  else if (currentDestinyTab === "path") body.innerHTML = renderDestinyPathTab();
+  else body.innerHTML = renderDestinyPendingTab();
+}
+
+// --- вкладка «Год»: последний дневник + сводка жизни ---
+function renderDestinyYearTab() {
+  let html = "";
+  const summary = yearSummary || buildYearSummary();
+  html += `<div class="destiny-card"><div class="destiny-line-title">Дневник последнего года</div>`;
+  if (summary && summary.lines.length) {
+    html += summary.lines.map(l => `<div class="destiny-text" style="margin:3px 0;">${l}</div>`).join("");
+    html += `<div class="destiny-muted" style="margin-top:6px;">${summary.verdict}</div>`;
+  } else {
+    html += `<div class="destiny-muted">Год ещё не прожит — нажмите «Прожить 1 год».</div>`;
+  }
+  html += `</div>`;
+
+  const cp = calcCombatPower(player);
+  html += `<div class="destiny-card"><div class="destiny-line-title">Итог жизни</div>
+    <div class="destiny-text">Мощь: <b>${cp.toLocaleString("ru-RU")}</b> • Поколение ${dynastyGeneration} • Золото ${fmtNum(player.coins)}🪙</div>
+    <div class="destiny-text">Раса: ${esc(player.race)} • Предел жизни: ${player.maxAge} ${pluralYears(player.maxAge)}</div>
+    <div class="destiny-muted" style="margin-top:4px;">${getBardNickname(player, cp)}</div></div>`;
+
+  const flags = Object.keys(player.story?.flags || {});
+  if (flags.length) {
+    html += `<div class="destiny-card"><div class="destiny-line-title">Ваши решения</div>
+      <div class="destiny-muted">${flags.length} памятных выборов в этой жизни</div></div>`;
+  }
+  return html;
+}
+
+// --- вкладка «Линии судьбы»: сюжетные цепочки ---
+function renderDestinyLinesTab() {
+  const nodes = getAvailableStoryNodes();
+  let html = "";
+
+  if (!nodes.length) {
+    html += `<div class="destiny-card"><div class="destiny-muted">Сейчас новых завязок нет — живите, и судьба догонит.</div></div>`;
+  } else {
+    html += `<div class="destiny-muted" style="margin-bottom:6px;">Доступно сейчас: ${nodes.length}</div>`;
+    nodes.forEach(({ line, node }) => {
+      html += `<div class="destiny-card story">
+        <div class="destiny-line-title">${line.icon} ${esc(node.title)}</div>
+        <div class="destiny-muted" style="margin-bottom:5px;">Линия: ${esc(line.title)}</div>
+        <div class="destiny-text">${esc(node.text)}</div>
+        ${(node.choices || []).map((ch, i) => {
+          const affordable = !ch.cost || player.coins >= ch.cost;
+          const dis = affordable ? "" : "disabled";
+          const dimStyle = affordable ? "" : "opacity:0.45;";
+          return `<button class="destiny-choice" ${dis} style="${dimStyle}" onclick="chooseStoryNode('${line.id}','${node.id}',${i})">${esc(ch.text)}</button>`;
+        }).join("")}
+        ${node.effect ? `<button class="destiny-choice" style="background:#312e81;" onclick="chooseStoryNode('${line.id}','${node.id}',-1)">✨ Принять</button>` : ""}
+      </div>`;
+    });
+  }
+
+  // старые вехи эпохи
+  const legacy = getAvailableStories();
+  if (legacy.length) {
+    html += `<div class="destiny-muted" style="margin:10px 0 6px;">📖 Вехи эпохи</div>`;
+    legacy.forEach(st => {
+      html += `<div class="destiny-card">
+        <div class="destiny-line-title" style="color:#fbbf24;">${esc(st.name)}</div>
+        <div class="destiny-text">${esc(st.desc)}</div>
+        <button class="destiny-choice" style="background:#b45309;" onclick="performStoryActivity('${st.id}')">✨ Свершить</button>
+      </div>`;
+    });
+  }
+
+  // завершённые линии
+  const doneLines = STORY_LINES.filter(l => l.nodes.every(n => player.story.done.includes(n.id)));
+  if (doneLines.length) {
+    html += `<div class="destiny-muted" style="margin:10px 0 6px;">Завершённые линии</div>`;
+    doneLines.forEach(l => { html += `<div class="destiny-opt">✅ ${l.icon} ${esc(l.title)}</div>`; });
+  }
+  return html;
+}
+
+// --- вкладка «Путь»: Семь Великих Сил как люди ---
+function renderDestinyPathTab() {
+  ensureSevenPowersLore();
+  let html = `<div class="destiny-muted" style="margin-bottom:8px;">Семь Великих Сил — не строчки с числами, а те, кто помнит вас.</div>`;
+  worldState.sevenPowers.forEach(pow => {
+    const lore = getPowerLore(pow.rank);
+    const att = getPowerAttitudeLabel(pow.attitude);
+    const isMe = player.currentPowersSeat === pow.rank;
+    const pct = Math.round(((Number(pow.attitude) || 0) + 100) / 2);
+    html += `<div class="destiny-card destiny-power">
+      <div class="destiny-power-name">#${pow.rank} • ${esc(pow.title)} ${isMe ? '<span class="destiny-tag">ВАШ ТРОН</span>' : ""}</div>
+      <div class="destiny-muted" style="margin-bottom:4px;">${esc(pow.name)}${lore ? ` — «${esc(lore.epithet)}»` : ""}</div>
+      ${lore ? `<div class="destiny-text" style="font-size:11px;">${esc(lore.personality)}</div>
+      <div class="destiny-muted" style="margin-top:4px;">Привычка: ${esc(lore.habit)}</div>` : ""}
+      <div class="destiny-bar"><i style="width:${pct}%; background:${att.color};"></i></div>
+      <div class="destiny-muted">Отношение: <b style="color:${att.color};">${att.text}</b> • БМ ${fmtNum(pow.cp)}</div>
+      ${isMe && lore ? `<div class="destiny-muted" style="color:#34d399; margin-top:3px;">${esc(lore.seatText)}</div>` : ""}
+      <div style="display:flex; gap:5px; margin-top:6px;">
+        <button class="destiny-choice" style="margin-top:0; flex:1; padding:5px 6px;" onclick="giveTributeToPower(${pow.rank})">🎁 Дары (60🪙)</button>
+        ${!isMe ? `<button class="destiny-choice" style="margin-top:0; flex:1; padding:5px 6px; background:#4c1d95;" onclick="challengeSevenPower(${pow.rank})">⚔️ Вызов</button>` : ""}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+// --- вкладка «Эхо»: отложенные последствия ---
+function renderDestinyPendingTab() {
+  ensureStoryState();
+  const pending = player.story.pending || [];
+  let html = `<div class="destiny-muted" style="margin-bottom:8px;">Решения возвращаются. Здесь видно, что уже в пути.</div>`;
+  if (!pending.length) {
+    html += `<div class="destiny-card"><div class="destiny-muted">Пока ничего не должно вернуться. Это хороший знак — или вы просто ещё не сделали достаточно глупостей.</div></div>`;
+  } else {
+    pending.slice().sort((a, b) => a.atYear - b.atYear).forEach(p => {
+      const wait = Math.max(0, p.atYear - worldState.currentWorldYear);
+      html += `<div class="destiny-card chain">
+        <div class="destiny-text">${esc(p.text)}</div>
+        <div class="destiny-muted" style="margin-top:4px;">⏳ Сбудется через ${wait} ${pluralYears(wait)}</div>
+      </div>`;
+    });
+  }
+  return html;
+}
+
+// --- выбор в сюжетной сцене ---
+function chooseStoryNode(lineId, nodeId, choiceIdx) {
+  const line = STORY_LINES.find(l => l.id === lineId);
+  const node = line?.nodes.find(n => n.id === nodeId);
+  if (!line || !node) return;
+  ensureStoryState();
+  if (player.story.done.includes(node.id)) return;
+
+  // Узел без выбора
+  if (choiceIdx === -1 || !node.choices) {
+    const res = node.effect ? node.effect(player, worldState) : "Судьба сделала шаг.";
+    player.story.done.push(node.id);
+    log(`📜 <b>${esc(node.title)}</b>: ${res}`);
+    playSound("win");
+    showActionModal(node.title, res, "📜");
+    updateUI();
+    renderDestinyWindow();
     return;
   }
-  container.innerHTML = list.map(st => `
-    <div class="activity-card" style="border-color:var(--gold);">
-      <div class="act-info">
-        <div class="act-title-row"><span class="act-name" style="color:var(--gold);">${st.name}</span><span class="act-age-badge">с ${st.age} л.</span></div>
-        <div class="act-desc">${st.desc}</div>
-      </div>
-      <button style="background:linear-gradient(135deg,#b45309,#d97706); min-width:105px;" onclick="performStoryActivity('${st.id}')">✨ Свершить</button>
-    </div>`).join("");
+
+  const ch = node.choices[choiceIdx];
+  if (!ch) return;
+  if (ch.cost && player.coins < ch.cost) {
+    showActionModal("Не хватает золота", `Нужно ${ch.cost}🪙.`, "🪙");
+    return;
+  }
+
+  const res = ch.effect ? ch.effect(player, worldState) : "Решение принято.";
+  player.story.done.push(node.id);
+  Object.keys(ch.flags || {}).forEach(f => setStoryFlag(f));
+  if (ch.flags) Object.keys(ch.flags).forEach(f => { if (!ch.flags[f]) delete player.story.flags[f]; });
+
+  // Отложенное последствие: решение возвращается через годы
+  if (ch.consequence) scheduleStoryConsequence(ch.consequence.years, ch.consequence.text, ch.consequence.effect);
+
+  log(`📜 <b>${esc(node.title)}</b>: ${res}`);
+  playSound("win");
+  showActionModal(node.title, res, "📜");
+  updateUI();
+  renderDestinyWindow();
 }
 
 function performStoryActivity(storyId) {
@@ -869,6 +1071,11 @@ function performStoryActivity(storyId) {
   log(res); playSound(st.id === "s1_calamity" ? "calamity" : "win");
   showActionModal("Сюжетная Веха", res, "📜");
   updateUI();
+}
+
+// Совместимость со старым кодом: обновляет счётчик новых вех
+function renderLifeStorySection() {
+  updateDestinyBadge();
 }
 
 // =========================================================================
@@ -1331,6 +1538,45 @@ function dungeonTurn(choice) {
 }
 function closeDungeonModal() { if ($("dungeon-modal")) $("dungeon-modal").style.display = "none"; activeDungeon = null; updateUI(); renderGuildTab(); }
 
+// Год на троне Семи Сил: покровительство Владыки приносит плоды
+function applySevenPowerSeatYearly() {
+  if (!player.currentPowersSeat) return;
+  const lore = getPowerLore(player.currentPowersSeat);
+  const bonus = lore?.seatBonus;
+  if (!bonus) return;
+  const parts = [];
+  if (bonus.intellect) { player.intellect += bonus.intellect; parts.push(`+${bonus.intellect} Знаний`); }
+  if (bonus.swordGod) { player.swordGodExp += bonus.swordGod; parts.push(`+${bonus.swordGod} Мечу`); }
+  if (bonus.magicExp) { player.magicExp += bonus.magicExp; parts.push(`+${bonus.magicExp} Магии`); }
+  if (bonus.northGod) { player.northGodExp += bonus.northGod; parts.push(`+${bonus.northGod} Северу`); }
+  if (bonus.hpRegen) { player.hp = Math.min(player.maxHp, player.hp + bonus.hpRegen); parts.push(`+${bonus.hpRegen} HP`); }
+  if (bonus.reputation) { player.reputation = (player.reputation || 0) + bonus.reputation; parts.push(`${bonus.reputation} репутации`); }
+  if (bonus.estateIncomePercent) {
+    const inc = (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0);
+    const extra = Math.floor(inc * bonus.estateIncomePercent / 100);
+    if (extra > 0) { player.coins += extra; parts.push(`+${extra}🪙 с имений`); }
+  }
+  if (parts.length) log(`🏆 Трон #${player.currentPowersSeat} даёт роду: ${parts.join(", ")}.`);
+}
+
+// Подарок Владыке: отношение растёт, но золото уходит
+function giveTributeToPower(rank) {
+  const pow = worldState.sevenPowers.find(p => p.rank === rank);
+  if (!pow) return;
+  const cost = 60;
+  if (player.coins < cost) return showActionModal("Золото", `Нужно ${cost}🪙 на дары.`, "🪙");
+  player.coins -= cost;
+  changePowerAttitude(rank, 10);
+  const att = getPowerAttitudeLabel(pow.attitude);
+  const lore = getPowerLore(rank);
+  const reply = (Number(pow.attitude) >= 40 && lore) ? lore.respect : (lore ? lore.greet : "«Принято.»");
+  log(`🎁 Дары для Владыки #${rank} (${esc(pow.name)}): отношение — ${att.text}.`);
+  showActionModal(pow.title, `<div style="color:#c084fc;">${esc(reply)}</div><div class="destiny-muted" style="margin-top:6px;">Отношение: ${att.text} (−${cost}🪙)</div>`, "🎁");
+  playSound("coin");
+  updateUI();
+  renderDestinyWindow();
+}
+
 function renderPowersMonument() {
   const cont = $("powers-monument-list"); if (!cont) return;
   cont.innerHTML = worldState.sevenPowers.map(pow => {
@@ -1338,6 +1584,8 @@ function renderPowersMonument() {
     return `<div class="power-row ${isMe ? "power-player" : ""}">
       <div style="display:flex; align-items:center;"><span class="power-rank">#${pow.rank}</span>
         <div><b>${isMe ? `${esc(player.name)} (ВЫ!)` : `${esc(pow.title)} — ${esc(pow.name)}`}</b>
+          ${(() => { const lore = getPowerLore(pow.rank); const att = getPowerAttitudeLabel(pow.attitude);
+            return lore ? `<div style="font-size:10px; color:var(--muted); margin-top:2px;">«${esc(lore.epithet)}» • ${att.text}</div>` : ""; })()}
         <div style="font-size:10px; color:var(--muted);">${isMe ? `Ваш трон • ${calcCombatPower(player).toLocaleString()} БМ` : `Мощь: ${pow.cp.toLocaleString()} БМ`}</div></div></div>
       <div>${isMe ? `<span class="badge-legendary">ВАШ ТИТУЛ 👑</span>` : `<button class="btn-challenge" ${found ? "" : "disabled"} onclick="challengeSevenPower(${pow.rank})">${found ? "⚔️ Вызов" : "🔒 Не найден"}</button>`}</div>
     </div>`;
@@ -1434,7 +1682,20 @@ function startGuildBattle(id) {
 }
 function challengeSevenPower(rank) {
   const pow = worldState.sevenPowers.find(p => p.rank === rank); if (!pow) return;
-  openBattleModal({ isSevenPower: true, powerObj: pow, enemyName: `${pow.title} ${pow.name}`, enemyHp: pow.hp, enemyMaxHp: pow.maxHp, enemyCp: pow.cp, intro: `⚡ Вызов за ранг #${pow.rank} Семи Сил против <b>${pow.name}</b>!` });
+  ensureSevenPowersLore();
+  const lore = getPowerLore(rank);
+  const att = getPowerAttitudeLabel(pow.attitude);
+  const greeting = getPowerGreeting(rank);
+  const intro = `
+    <div style="color:#c084fc; margin-bottom:6px;">${esc(greeting)}</div>
+    <div style="font-size:11px; color:var(--muted); margin-bottom:6px;">${esc(pow.title)} • «${esc(lore?.epithet || "Владыка")}» • отношение к вам: ${att.text}</div>
+    ⚡ Вызов за ранг #${pow.rank} Семи Сил!`;
+  // Владыка, который вас уважает, даёт фору — и потом это помнит
+  if ((Number(pow.attitude) || 0) >= 40) {
+    openBattleModal({ isSevenPower: true, powerObj: pow, enemyName: `${pow.title} ${pow.name}`, enemyHp: Math.floor(pow.maxHp * 0.9), enemyMaxHp: pow.maxHp, enemyCp: pow.cp, intro });
+  } else {
+    openBattleModal({ isSevenPower: true, powerObj: pow, enemyName: `${pow.title} ${pow.name}`, enemyHp: pow.maxHp, enemyMaxHp: pow.maxHp, enemyCp: pow.cp, intro });
+  }
   playSound("calamity");
 }
 function startFactionEndgameRaid() {
@@ -1543,9 +1804,13 @@ function combatAction(type) {
     } else if (currentBattle.isSevenPower) {
       const pow = currentBattle.powerObj;
       if (player.currentPowersSeat && player.currentPowersSeat !== pow.rank) vacatePowerSeatToWorld(player, "перешёл на более высокий трон");
+      const defeatedLore = getPowerLore(pow.rank);
+      const defeatedName = pow.name;
       pow.name = player.name; pow.holderType = "player"; pow.isDead = false; pow.cp = calcCombatPower(player);
+      pow.attitude = 0;
       player.currentPowersSeat = pow.rank; player.coins += 1500;
-      const msg = `👑 <b>ТРИУМФ!</b> Вы заняли ранг #${pow.rank} (${pow.title}) на Монументе Семи Сил!`;
+      const defeatedLine = defeatedLore ? `<br><span style="color:#c084fc;">«${esc(defeatedLore.contempt)}» — ${esc(defeatedName)} уходит, унося своё имя.</span>` : "";
+      const msg = `👑 <b>ТРИУМФ!</b> Вы заняли ранг #${pow.rank} (${pow.title}) на Монументе Семи Сил!${defeatedLine}<br><span style="color:#34d399;">${esc(defeatedLore?.seatText || "")}</span>`;
       worldState.chronicles.push({ year: worldState.currentWorldYear, text: `🏆 ${player.name} взошёл на трон #${pow.rank} Семи Сил!` });
       log(msg);
     } else if (currentBattle.quest) {
@@ -1917,6 +2182,9 @@ function ageUp() {
   }
   if (player.castleUpgrades.includes("alchemy_lab")) { player.potionsCount += 2; log(`🧪 Оранжерея сварила +2 зелья.`); }
 
+  // Плоды трона на Монументе Семи Сил
+  applySevenPowerSeatYearly();
+
   if (player.pregnancy) {
     const isM = Math.random() > 0.5, list = SYLLABLES[isM ? "male" : "female"];
     let childRace = player.race;
@@ -1993,6 +2261,8 @@ function ageUp() {
   // Пассивный рост: годы сами по себе учат героя, иначе первое поколение упирается в потолок.
   // Восстановление стоит после увядания — иначе отдых за год «съедал» эффект старости.
   applyYearlyGrowth();
+  processStoryConsequences();
+  updateDestinyBadge();
   playSound("year");
   showYearSummary();
   updateUI();
@@ -2349,6 +2619,11 @@ function normalizeLoadedData(data) {
   }
   if (!player.guildRank || !ADVENTURER_RANKS.includes(player.guildRank)) player.guildRank = "F";
   player.maxHpBonus = Math.max(0, Number(player.maxHpBonus) || 0);
+  if (!player.story || typeof player.story !== "object") player.story = {};
+  player.story.flags = (player.story.flags && typeof player.story.flags === "object") ? player.story.flags : {};
+  player.story.done = Array.isArray(player.story.done) ? player.story.done : [];
+  player.story.pending = Array.isArray(player.story.pending) ? player.story.pending.filter(c => c && typeof c.atYear === "number") : [];
+  player.story.lineDone = Array.isArray(player.story.lineDone) ? player.story.lineDone : [];
   player.birthYearBonus = !!player.birthYearBonus;
   if (!player.nobilityTitle) player.nobilityTitle = "citizen";
   player.maxHp = Math.max(20, player.maxHp);
@@ -2368,6 +2643,8 @@ function normalizeLoadedData(data) {
 function applyLoadedData(data) {
   if (!normalizeLoadedData(data)) return false;
   selectedMapRegion = player.currentRegionKey || "asura";
+  ensureStoryState();
+  ensureSevenPowersLore();
   if ($("creation-overlay")) $("creation-overlay").style.display = "none";
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   renderLogHistory();

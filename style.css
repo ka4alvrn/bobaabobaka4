@@ -269,3 +269,53 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .nav-item .icon { font-size: 18px; }
 .nav-item.active { color: var(--accent-light) !important; }
 .nav-item.active .icon { transform: scale(1.1); filter: drop-shadow(0 0 6px var(--accent-glow)); }
+
+/* ============ ОКНО «СУДЬБА РОДА» ============ */
+#destiny-modal {
+  z-index: 340; position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center;
+  background: rgba(0,0,0,0.9); backdrop-filter: blur(6px); padding: 10px;
+}
+.destiny-sheet {
+  width: 100%; max-width: 520px; max-height: 92vh; display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #16131f, #0e0d14);
+  border: 1px solid rgba(168,85,247,0.45); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 10px 40px rgba(124,58,237,0.25);
+}
+.destiny-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 12px 14px 8px; border-bottom: 1px solid rgba(168,85,247,0.25);
+}
+.destiny-title { font-size: 15px; font-weight: 800; color: #e9d5ff; }
+.destiny-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.destiny-close {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e5e7eb;
+  width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 13px; flex-shrink: 0;
+}
+.destiny-tabs { display: flex; gap: 4px; padding: 8px 10px 4px; overflow-x: auto; scrollbar-width: none; }
+.destiny-tab {
+  flex: 1 0 auto; background: #1c1826; border: 1px solid rgba(168,85,247,0.25); color: #c4b5fd;
+  border-radius: 8px; padding: 6px 8px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.destiny-tab.active { background: linear-gradient(135deg,#7c3aed,#a855f7); color: #fff; border-color: transparent; }
+.destiny-body { padding: 10px 12px 16px; overflow-y: auto; flex: 1; }
+.destiny-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 10px; margin-bottom: 8px;
+}
+.destiny-card.story { border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.06); }
+.destiny-card.chain { border-color: rgba(168,85,247,0.4); }
+.destiny-line-title { font-size: 12px; font-weight: 800; color: #fbbf24; margin-bottom: 3px; }
+.destiny-text { font-size: 12px; line-height: 1.5; color: #e5e7eb; }
+.destiny-muted { font-size: 11px; color: var(--muted); }
+.destiny-choice {
+  display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px;
+  background: #241a35; border: 1px solid rgba(168,85,247,0.35); color: #ede9fe;
+  border-radius: 8px; font-size: 11px; line-height: 1.4; cursor: pointer;
+}
+.destiny-choice:active { background: #3b2760; }
+.destiny-opt { font-size: 11px; padding: 6px 8px; border-radius: 8px; margin-bottom: 5px; background: rgba(255,255,255,0.03); }
+.destiny-tag { font-size: 9px; padding: 2px 5px; border-radius: 4px; background: rgba(168,85,247,0.25); color: #ddd6fe; }
+.destiny-power { border-left: 3px solid #a855f7; padding-left: 8px; margin-bottom: 8px; }
+.destiny-power-name { font-size: 12px; font-weight: 800; color: #f3e8ff; }
+.destiny-bar { height: 5px; background: #241a35; border-radius: 4px; overflow: hidden; margin: 4px 0; }
+.destiny-bar > i { display: block; height: 100%; border-radius: 4px; }

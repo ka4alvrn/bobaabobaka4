@@ -700,7 +700,7 @@ function setWorldSubTab(sub, btnEl) {
   });
   btnEl?.parentElement?.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
   btnEl?.classList.add("active");
-  ({ relations: renderRelations, travel: renderTravelTab, perugius: renderChaosBreaker, greyrat: renderGreyratBranches, tablets: renderTablets, politics: renderPolitics, tree: renderDynastyTree, languages: renderLanguages, schools: renderSchools })[sub]?.();
+  ({ relations: renderRelations, travel: renderTravelTab, perugius: renderChaosBreaker, greyrat: renderGreyratBranches, tablets: renderTablets, politics: renderPolitics, tree: () => { renderTitles(); renderDynastyTree(); }, languages: renderLanguages, schools: renderSchools })[sub]?.();
   playSound("click");
 }
 
@@ -2339,6 +2339,151 @@ function buyNobilityTitle(id, cost, reqInf) {
   player.coins -= cost; player.nobilityTitle = id; log(`👑 Дарован титул!`); playSound("win"); updateUI(); renderPolitics();
 }
 
+// =========================================================================
+// ТИТУЛЫ И ПРОЗВИЩА
+// =========================================================================
+// Прозвище не выбирают — его дают. Игрок совершает поступки, а род и мир
+// называют его так, как запомнили. Прозвище остаётся в хрониках навсегда:
+// в дереве предков, в летописи, в памяти следующего поколения.
+//
+// Каждое прозвище требует конкретного дела, а не числа в характеристиках.
+
+const TITLES = [
+  // --- Деньги и долг ---
+  { id: "debtor", name: "Долговой", icon: "💰", cond: (p) => (p.story?.flags?.debt_owned || p.story?.flags?.debt_paid) && p.reputation < 40,
+    text: "Ваше имя произносят вместе с суммой." },
+  { id: "payer", name: "Платящий", icon: "🪙", cond: (p) => p.story?.flags?.debt_paid && p.reputation >= 40,
+    text: "О вас говорят: «С этим можно иметь дело»." },
+  { id: "rich", name: "Золотой", icon: "👑", cond: (p) => p.coins >= 12000, text: "Ваш кошель стал громче вашего голоса." },
+  { id: "greedy", name: "Скупой", icon: "🪙", cond: (p) => p.coins >= 3000 && (p.reputation || 0) <= 10, text: "Богатство есть, а имени доброго нет." },
+
+  // --- Война и меч ---
+  { id: "swordsman", name: "Клинок", icon: "⚔️", cond: (p) => (p.swordGodExp || 0) >= 400, text: "О вас говорят как о мече, а не о человеке." },
+  { id: "undefeated", name: "Непобеждённый", icon: "🛡️", cond: (p) => (p.squadFame || 0) >= 300 && (p.hp || 0) >= (p.maxHp || 1) * 0.9,
+    text: "Вы уходили из каждой схватки на ногах." },
+  { id: "butcher", name: "Мясник", icon: "🩸", cond: (p) => (p.story?.flags?.debt_kill || p.story?.flags?.her_denied) && (p.reputation || 0) < 25,
+    text: "За вами идут не потому что верят — потому что боятся." },
+  { id: "peacemaker", name: "Миротворец", icon: "🕊️", cond: (p) => p.story?.flags?.bdr_peace || p.story?.flags?.grd_peace,
+    text: "Вы останавливали то, что должно было случиться." },
+
+  // --- Магия и знание ---
+  { id: "mage", name: "Магистр", icon: "🔮", cond: (p) => (p.magicExp || 0) >= 400, text: "Ваши заклинания обсуждают в Академии." },
+  { id: "sage", name: "Мудрый", icon: "📖", cond: (p) => (p.intellect || 0) >= 120, text: "К вам приходят с вопросами, а не с приказами." },
+  { id: "silent", name: "Молчаливый", icon: "🤫", cond: (p) => p.story?.flags?.sl_3_use || p.story?.flags?.sl_4_sold, text: "Вы говорили так, что вас слышали." },
+
+  // --- Династия и люди ---
+  { id: "father", name: "Отец Рода", icon: "👶", cond: (p) => (p.children || []).length >= 4, text: "Ваш дом шумит детьми и ссорами." },
+  { id: "widower", name: "Вдовец", icon: "🕯️", cond: (p) => !!p.widowed && p.widowed.name, text: "Вы пережили того, с кем делили жизнь." },
+  { id: "last_child", name: "Последний", icon: "🕯️", cond: (p) => p.story?.flags?.bf_1, text: "На вас может кончиться линия — и вы это знаете." },
+  { id: "beloved", name: "Любимый", icon: "🤍", cond: (p) => (p.reputation || 0) >= 100, text: "Вас любят не за титул." },
+  { id: "hated", name: "Ненавистный", icon: "🖤", cond: (p) => (p.reputation || 0) <= -40, text: "Ваше имя произносят как проклятие." },
+
+  // --- Мир и власть ---
+  { id: "power", name: "Сила Мира", icon: "🏆", cond: (p) => !!p.currentPowersSeat, text: "Ваше место — на Монументе." },
+  { id: "greyrat", name: "Единый Грейрат", icon: "🩸", cond: (p) => (p.greyratAllies || []).length >= 4, text: "Вы соединили то, что двести лет было четырьмя домами." },
+  { id: "chaos", name: "Поднявшийся", icon: "🐉", cond: (p) => (p.perugiusTrials || []).length >= 3, text: "В крепости есть ваше окно." },
+  { id: "traveller", name: "Странник", icon: "🧭", cond: (p) => Object.keys(p.visitedRegions || {}).length >= 6, text: "Вы видели все шесть ликов мира." },
+  { id: "settler", name: "Осевший", icon: "🏠", cond: (p) => (p.estates || []).length >= 3 && Object.keys(p.visitedRegions || {}).length <= 2,
+    text: "Вы выбрали место, а не дорогу." },
+
+  // --- Характер ---
+  { id: "kind", name: "Добрый", icon: "🤗", cond: (p) => (p.regionOpinionSum || 0) >= 80, text: "Регионы помнят вашу помощь." },
+  { id: "grim", name: "Хмурый", icon: "🌑", cond: (p) => (p.deaths || 0) >= 6, text: "Вы видели слишком много чужих похорон." }
+];
+
+// Считаем сводные показатели, на которые опираются условия
+function refreshTitleStats() {
+  if (!player) return;
+  ensureWorldState();
+  player.regionOpinionSum = Object.values(worldState.regionOpinion || {}).reduce((a, b) => a + b, 0);
+  player.visitedRegions = player.visitedRegions || {};
+  player.visitedRegions[player.currentRegionKey] = true;
+}
+
+// Какие прозвища заслужил герой прямо сейчас
+function earnedTitles() {
+  refreshTitleStats();
+  return TITLES.filter(t => {
+    try { return !!t.cond(player); } catch (e) { return false; }
+  });
+}
+
+// Раз в год (и при важных событиях) проверяем: не дали ли новое прозвище
+function checkTitles() {
+  if (!player) return;
+  if (!Array.isArray(player.titles)) player.titles = [];
+  const earned = earnedTitles();
+  earned.forEach(t => {
+    if (!player.titles.includes(t.id)) {
+      player.titles.push(t.id);
+      // Главным прозвищем становится самое «весомое» из последних
+      player.epithetId = t.id;
+      log(`${t.icon} Вас стали звать <b>${esc(t.name)}</b>. ${esc(t.text)}`);
+      queueYearExtra(`${t.icon} Новое прозвище`, `<b>${esc(t.name)}</b> — ${esc(t.text)}`, "🏷️");
+      worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} получил прозвище «${t.name}».` });
+      playSound("win");
+    }
+  });
+}
+
+// Выбор, какое прозвище носить (если их несколько)
+function setEpithet(id) {
+  if (!player.titles || !player.titles.includes(id)) return;
+  player.epithetId = id;
+  const t = TITLES.find(x => x.id === id);
+  if (t) { log(`🏷️ Вы носите прозвище <b>${esc(t.name)}</b>.`); playSound("click"); }
+  renderTitles(); updateUI();
+}
+
+// Полное имя героя с прозвищем
+function heroFullName(p) {
+  const pp = p || player;
+  if (!pp) return "";
+  const t = TITLES.find(x => x.id === pp.epithetId);
+  return t ? `${pp.name} ${t.name}` : pp.name;
+}
+
+// Экран прозвищ
+function renderTitles() {
+  const box = $("titles-box");
+  if (!box || !player) return;
+  if (!Array.isArray(player.titles)) player.titles = [];
+  const owned = TITLES.filter(t => player.titles.includes(t.id));
+  const locked = TITLES.filter(t => !player.titles.includes(t.id));
+
+  let html = `<div class="card" style="border-color:#a855f7; background:#150f24;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <b style="color:#d8b4fe; font-size:13px;">🏷️ Прозвища рода</b>
+      <span style="font-size:11px; color:var(--muted);">${owned.length} / ${TITLES.length}</span>
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-top:4px; line-height:1.45;">
+      Прозвище не выбирают — его дают за дела. Одно носится сейчас, остальные остаются в истории.
+    </div>
+  </div>`;
+
+  if (owned.length) {
+    html += owned.map(t => `<div class="title-row ${player.epithetId === t.id ? "active" : ""}">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+        <div><b style="font-size:12px;">${t.icon} ${esc(t.name)}</b>
+          ${player.epithetId === t.id ? '<span class="title-current">сейчас</span>' : ""}</div>
+        ${player.epithetId === t.id ? "" : `<button style="font-size:10px; padding:3px 8px; background:#4c1d95;" onclick="setEpithet('${t.id}')">Носить</button>`}
+      </div>
+      <div style="font-size:10.5px; color:#cbd5e1; margin-top:3px;">${esc(t.text)}</div>
+    </div>`).join("");
+  } else {
+    html += `<div class="card" style="text-align:center; color:var(--muted); font-size:11.5px;">Пока у вас нет прозвища. Проживите жизнь — и род придумает, как вас называть.</div>`;
+  }
+
+  if (locked.length) {
+    html += `<div class="section-title" style="margin-top:12px; font-size:12px;">Ещё не ваше (${locked.length})</div>`;
+    html += locked.map(t => `<div class="title-row locked">
+      <b style="font-size:11.5px; color:#64748b;">${t.icon} ${esc(t.name)}</b>
+      <div style="font-size:10px; color:#475569; margin-top:2px;">За дела, которые вы пока не совершили.</div>
+    </div>`).join("");
+  }
+  box.innerHTML = html;
+}
+
 function renderDynastyTree() {
   const cont = $("dynasty-tree-container"); if (!cont) return;
   let html = `<div class="tree-node current"><div class="tree-gen">👑 Поколение ${player.generation} (Сейчас • ${worldState.currentWorldYear} г.)</div>
@@ -2349,7 +2494,7 @@ function renderDynastyTree() {
   html += `<div class="section-title">Зал Славы Предков (${worldState.dynastyHistory.length})</div>`;
   html += worldState.dynastyHistory.length ? worldState.dynastyHistory.slice().reverse().map(a => `
     <div class="tree-node"><div class="tree-gen">📜 Поколение ${a.gen} ${a.powersSeat ? `• #${a.powersSeat} Семи Сил` : ""}</div>
-    <b>${esc(a.name)}</b> (${a.race}) • Пик БМ: ${fmtNum(a.peakCp)} • ${a.maxAge} л.<div style="font-size:10px; color:var(--muted);">${a.deathReason}</div></div>`).join("") : `<div style="color:var(--muted); font-size:11px;">Летопись предков пока пуста.</div>`;
+    <b>${esc(a.name)}</b>${a.epithet ? ` <span class="epithet-badge">${a.epithetIcon || "🏷️"} ${esc(a.epithet)}</span>` : ""} (${a.race}) • Пик БМ: ${fmtNum(a.peakCp)} • ${a.maxAge} л.<div style="font-size:10px; color:var(--muted);">${a.deathReason}</div></div>`).join("") : `<div style="color:var(--muted); font-size:11px;">Летопись предков пока пуста.</div>`;
   cont.innerHTML = html;
 }
 
@@ -3413,6 +3558,8 @@ function ageUp() {
   applyGreyratAllianceYearly();
   // Живой мир: состояния регионов меняются, вестник пишет новости года
   advanceWorldStates();
+  // Прозвища: род и мир решают, как вас называть
+  checkTitles();
   // Дети: растут, показывают характер, просят
   advanceChildrenYear();
   (player.children || []).forEach(c => {
@@ -3564,14 +3711,18 @@ function handleDeath(reason) {
   yearExtras = [];
   if ($("year-summary-modal")) $("year-summary-modal").style.display = "none";
   playSound("death");
+  const finalTitle = TITLES.find(t => t.id === player.epithetId);
   worldState.dynastyHistory.push({
     gen: player.generation, name: player.name, gender: player.gender, race: player.race,
-    peakCp: calcCombatPower(player), maxAge: player.age, deathReason: reason, powersSeat: player.currentPowersSeat
+    peakCp: calcCombatPower(player), maxAge: player.age, deathReason: reason, powersSeat: player.currentPowersSeat,
+    epithet: finalTitle ? finalTitle.name : null, epithetIcon: finalTitle ? finalTitle.icon : null,
+    titles: (player.titles || []).slice()
   });
 
   setText("death-reason", `${reason} в возрасте ${player.age} лет.`);
   if ($("death-summary")) $("death-summary").innerHTML = `
-    <div>🎖️ <b>${esc(player.name)}</b> (${player.race}) • Прожито: <b>${player.age} л.</b></div>
+    <div>🎖️ <b>${esc(heroFullName(player))}</b> (${player.race}) • Прожито: <b>${player.age} л.</b></div>
+    ${(player.titles || []).length ? `<div style="font-size:11px; color:#c4b5fd;">🏷️ ${player.titles.map(id => { const t = TITLES.find(x => x.id === id); return t ? t.icon + " " + esc(t.name) : ""; }).filter(Boolean).join(" • ")}</div>` : ""}
     <div>⚡ Пиковая БМ: <b>${calcCombatPower(player).toLocaleString()}</b> • Золото: <b>${player.coins.toLocaleString()}🪙</b></div>
     ${player.currentPowersSeat ? `<div style="color:var(--gold);">🏆 Титул #${player.currentPowersSeat} Семи Сил (наследуется преемником!)</div>` : ""}`;
 
@@ -3783,6 +3934,8 @@ function normalizeLoadedData(data) {
   if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
   // Дети из старых сейвов получают характер задним числом
   if (typeof initChildTraits === "function") initChildTraits();
+  if (!Array.isArray(player.titles)) player.titles = [];
+  if (typeof player.visitedRegions !== "object" || player.visitedRegions === null) player.visitedRegions = {};
   // Старый сейв с умершим супругом: место освобождаем, траур уже прошёл
   if (player.spouse && player.spouse.isDead) {
     player.widowed = player.widowed || { year: worldState.currentWorldYear - 2, name: player.spouse.name, since: 0 };

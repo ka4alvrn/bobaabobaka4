@@ -2926,8 +2926,8 @@ function renderRelations() {
         if (hasCanonQ) actHtml += `<button class="npc-action-full" style="background:#b45309;" onclick="doCanonQuest('${npc.id}')">⭐ Квест: ${CANON_QUESTS[npc.id].title}</button>`;
         if (player.age >= 16 && !inSquad && !npc.isChild) actHtml += `<button class="npc-action-full" style="background:#312e81;" onclick="addToSquad('${npc.id}')">🛡️ В боевой отряд</button>`;
         if (player.age >= 14 && !npc.isFamily && !npc.isChild && npc.status !== "Пара" && npc.status !== "Супруг/Супруга") actHtml += `<button class="action-love npc-action-full" onclick="npcInteract('${npc.id}','confess')">❤️ Признаться в чувствах</button>`;
-        if (player.age >= 16 && npc.status === "Пара" && !player.spouse) actHtml += `<button class="action-married npc-action-full" onclick="npcInteract('${npc.id}','marry')">💍 Пожениться</button>`;
-        if (npc.status === "Супруг/Супруга") actHtml += `<button class="action-married npc-action-full" ${player.pregnancy ? "disabled" : ""} onclick="npcInteract('${npc.id}','child')">${player.pregnancy ? "⏳ Ожидание малыша" : "👶 Зачать ребенка"}</button>`;
+        if (player.age >= 16 && npc.status === "Пара" && canMarry(npc)) actHtml += `<button class="action-married npc-action-full" onclick="npcInteract('${npc.id}','marry')">💍 Пожениться</button>`;
+        if (npc.status === "Супруг/Супруга" && !npc.isDead) actHtml += `<button class="action-married npc-action-full" ${player.pregnancy ? "disabled" : ""} onclick="npcInteract('${npc.id}','child')">${player.pregnancy ? "⏳ Ожидание малыша" : "👶 Зачать ребенка"}</button>`;
       }
     }
     const badges = `${npc.isCanon ? '<span class="badge-canon">Канон ⭐</span> ' : ""}${npc.isChild ? '<span style="color:#fbbf24;">(Наследник)</span> ' : ""}${childTraitBadge(npc)}${npc.isLost ? '<span class="badge-mythic">Пропал ⚡</span> ' : ""}${inSquad ? '<span class="badge-rare">Отряд 🛡️</span>' : ""}`;
@@ -2948,6 +2948,22 @@ function doCanonQuest(id) {
   log(`⭐ <b>Личный квест:</b> ${q.rewardText}`);
   playSound("win"); showActionModal(q.title, q.rewardText, "⭐");
   updateUI(); renderRelations();
+}
+
+// Можно ли вступить в новый брак: не женат, не в трауре, партнёр жив
+function canMarry(npc) {
+  if (!npc || npc.isDead) return false;
+  if (player.spouse && !player.spouse.isDead && player.spouse.id !== npc.id) return false;
+  if (player.spouse && player.spouse.id === npc.id) return false;   // уже супруги
+  if (player.mourningUntilYear && worldState.currentWorldYear < player.mourningUntilYear) return false;
+  return true;
+}
+
+// Текст, объясняющий, почему брак сейчас невозможен
+function marryBlockReason(npc) {
+  if (player.spouse && !player.spouse.isDead && player.spouse.id !== npc.id) return `Вы женаты на ${player.spouse.name}.`;
+  if (player.mourningUntilYear && worldState.currentWorldYear < player.mourningUntilYear) return "Траур по умершему супругу — ещё год.";
+  return "";
 }
 
 function npcInteract(id, act) {
@@ -2971,7 +2987,21 @@ function npcInteract(id, act) {
   else if (act === "loan") { if (npc.relation >= 75) { const g = Math.floor(Math.random() * 20) + 10; player.coins += g; npc.relation -= 5; msg = `${npc.name} одолжил(а) +${g}🪙.`; playSound("coin"); } else msg = `Мало доверия (нужно 75%+).`; }
   else if (act === "insult") { npc.relation = Math.max(0, npc.relation - 30); if (npc.relation <= 25) npc.status = "Заклятый враг"; msg = `Вы оскорбили ${npc.name}!`; playSound("click"); }
   else if (act === "confess") { if (npc.relation >= 75) { npc.status = "Пара"; msg = `💖 ${npc.name} ответил(а) взаимностью!`; playSound("win"); } else { npc.relation = Math.max(0, npc.relation - 10); msg = `💔 ${npc.name}: "Останемся друзьями..."`; } }
-  else if (act === "marry") { if (npc.relation >= 88) { npc.status = "Супруг/Супруга"; player.spouse = npc; msg = `💍 Вы и ${npc.name} поженились!`; playSound("win"); } else msg = `Укрепите отношения до 88%+!`; }
+  else if (act === "marry") {
+    if (!canMarry(npc)) { msg = marryBlockReason(npc) || "Сейчас брак невозможен."; }
+    else if (npc.relation >= 88) {
+      // Прошлый супруг (если был и умер) остаётся в памяти, но не в статусе
+      const wasWidow = !!player.widowed;
+      npc.status = "Супруг/Супруга"; player.spouse = npc;
+      if (wasWidow) {
+        player.widowed.was = player.widowed.was || [];
+        player.widowed.was.push({ name: player.widowed.name, year: player.widowed.year });
+        player.widowed = { year: 0, name: "", since: 0, was: player.widowed.was };
+        queueYearExtra("Новая семья", `Вы вступили в новый брак с ${esc(npc.name)}. Прежний супруг остался в памяти рода.`, "💍");
+      }
+      msg = `💍 Вы и ${npc.name} поженились!`; playSound("win");
+    } else msg = `Укрепите отношения до 88%+!`;
+  }
   else if (act === "child") { player.pregnancy = { partnerName: npc.name, partnerRace: npc.race || "Человек" }; msg = `👶 Вы с ${npc.name} ждёте ребёнка!`; playSound("win"); }
   log(msg); showActionModal("Отношения", msg, "👥"); updateUI(); renderRelations(); renderSocialCounter();
 }
@@ -3327,6 +3357,14 @@ function ageUp() {
         npc.isDead = true; npc.status = "Покойный(ая)";
         log(`🕯️ ${npc.name} скончался(ась) в возрасте ${npc.age} лет.`);
         queueYearExtra("Утрата", `${esc(npc.name)} скончался(ась) в возрасте ${npc.age} лет.`, "🕯️");
+        // Вдовство: супруг ушёл, но не остался «занятым» навсегда.
+        // Траур — год, потом можно снова связать жизнь с кем-то.
+        if (player.spouse && player.spouse.id === npc.id) {
+          player.widowed = { year: worldState.currentWorldYear, name: npc.name, since: player.age };
+          player.spouse = null;
+          player.mourningUntilYear = worldState.currentWorldYear + 1;
+          queueYearExtra("Вдовство", `Вы остались без ${esc(npc.name)}. Траур — год, потом жизнь продолжится, если захотите.`, "🕯️");
+        }
       }
     }
   });
@@ -3745,6 +3783,14 @@ function normalizeLoadedData(data) {
   if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
   // Дети из старых сейвов получают характер задним числом
   if (typeof initChildTraits === "function") initChildTraits();
+  // Старый сейв с умершим супругом: место освобождаем, траур уже прошёл
+  if (player.spouse && player.spouse.isDead) {
+    player.widowed = player.widowed || { year: worldState.currentWorldYear - 2, name: player.spouse.name, since: 0 };
+    player.spouse = null;
+    if (!player.mourningUntilYear || player.mourningUntilYear > worldState.currentWorldYear) {
+      player.mourningUntilYear = worldState.currentWorldYear;
+    }
+  }
   // Объект экипировки мог частично потеряться
   if (typeof player.equipment !== "object" || player.equipment === null) {
     player.equipment = { weapon: null, armor: null, accessory: null };

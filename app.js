@@ -717,78 +717,166 @@ function renderTravelTab() {
   const mapBox = $("world-map-box"), cardBox = $("map-region-card"), tpBox = $("teleport-network-box");
   if (!mapBox) return;
 
-  const isTpComplete = (worldState.teleportNodes?.length || 0) >= 6;
+  const tp = worldState.teleportNodes || [];
+  const hasHub = tp.length > 0;
+  const isTpComplete = tp.length >= 6;
+
+  // --- Дороги между регионами ---
   const routesSvg = MAP_ROUTES.map(([a, b]) => {
     const ra = REGIONS[a], rb = REGIONS[b];
-    const hasTp = worldState.teleportNodes?.includes(a) && worldState.teleportNodes?.includes(b);
-    return `<line x1="${ra.mapX}" y1="${ra.mapY}" x2="${rb.mapX}" y2="${rb.mapY}" stroke="${hasTp ? "#38bdf8" : "rgba(251,191,36,0.35)"}" stroke-width="${hasTp ? 2 : 1.3}" stroke-dasharray="${hasTp ? "none" : "4 3"}"/>`;
+    const bothBuilt = tp.includes(a) && tp.includes(b);
+    const oneBuilt = tp.includes(a) || tp.includes(b);
+    const col = bothBuilt ? "#22d3ee" : "rgba(148,163,184,0.35)";
+    const w = bothBuilt ? 2.2 : 1.4;
+    const dash = bothBuilt ? "none" : "5 4";
+    const glow = bothBuilt ? `<line x1="${ra.mapX}" y1="${ra.mapY}" x2="${rb.mapX}" y2="${rb.mapY}" stroke="#22d3ee" stroke-width="6" opacity="0.18"/>` : "";
+    return `${glow}<line x1="${ra.mapX}" y1="${ra.mapY}" x2="${rb.mapX}" y2="${rb.mapY}" stroke="${col}" stroke-width="${w}" stroke-dasharray="${dash}" stroke-linecap="round"/>`;
   }).join("");
 
+  // Ближайшая точка прибытия: если кругов нет — обычный путь; если есть — от ближайшего круга
+  // --- Точки регионов ---
   const nodesSvg = Object.entries(REGIONS).map(([k, r]) => {
     const isHere = player.currentRegionKey === k, isSel = selectedMapRegion === k;
-    const hasLost = player.relations.some(x => x.isLost);
-    const hasPower = worldState.sevenPowers.some(p => p.region === k && player.discoveredSevenPowers.includes(p.rank) && player.currentPowersSeat !== p.rank);
-    const hasTab = FIRST_WAR_TABLETS.some(t => t.regionKey === k && !player.tabletsDeciphered.includes(t.id));
-    const hasTp = worldState.teleportNodes?.includes(k);
+    const hasPower = worldState.sevenPowers?.some(p => p.region === k && (player.discoveredSevenPowers || []).includes(p.rank) && player.currentPowersSeat !== p.rank);
+    const hasTab = (typeof FIRST_WAR_TABLETS !== "undefined" ? FIRST_WAR_TABLETS : []).some(t => t.regionKey === k && !(player.tabletsDeciphered || []).includes(t.id));
+    const built = tp.includes(k);
+    const shortName = r.mapLabel || r.name.replace(/^[^\s]+\s/, "");
 
-    let markerIcon = "";
-    if (hasPower) markerIcon += "🏆";
-    if (hasTab) markerIcon += "📜";
-    if (hasLost && !isHere) markerIcon += "⚡";
-
+    const icon = hasPower ? "🏆" : hasTab ? "📜" : built ? "🌀" : "";
     return `<g class="map-node ${isHere ? "active" : ""} ${isSel ? "selected" : ""}" onclick="selectMapRegion('${k}')">
-      ${isHere ? `<circle cx="${r.mapX}" cy="${r.mapY}" r="12" fill="none" stroke="#fbbf24" stroke-width="2" class="map-pin-pulse"/>` : ""}
-      <circle class="map-pin-circle" cx="${r.mapX}" cy="${r.mapY}" r="${isHere ? 9 : 7.5}" fill="${r.color}" stroke="${isSel ? "#fbbf24" : "#0b0c10"}" stroke-width="2"/>
-      ${hasTp ? `<circle cx="${r.mapX}" cy="${r.mapY}" r="3" fill="#38bdf8"/>` : ""}
-      <text x="${r.mapX}" y="${r.mapY + 18}" text-anchor="middle" fill="#e5e7eb" font-size="8.5" font-weight="700">${r.name.replace(/^[^\s]+\s/, "")}</text>
-      ${markerIcon ? `<text x="${r.mapX + 10}" y="${r.mapY - 6}" font-size="9">${markerIcon}</text>` : ""}
+      <circle cx="${r.mapX}" cy="${r.mapY}" r="17" fill="${r.color}" opacity="0.10"/>
+      ${isHere ? `<circle cx="${r.mapX}" cy="${r.mapY}" r="15" fill="none" stroke="#fde68a" stroke-width="1.8" class="map-pin-pulse"/>` : ""}
+      <circle class="map-pin-circle" cx="${r.mapX}" cy="${r.mapY}" r="${isHere ? 9.5 : 7.5}" fill="${r.color}"
+        stroke="${isSel ? "#fde68a" : isHere ? "#f59e0b" : "rgba(0,0,0,0.7)"}" stroke-width="${isSel ? 3 : 2}"/>
+      <circle cx="${r.mapX - 2}" cy="${r.mapY - 2}" r="2.6" fill="rgba(255,255,255,0.55)"/>
+      <text x="${r.mapX}" y="${r.mapY + 22}" text-anchor="middle" fill="#e2e8f0" font-size="9.5" font-weight="700"
+        style="paint-order:stroke; stroke:#080c14; stroke-width:3px; stroke-linejoin:round;">${esc(shortName)}</text>
+      ${icon ? `<text x="${r.mapX + 11}" y="${r.mapY - 9}" font-size="11" style="paint-order:stroke; stroke:#080c14; stroke-width:3px;">${icon}</text>` : ""}
     </g>`;
   }).join("");
 
-  mapBox.innerHTML = `<svg class="world-map-svg" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg">
-    <rect width="360" height="220" fill="#0b1322"/>
-    <!-- Континенты Шестиликого Мира -->
-    <path d="M120,18 L215,16 L228,62 L210,128 L175,148 L125,130 L118,65 Z" fill="#1e293b" stroke="#334155" stroke-width="1.2"/>
-    <path d="M135,18 L210,18 L215,58 L130,62 Z" fill="#1e3a5f" opacity="0.65"/>
-    <path d="M192,126 L252,122 L256,162 L205,168 Z" fill="#143628" stroke="#1e4d3a" stroke-width="1"/>
-    <path d="M135,154 L205,156 L195,202 L140,198 Z" fill="#283044" stroke="#475569" stroke-width="1"/>
-    <path d="M250,28 L338,24 L344,104 L268,112 L244,75 Z" fill="#3b1920" stroke="#7f1d1d" stroke-width="1.2"/>
-    <path d="M20,118 L104,122 L110,198 L24,195 Z" fill="#3b2b13" stroke="#92400e" stroke-width="1.2"/>
+  mapBox.innerHTML = `<svg class="world-map-svg" viewBox="0 0 380 230" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="mg-sea" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0d1a2e"/><stop offset="100%" stop-color="#060b14"/>
+      </linearGradient>
+      <radialGradient id="mg-glow"><stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+      <filter id="mg-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    </defs>
+
+    <rect width="380" height="230" fill="url(#mg-sea)"/>
+    <!-- сетка меридианов -->
+    <g stroke="rgba(125,211,252,0.07)" stroke-width="0.5">
+      ${[30,60,90,120,150,180,210,240,270,300,330,360].map(x=>`<line x1="${x}" y1="0" x2="${x}" y2="230"/>`).join("")}
+      ${[30,60,90,120,150,180,210].map(y=>`<line x1="0" y1="${y}" x2="380" y2="${y}"/>`).join("")}
+    </g>
+    <!-- береговое свечение -->
+    <ellipse cx="180" cy="110" rx="150" ry="95" fill="url(#mg-glow)" opacity="0.5"/>
+
+    <!-- ===== РАНОА: северный континент со снегами ===== -->
+    <path d="M118,34 L150,20 L205,16 L248,30 L256,56 L240,78 L206,84 L168,76 L134,66 Z"
+      fill="#1b3550" stroke="#3b6d94" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M120,36 L186,22 L236,34 L246,52 L212,60 L172,56 L136,50 Z" fill="#2a5a7d" opacity="0.55"/>
+    <path d="M150,20 L205,16 L248,30 L240,38 L196,28 L158,30 Z" fill="#e2f2ff" opacity="0.75" filter="url(#mg-soft)"/>
+    <path d="M196,28 L240,38 L236,48 L198,40 Z" fill="#e2f2ff" opacity="0.45" filter="url(#mg-soft)"/>
+
+    <!-- ===== СВЯТАЯ ЗЕМЛЯ МИЛИС: узкий южный берег ===== -->
+    <path d="M152,196 L206,190 L262,176 L268,190 L214,206 L156,210 Z"
+      fill="#332e40" stroke="#7c7290" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M160,198 L210,193 L256,181 L258,186 L208,199 L164,204 Z" fill="#cbd5e1" opacity="0.18"/>
+
+    <!-- ===== ВЕЛИКИЙ ЛЕС: зелёный остров между ===== -->
+    <path d="M212,118 L250,112 L272,130 L266,158 L236,168 L210,152 L204,132 Z"
+      fill="#143d2a" stroke="#2f8f5b" stroke-width="1.4" stroke-linejoin="round"/>
+    <g fill="#1e6b45" opacity="0.75">
+      <path d="M222,136 l5,-9 l5,9 z"/><path d="M236,130 l5,-9 l5,9 z"/><path d="M232,148 l5,-9 l5,9 z"/><path d="M248,140 l5,-9 l5,9 z"/>
+    </g>
+
+    <!-- ===== БЕГАРИТТ: западная пустыня ===== -->
+    <path d="M18,104 L92,100 L112,132 L104,190 L40,198 L16,158 Z"
+      fill="#3b2d15" stroke="#a17326" stroke-width="1.4" stroke-linejoin="round"/>
+    <g fill="#5c4519" opacity="0.75">
+      <path d="M30,150 q14,-10 28,0 q-14,9 -28,0 z"/>
+      <path d="M56,120 q12,-9 24,0 q-12,8 -24,0 z"/>
+      <path d="M34,175 q10,-7 20,0 q-10,7 -20,0 z"/>
+    </g>
+
+    <!-- ===== ДЕМОНИЧЕСКИЙ КОНТИНЕНТ: восток, багровый ===== -->
+    <path d="M268,24 L338,20 L362,54 L354,104 L318,128 L282,110 L264,72 Z"
+      fill="#3d1a22" stroke="#a3323f" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M284,38 L336,32 L350,60 L340,92 L312,104 L292,86 Z" fill="#5c2028" opacity="0.6"/>
+    <g fill="#7f1d1d" opacity="0.8">
+      <path d="M300,72 l6,-12 l6,12 z"/><path d="M318,60 l6,-12 l6,12 z"/>
+    </g>
+    <circle cx="326" cy="88" r="3" fill="#f97316" opacity="0.85"/>
+
+    <!-- ===== АСУРА: центр, плодородные земли ===== -->
+    <path d="M126,86 L178,80 L210,96 L216,120 L196,146 L152,152 L126,132 L118,106 Z"
+      fill="#243b1c" stroke="#6d9b45" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M132,92 L176,86 L202,100 L206,118 L190,138 L156,144 L134,128 Z" fill="#33532a" opacity="0.6"/>
+    <g stroke="#8fbc6a" stroke-width="0.7" opacity="0.5">
+      <path d="M140,110 q16,-14 32,0"/><path d="M150,126 q14,-12 28,0"/>
+    </g>
+
+    <!-- подписи морей -->
+    <text x="196" y="222" text-anchor="middle" fill="rgba(125,211,252,0.45)" font-size="7" letter-spacing="2.5" font-weight="600">ВЕЛИКИЙ ОКЕАН</text>
+    <text x="112" y="46" text-anchor="middle" fill="rgba(125,211,252,0.30)" font-size="6" letter-spacing="2">СЕВЕРНОЕ МОРЕ</text>
+
     ${routesSvg}
     ${nodesSvg}
   </svg>`;
 
   const sel = REGIONS[selectedMapRegion] || REGIONS.asura;
   const here = player.currentRegionKey === selectedMapRegion;
-  const cost = isTpComplete ? 0 : sel.travelCost;
+  const standAtHub = tp.includes(player.currentRegionKey);
+  const canFast = hasHub && !here && standAtHub;
+  const fastCost = Math.max(3, Math.round(sel.travelCost * 0.15));
+  const cost = isTpComplete ? 0 : canFast ? fastCost : sel.travelCost;
+  const instant = isTpComplete || canFast;
   const canGo = !here && player.age >= 8 && player.coins >= cost;
+
   if (cardBox) {
-    cardBox.innerHTML = `<div class="card" style="border-color:${sel.color}; margin-bottom:0;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <b style="font-size:14px;">${sel.name}</b>
-        <span class="badge-rare">${here ? "Вы здесь 📍" : isTpComplete ? "⚡ Мгновенный Телепорт (0🪙)" : `${cost}🪙 • 1 год пути`}</span>
+    cardBox.innerHTML = `<div class="card" style="border-color:${sel.color}; margin-bottom:0; position:relative; overflow:hidden;">
+      <div style="position:absolute; inset:0; background:radial-gradient(circle at 90% 10%, ${sel.color}22 0%, transparent 60%); pointer-events:none;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <b style="font-size:14.5px;">${sel.name}</b>
+        <span class="badge-rare" style="white-space:nowrap;">${here ? "Вы здесь 📍" : isTpComplete ? "⚡ бесплатно • мгновенно" : canFast ? `🌀 ${fastCost}🪙 • мгновенно` : `${sel.travelCost}🪙 • 1 год пути`}</span>
       </div>
-      <div style="font-size:11px; color:var(--muted); margin:5px 0;">${sel.desc}</div>
-      <button ${canGo ? "" : "disabled"} style="width:100%; background:${here ? "#059669" : "#312e81"};" onclick="travelToRegion('${selectedMapRegion}')">
-        ${here ? "✓ Текущее местоположение" : player.age < 8 ? "Путешествия с 8 лет" : isTpComplete ? "⚡ Перенестись Телепортом" : `⛵ Отправиться в путь (${cost}🪙)`}
+      <div style="font-size:11px; color:var(--muted); margin:6px 0 8px; line-height:1.5;">${sel.desc}</div>
+      ${!here ? `<div style="font-size:10.5px; color:${instant ? "#67e8f9" : "#94a3b8"}; margin-bottom:7px; line-height:1.45;">
+        ${isTpComplete
+          ? `⚡ Сеть завершена: вы переноситесь в <b>${esc(sel.name.replace(/^[^\s]+\s/, ""))}</b> мгновенно и бесплатно.`
+          : canFast
+            ? `🌀 Вы стоите у круга. Переход в <b>${esc(sel.name.replace(/^[^\s]+\s/, ""))}</b> займёт день вместо года.`
+            : `🌀 Быстрый переход работает из региона с построенным кругом. Кругов: ${tp.length}/6 — постройте круг здесь, и путь перестанет отнимать годы.`}
+      </div>` : ""}
+      <button ${canGo ? "" : "disabled"} style="width:100%; background:${here ? "#059669" : instant ? "linear-gradient(90deg,#0891b2,#0e7490)" : "#312e81"};" onclick="travelToRegion('${selectedMapRegion}')">
+        ${here ? "✓ Текущее местоположение" : player.age < 8 ? "Путешествия с 8 лет" : isTpComplete ? "⚡ Перенестись мгновенно (бесплатно)" : canFast ? `🌀 Быстрый переход (${fastCost}🪙)` : `⛵ Отправиться в путь (${sel.travelCost}🪙)`}
       </button>
     </div>`;
   }
 
   if (tpBox) {
-    const builtHere = worldState.teleportNodes?.includes(player.currentRegionKey);
-    const count = worldState.teleportNodes?.length || 0;
-    tpBox.innerHTML = `<div class="card" style="background:#10192b; border-color:#38bdf8;">
+    const builtHere = tp.includes(player.currentRegionKey);
+    const count = tp.length;
+    tpBox.innerHTML = `<div class="card" style="background:#10192b; border-color:#0891b2;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <b style="color:#38bdf8; font-size:12.5px;">🌀 Проект Династии: Сеть Телепортов</b>
+        <b style="color:#22d3ee; font-size:12.5px;">🌀 Сеть Телепортов</b>
         <span class="badge-rare">${count}/6 кругов</span>
       </div>
-      <div style="font-size:11px; color:var(--muted); margin:4px 0;">
-        ${isTpComplete ? "🌟 Сеть завершена! Все переходы между континентами бесплатны и мгновенны!" : "Воздвигните рунный круг в каждом из 6 регионов через поколения — перелёты станут бесплатными и займут 0 лет."}
+      <div style="font-size:11px; color:var(--muted); margin:5px 0; line-height:1.5;">
+        ${isTpComplete
+          ? "🌟 <b style='color:#67e8f9;'>Сеть завершена!</b> Все шесть кругов держат друг друга — переходы мгновенны и бесплатны."
+          : count > 0
+            ? `🌀 <b style='color:#67e8f9;'>Быстрый переход работает.</b> Встаньте в регионе с кругом — и сможете прыгать к любому другому кругу за ${Math.round(15)}% цены пути, без потери года. За все шесть кругов — бесплатно.`
+            : "Постройте первый круг — и между построенными регионами появится быстрый переход без потери года. Шесть кругов дают бесплатные мгновенные перелёты."}
       </div>
-      ${!isTpComplete ? `<button ${builtHere ? "disabled" : ""} style="width:100%; background:#0284c7; font-size:11px;" onclick="buildTeleportNode()">
-        ${builtHere ? "✓ Круг в этом регионе возведён" : "🌀 Возвести круг здесь (180🪙, нужно 40+ Знаний)"}
-      </button>` : ""}
+      <div style="display:flex; gap:4px; margin:7px 0;">
+        ${Object.keys(REGIONS).map(k => `<div title="${esc(REGIONS[k].name)}" style="flex:1; height:5px; border-radius:3px; background:${tp.includes(k) ? "#22d3ee" : "rgba(148,163,184,0.22)"}; box-shadow:${tp.includes(k) ? "0 0 6px #22d3ee" : "none"};"></div>`).join("")}
+      </div>
+      <button ${builtHere ? "disabled" : ""} style="width:100%; background:${builtHere ? "#0f766e" : "#0284c7"}; font-size:11px;" onclick="buildTeleportNode()">
+        ${builtHere ? "✓ Круг в этом регионе возведён" : "🌀 Возвести круг здесь (180🪙, 40+ Знаний)"}
+      </button>
     </div>`;
   }
 }
@@ -808,15 +896,32 @@ function buildTeleportNode() {
 
 function travelToRegion(destKey) {
   const dest = REGIONS[destKey];
-  const isTp = (worldState.teleportNodes?.length || 0) >= 6;
-  const cost = isTp ? 0 : dest.travelCost;
-  if (player.age < 8 || !dest || player.coins < cost) return showActionModal("Путь", `Нужно ${cost}🪙 и возраст 8+!`, "🚢");
-  player.coins -= cost; player.currentRegionKey = destKey; selectedMapRegion = destKey;
-  if (isTp) {
-    log(`⚡ Мгновенный перенос в <b>${dest.name}</b>!`); playSound("magic");
+  if (!dest) return;
+  if (player.age < 8) return showActionModal("Путь", "Путешествия доступны с 8 лет!", "🚢");
+
+  const tp = worldState.teleportNodes || [];
+  const isComplete = tp.length >= 6;
+  // Быстрый переход: круг работает как выход. Стоите у круга — прыжок в любой
+  // регион стоит 15% пути и не съедает год. Нет круга под ногами — идёте обычным путём.
+  const fast = !isComplete && tp.length > 0 && tp.includes(player.currentRegionKey);
+  const cost = isComplete ? 0 : fast ? Math.max(3, Math.round(dest.travelCost * 0.15)) : dest.travelCost;
+  if (player.coins < cost) return showActionModal("Путь", `Нужно ${cost}🪙!`, "🚢");
+
+  player.coins -= cost;
+  player.currentRegionKey = destKey;
+  selectedMapRegion = destKey;
+
+  if (isComplete || fast) {
+    // Мгновенно: год не тратится
+    log(isComplete
+      ? `⚡ Мгновенный перенос в <b>${esc(dest.name)}</b> через завершённую сеть кругов.`
+      : `🌀 Быстрый переход в <b>${esc(dest.name)}</b> (${cost}🪙). Дорога заняла день, а не год.`);
+    playSound("magic");
+    queueYearExtra?.("Быстрый переход", `Вы перенеслись в ${esc(dest.name)} через круг телепортации.`, "🌀");
     updateUI(); renderTravelTab();
   } else {
-    log(`🚢 Вы прибыли в <b>${dest.name}</b>.`); playSound("calamity");
+    log(`🚢 Вы прибыли в <b>${esc(dest.name)}</b>.`);
+    playSound("calamity");
     ageUp(); renderTravelTab();
   }
 }

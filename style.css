@@ -413,3 +413,28 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 }
 .story-flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .story-flag { font-size: 9.5px; padding: 2px 6px; border-radius: 5px; background: rgba(168,85,247,0.2); color: #ddd6fe; }
+
+/* ============================================================
+   КАРТА МИРА — новая
+   ============================================================ */
+.world-map-box {
+  background: radial-gradient(circle at 50% 40%, #0f1c30 0%, #070c15 100%);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 16px;
+  padding: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.7), 0 0 22px rgba(56, 189, 248, 0.07);
+}
+.world-map-svg { width: 100%; height: auto; display: block; border-radius: 12px; }
+.map-node { cursor: pointer; }
+.map-node .map-pin-circle { transition: r 0.18s ease, stroke 0.18s ease, filter 0.18s ease; }
+.map-node:hover .map-pin-circle { stroke: #fff !important; filter: drop-shadow(0 0 5px currentColor); }
+.map-node.selected .map-pin-circle { stroke: #fde68a !important; }
+.map-node.active text { fill: #fde68a; }
+.map-node text { pointer-events: none; }
+.map-pin-pulse { animation: mapPulse 2.1s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mapPulse {
+  0%   { transform: scale(0.75); opacity: 0.85; }
+  70%  { transform: scale(1.75); opacity: 0; }
+  100% { transform: scale(1.75); opacity: 0; }
+}

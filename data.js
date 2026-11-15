@@ -287,8 +287,8 @@ const CASTLE_UPGRADES = [
 const CARAVAN_ROUTES = [
   { id: "caravan_local", name: "🛒 Местный тракт Фитоа", cost: 35, reward: 65, risk: 0.10, desc: "Доставка зерна (+30🪙)." },
   { id: "caravan_ranoa", name: "❄️ Снежный караван в Шарию", cost: 110, reward: 220, risk: 0.22, desc: "Перевозка мифрила (+110🪙)." },
-  { id: "caravan_milis", name: "⛪ Морской конвой в Милис", cost: 280, reward: 620, risk: 0.32, desc: "Шелка и реликвии (+340🪙)." },
-  { id: "caravan_begaritt", name: "🏜️ Золотой Караван Бегаритта", cost: 700, reward: 1750, risk: 0.45, desc: "Сквозь пустыню (+1050🪙)!" }
+  { id: "caravan_milis", name: "⛪ Морской конвой в Милис", cost: 280, reward: 540, risk: 0.38, desc: "Шелка и реликвии (+260🪙)." },
+  { id: "caravan_begaritt", name: "🏜️ Золотой Караван Бегаритта", cost: 700, reward: 1450, risk: 0.50, desc: "Сквозь пустыню (+750🪙)!" }
 ];
 
 const PERUGIUS_TRIALS = [

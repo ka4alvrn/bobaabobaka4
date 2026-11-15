@@ -69,13 +69,14 @@ function grantBirthYearBonus() {
 function syncTelegramBackButton() {
   const bb = tg?.BackButton;
   if (!bb) return;
-  const modals = ["destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modals = ["story-modal", "destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   const anyOpen = modals.some(id => $(id) && $(id).style.display && $(id).style.display !== "none");
   try { if (anyOpen) bb.show(); else bb.hide(); } catch (e) { /* Telegram может быть недоступен — не критично */ }
 }
 
 function handleTelegramBack() {
   const closers = [
+    ["story-modal", closeStoryModal],
     ["destiny-modal", closeDestinyWindow],
     ["year-summary-modal", closeYearSummary],
     ["portrait-modal", closePortraitModal],
@@ -101,7 +102,7 @@ function handleTelegramBack() {
 
 if (tg?.BackButton) {
   try { tg.BackButton.onClick(handleTelegramBack); } catch (e) {}
-  const modalIds = ["destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modalIds = ["story-modal", "destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   try {
     const observer = new MutationObserver(() => syncTelegramBackButton());
     modalIds.forEach(id => { const el = $(id); if (el) observer.observe(el, { attributes: true, attributeFilter: ["style"] }); });
@@ -1025,6 +1026,36 @@ function renderDestinyPendingTab() {
 }
 
 // --- выбор в сюжетной сцене ---
+// Применить решение по сцене и вернуть текст результата — без открытия окон.
+// Используется очередью сцен: она сама решает, куда показать итог.
+function chooseStoryNodeResult(lineId, nodeId, choiceIdx) {
+  const line = STORY_LINES.find(l => l.id === lineId);
+  const node = line?.nodes.find(n => n.id === nodeId);
+  if (!line || !node) return null;
+  ensureStoryState();
+  if (player.story.done.includes(node.id)) return null;
+
+  if (choiceIdx < 0 || !node.choices) {
+    const res = node.effect ? node.effect(player, worldState) : "Судьба сделала шаг.";
+    player.story.done.push(node.id);
+    log(`📜 <b>${esc(node.title)}</b>: ${res}`);
+    playSound("win");
+    return res;
+  }
+
+  const ch = node.choices[choiceIdx];
+  if (!ch) return null;
+  if (ch.cost && player.coins < ch.cost) return null;
+
+  const res = ch.effect ? ch.effect(player, worldState) : "Решение принято.";
+  player.story.done.push(node.id);
+  Object.keys(ch.flags || {}).forEach(f => { if (ch.flags[f]) setStoryFlag(f); else delete player.story.flags[f]; });
+  if (ch.consequence) scheduleStoryConsequence(ch.consequence.years, ch.consequence.text, ch.consequence.effect);
+  log(`📜 <b>${esc(node.title)}</b>: ${res}`);
+  playSound("win");
+  return res;
+}
+
 function chooseStoryNode(lineId, nodeId, choiceIdx) {
   const line = STORY_LINES.find(l => l.id === lineId);
   const node = line?.nodes.find(n => n.id === nodeId);
@@ -1042,6 +1073,7 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
     if (yearFlowActive || yearReportOpen) {
       queueYearExtra(node.title, res, "📜");
       finalizeYear();
+      if (isStoryModalOpen()) { advanceStoryScene(); return; }
       showYearSummary();
     } else {
       showActionModal(node.title, res, "📜");
@@ -1070,6 +1102,7 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
   if (yearFlowActive || yearReportOpen) {
     queueYearExtra(node.title, res, "📜");
     finalizeYear();
+    if (isStoryModalOpen()) { advanceStoryScene(); return; }
     showYearSummary();
     return;
   }
@@ -1116,7 +1149,7 @@ function finishYearIfActive(wasActive, title, text, icon) {
   finalizeYear();
   playSound("year");
   updateUI();
-  showYearSummary();
+  startStorySequence(typeof pickYearStoryNodes === "function" ? pickYearStoryNodes(3) : getAvailableStoryNodes());
   return true;
 }
 
@@ -1999,36 +2032,204 @@ function renderDynastyTree() {
 function renderChaosBreaker() {
   const cont = $("perugius-container"); if (!cont) return;
   const myCp = calcCombatPower(player);
-  cont.innerHTML = PERUGIUS_TRIALS.map(t => {
+  ensureStoryState();
+  const done0 = (player.perugiusTrials || []).length;
+
+  let html = `<div class="card" style="background:#191428; border-color:#a855f7;">
+    <b style="color:#e9d5ff;">🏰 Хаос Брейкер</b>
+    <div style="font-size:11px; color:var(--muted); margin-top:3px;">
+      Испытаний пройдено: <b>${done0}/3</b> • Путь открывается сюжетом, а не одной силой.
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+      Каждое испытание — это встреча с тем, кто помнит больше вас. Пропустите историю — не пройдёте.
+    </div>
+  </div>`;
+
+  PERUGIUS_TRIALS.forEach(t => {
     const done = player.perugiusTrials.includes(t.rank);
-    return `<div class="card"><b>#${t.rank} ${t.name}</b><div style="font-size:11px; color:var(--muted); margin:4px 0;">${t.rewardText} (${t.reqCp.toLocaleString()} БМ)</div>
-      <button ${done || myCp < t.reqCp ? "disabled" : ""} style="width:100%; background:${done ? "#059669" : "#eab308"}; color:${done ? "#fff" : "#000"} !important;" onclick="attemptPerugiusTrial(${t.rank})">${done ? "✓ Пройдено" : myCp < t.reqCp ? "Недостаточно БМ" : "Пройти испытание"}</button></div>`;
-  }).join("");
+    // Открыто, если начата сюжетная линия этого испытания
+    const lineStarted = !t.line || (STORY_LINES.find(l => l.id === t.line)?.nodes || [])
+      .some(n => player.story.done.includes(n.id));
+    const cpOk = myCp >= t.reqCp;
+    const canGo = !done && lineStarted && cpOk;
+    const reason = done ? "" : !lineStarted ? t.reqText : !cpOk ? `Нужно ${t.reqCp.toLocaleString()} БМ (у вас ${fmtNum(myCp)})` : "";
+    html += `<div class="card" style="${done ? "border-color:#059669; opacity:0.85;" : lineStarted ? "border-color:#a855f7;" : "opacity:0.6;"}">
+      <b>#${t.rank} ${t.name}</b>
+      <div style="font-size:11px; color:var(--muted); margin:4px 0;">${t.rewardText}</div>
+      ${reason ? `<div style="font-size:10px; color:#fbbf24; margin-bottom:5px;">${esc(reason)}</div>` : ""}
+      <button ${canGo ? "" : "disabled"} style="width:100%; background:${done ? "#059669" : canGo ? "#eab308" : "#374151"}; color:${done || !canGo ? "#fff" : "#000"} !important;" onclick="attemptPerugiusTrial(${t.rank})">${done ? "✓ Пройдено" : canGo ? "Пройти испытание" : "Закрыто"}</button>
+    </div>`;
+  });
+
+  // Что дал путь целиком
+  if (done0 === 3) {
+    html += `<div class="card" style="border-color:#eab308; background:rgba(234,179,8,0.08);">
+      <b style="color:#fde68a;">🐉 Путь Хаос Брейкера пройден</b>
+      <div style="font-size:11px; color:#e5e7eb; margin-top:4px; line-height:1.5;">
+        Двенадцать духов знают ваше имя. Перугиус называет вас не «человеком», а «тем, кто поднялся».
+        В вашем роду с этого дня говорят: «У нас есть крыло».
+      </div>
+    </div>`;
+  }
+  cont.innerHTML = html;
 }
 function attemptPerugiusTrial(rank) {
+  const t = PERUGIUS_TRIALS.find(x => x.rank === rank);
+  if (!t || player.perugiusTrials.includes(rank)) return;
+  const myCp = calcCombatPower(player);
+  if (myCp < t.reqCp) return showActionModal("Слабость", `Нужно ${t.reqCp.toLocaleString()} БМ.`, "🐉");
+
   player.perugiusTrials.push(rank);
-  if (rank === 1) player.intellect += 80;
-  if (rank === 2) { player.maxHp += 300; player.hp += 300; }
-  if (rank === 3) { player.coins += 1000; player.trait = TRAITS.find(t => t.id === "laplace_factor") || player.trait; }
-  log(`🐉 Пройдено испытание #${rank} Перугиуса!`); playSound("win"); updateUI(); renderChaosBreaker();
+  const wasInYear = yearFlowActive || yearReportOpen;
+  let lines = [];
+
+  if (rank === 1) {
+    player.intellect += 80; player.maxMana += 40; player.mana = player.maxMana;
+    lines.push("Духи признали вас. Они не кланяются — они просто перестают проверять каждый ваш шаг.");
+  }
+  if (rank === 2) {
+    player.maxHp += 300; player.hp = Math.min(player.maxHp, player.hp + 300);
+    lines.push("Золотой Рыцарь отдаёт вам свой старый плащ. «Носи. Он видел больше, чем ты.»");
+  }
+  if (rank === 3) {
+    player.coins += 1000;
+    player.trait = TRAITS.find(x => x.id === "laplace_factor") || player.trait;
+    if (typeof changePowerAttitude === "function") { changePowerAttitude(2, 10); changePowerAttitude(1, 5); }
+    lines.push("Перугиус даёт вам Драконье Имя. С этого дня Семь Сил отвечают на ваши письма.");
+  }
+
+  // Последствия в мир, а не только в цифры
+  worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} прошёл испытание Хаос Брейкера #${rank}.` });
+  if (player.perugiusTrials.length === 3) {
+    lines.push("Весь Хаос Брейкер знает ваш род. Отныне в крепости есть ваше окно.");
+    queueYearExtra("Хаос Брейкер", "Путь пройден до конца: двенадцать духов знают ваш род по имени.", "🐉");
+  }
+
+  log(`🐉 Испытание #${rank} пройдено: ${t.name}.`);
+  showActionModal(`🐉 ${t.name}`, `<div style="text-align:left; line-height:1.55;">${lines.join("<br><br>")}</div>`, "🐉");
+  playSound("win"); updateUI(); renderChaosBreaker();
+  finishYearIfActive(wasInYear, t.name, lines.join(" "), "🐉");
 }
 
 function renderGreyratBranches() {
   const cont = $("greyrat-branches-container"); if (!cont) return;
-  cont.innerHTML = GREYRAT_BRANCHES.map(b => {
-    const allied = player.greyratAllies.includes(b.id);
-    return `<div class="card"><b>${b.name}</b> <span class="badge-mythic">${allied ? "Союз ✓" : b.region}</span>
-      <div style="font-size:11px; color:var(--muted); margin:4px 0;">${b.leader} • ${b.desc}</div>
-      <button ${allied ? "disabled" : ""} style="width:100%; background:${allied ? "#059669" : "#b91c1c"};" onclick="negotiateGreyratBranch('${b.id}')">${allied ? "Пакт заключён" : "Заключить союз (⚡ 1 сила)"}</button></div>`;
-  }).join("");
+  ensureStoryState();
+  const allied = player.greyratAllies || [];
+  const total = GREYRAT_BRANCHES.length;
+
+  let html = `<div class="card" style="background:#191428; border-color:#b91c1c;">
+    <b style="color:#fecaca;">🩸 Война Четырёх Ветвей</b>
+    <div style="font-size:11px; color:var(--muted); margin-top:3px;">
+      Союзов: <b>${allied.length}/${total}</b> • Каждая ветвь даёт своё — и требует своего.
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-top:4px; line-height:1.5;">
+      Союз с одной ветвью — это вражда с другой. Ветви не разговаривают друг с другом сорок лет,
+      и любое ваше решение кто-то запомнит.
+    </div>
+  </div>`;
+
+  GREYRAT_BRANCHES.forEach(b => {
+    const isAlly = allied.includes(b.id);
+    const started = b.line ? (STORY_LINES.find(l => l.id === b.line)?.nodes || []).some(n => player.story.done.includes(n.id)) : true;
+    const rival = isAlly && allied.length > 1 ? true : false;
+    html += `<div class="card" style="${isAlly ? "border-color:#059669;" : started ? "border-color:#b91c1c;" : "opacity:0.65;"}">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+        <b>${esc(b.name)}</b>
+        <span class="badge-mythic" style="font-size:9px;">${isAlly ? "Союз ✓" : esc(b.region)}</span>
+      </div>
+      <div style="font-size:11px; color:var(--muted); margin:4px 0;">${esc(b.leader)}</div>
+      <div style="font-size:11px; color:#e5e7eb; margin-bottom:5px; line-height:1.45;">${esc(b.desc)}</div>
+      <div style="font-size:10px; color:#fbbf24; margin-bottom:6px;">Даёт: ${esc(b.giftText)} • Союз +${fmtNum(b.allyCp)} БМ</div>
+      ${!isAlly && !started ? `<div style="font-size:10px; color:#94a3b8; margin-bottom:5px;">Сначала нужно начать их историю — иначе вам не поверят.</div>` : ""}
+      <button ${isAlly || !started ? "disabled" : ""} style="width:100%; background:${isAlly ? "#059669" : started ? "#b91c1c" : "#374151"};" onclick="negotiateGreyratBranch('${b.id}')">${isAlly ? "Пакт заключён" : "Заключить союз (⚡ 1 сила)"}</button>
+    </div>`;
+  });
+
+  if (allied.length === total) {
+    html += `<div class="card" style="border-color:#eab308; background:rgba(234,179,8,0.08);">
+      <b style="color:#fde68a;">🩸 Все четыре ветви под одним именем</b>
+      <div style="font-size:11px; color:#e5e7eb; margin-top:4px; line-height:1.5;">
+        Впервые за двести лет Грейрат — это не четыре дома, а один род.
+        В Асуре шепчутся, что вы сделали то, чего не смог ни один король.
+      </div>
+    </div>`;
+  } else if (allied.length >= 2) {
+    html += `<div class="card" style="border-color:#f59e0b;">
+      <b style="color:#fcd34d;">⚠️ Вы держите две ветви сразу</b>
+      <div style="font-size:11px; color:#e5e7eb; margin-top:4px; line-height:1.5;">
+        Обе знают о второй. Пока это союз, но каждая уже считает, что вы должны выбрать.
+      </div>
+    </div>`;
+  }
+  cont.innerHTML = html;
 }
+
 function negotiateGreyratBranch(id) {
+  const b = GREYRAT_BRANCHES.find(x => x.id === id);
+  if (!b) return;
+  if ((player.greyratAllies || []).includes(id)) return;
   if (player.ap < 1) return showActionModal("Усталость", "Нужно ⚡ 1 сила!", "💤");
+
+  // Порог входа: ветвь смотрит не на золото, а на дела
+  const myCp = calcCombatPower(player);
+  const ok = player.asuraInfluence >= 30 || player.swordGodExp >= 80 || myCp > 3500;
+  if (!ok) return showActionModal("Отказ", "Нужно 30+ влияния, 80+ опыта Меча или 3 500+ БМ.", "📜");
+
   player.ap -= 1;
-  if (player.asuraInfluence >= 30 || player.swordGodExp >= 80 || calcCombatPower(player) > 3500) {
-    player.greyratAllies.push(id); player.asuraInfluence += 25; log(`🩸 Заключён союз с ветвью Грейрат (+25 влияния)!`); playSound("win");
-  } else showActionModal("Отказ", "Нужно 30+ влияния или 3,500+ БМ.", "📜");
-  updateUI(); renderGreyratBranches();
+  player.greyratAllies = player.greyratAllies || [];
+  player.greyratAllies.push(id);
+  player.asuraInfluence += 25;
+
+  // Подарок ветви — свой у каждой
+  let giftText = "";
+  if (b.gift === "sword") { player.swordGodExp += 25; giftText = "+25 к опыту Меча"; }
+  if (b.gift === "water") { player.waterGodExp += 25; giftText = "+25 к опыту Воды"; }
+  if (b.gift === "intellect") { player.intellect += 15; giftText = "+15 Знаний"; }
+  if (b.gift === "coins") { player.coins += 150; giftText = "+150🪙 сразу (и столько же каждый год)"; }
+
+  const wasInYear = yearFlowActive || yearReportOpen;
+  log(`🩸 Союз с ветвью ${esc(b.name)} (+25 влияния, ${giftText}).`);
+  queueYearExtra("Союз с ветвью Грейрат", `${esc(b.name)}: ${giftText} и +25 влияния.`, "🩸");
+  worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} заключил союз с ветвью Грейрат: ${b.name}.` });
+
+  // Последствие: остальные ветви это заметили
+  let extra = "";
+  const others = GREYRAT_BRANCHES.filter(x => x.id !== id && !(player.greyratAllies || []).includes(x.id));
+  if (others.length === 1) extra = "Осталась одна ветвь — та, что никогда не проигрывала переговоров.";
+  else if (others.length) extra = `Остальные ветви уже знают: ${others.map(o => o.name.split(":")[0]).join(", ")}.`;
+
+  showActionModal(`🩸 ${b.name}`, `<div style="text-align:left; line-height:1.55;">
+    <div style="color:#fca5a5;">${esc(b.leader)} принимает вас в дом.</div>
+    <div style="margin-top:6px;">${giftText} • +25 влияния в Асуре</div>
+    ${extra ? `<div style="margin-top:8px; color:#94a3b8; font-size:11px;">${esc(extra)}</div>` : ""}
+  </div>`, "🩸");
+
+  playSound("win"); updateUI(); renderGreyratBranches();
+  finishYearIfActive(wasInYear, `Союз с ${b.name}`, `${b.giftText}, +25 влияния`, "🩸");
+}
+
+// Ежегодный доход от союзов с ветвями — чтобы союз чувствовался в дневнике года
+function applyGreyratAllianceYearly() {
+  if (!player || !(player.greyratAllies || []).length) return;
+  let coins = 0, exp = 0, int = 0;
+  player.greyratAllies.forEach(id => {
+    const b = GREYRAT_BRANCHES.find(x => x.id === id);
+    if (!b) return;
+    if (b.gift === "coins") coins += 150;
+    if (b.gift === "sword") exp += 8;
+    if (b.gift === "water") exp += 8;
+    if (b.gift === "intellect") int += 4;
+  });
+  if (coins) player.coins += coins;
+  if (exp) { player.swordGodExp += exp; player.waterGodExp += exp; }
+  if (int) player.intellect += int;
+  if (coins || exp || int) {
+    const parts = [];
+    if (coins) parts.push(`+${coins}🪙`);
+    if (exp) parts.push(`+${exp} опыта`);
+    if (int) parts.push(`+${int} Знаний`);
+    queueYearExtra("Союзы Грейрат", `Ветви прислали своё: ${parts.join(", ")}.`, "🩸");
+  }
 }
 
 function renderTablets() {
@@ -2206,13 +2407,22 @@ function takeYearSnapshot() {
     guildExp: player.guildExp, guildRank: player.guildRank,
     reputation: player.reputation,
     relations: (player.relations || []).filter(r => !r.isDead).length,
-    estateIncome: (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0)
+    estateIncome: (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0),
+    // Решения и сюжет — чтобы дневник показывал, что изменилось в истории, а не только в числе
+    flags: Object.keys(player.story?.flags || {}).length,
+    storyDone: (player.story?.done || []).length,
+    pending: (player.story?.pending || []).length,
+    allies: (player.greyratAllies || []).length,
+    trials: (player.perugiusTrials || []).length,
+    seat: player.currentPowersSeat || 0
   };
 }
 
 function buildYearSummary() {
   if (!player || !yearSnapshot) return null;
   const before = yearSnapshot, now = takeYearSnapshot();
+  // Сейв из старой версии мог сохранить снимок без новых полей
+  Object.keys(now).forEach(k => { if (typeof before[k] !== "number" && typeof now[k] === "number") before[k] = now[k]; });
   const diff = (now, before) => now - before;
   const lines = [];
   const coinDelta = diff(now.coins, before.coins);
@@ -2228,6 +2438,13 @@ function buildYearSummary() {
   if (relDelta) lines.push(`${relDelta > 0 ? "👥" : "🕯️"} Близких людей: ${relDelta > 0 ? "+" : ""}${relDelta}`);
   if (now.reputation !== before.reputation) lines.push(`⚖️ Репутация: ${now.reputation > before.reputation ? "+" : ""}${now.reputation - before.reputation}`);
   if (now.estateIncome) lines.push(`🏰 Имения приносят ${fmtNum(now.estateIncome)}🪙 в год`);
+  const flagDelta = now.flags - before.flags;
+  if (flagDelta > 0) lines.push(`📜 Принято решений: +${flagDelta} (всего ${now.flags} памятных)`);
+  if (now.seat !== before.seat) lines.push(now.seat ? `👑 Вы заняли трон #${now.seat} Семи Сил` : `👑 Трон Семи Сил потерян`);
+  const allyDelta = now.allies - before.allies;
+  if (allyDelta > 0) lines.push(`🩸 Новых союзов с ветвями Грейрат: +${allyDelta}`);
+  const trialDelta = now.trials - before.trials;
+  if (trialDelta > 0) lines.push(`🐉 Испытаний Хаос Брейкера пройдено: +${trialDelta}`);
   const verdict = now.hp / Math.max(1, now.maxHp) > 0.7 ? "Год сложился удачно."
     : now.hp / Math.max(1, now.maxHp) > 0.35 ? "Год был непростым, но вы держитесь."
     : "Вы на последнем издыхании — отдохните и подлечитесь!";
@@ -2238,31 +2455,157 @@ function buildYearSummary() {
 const takeYearSnapshotBeforeAgeUp = takeYearSnapshot;
 
 // Главное окно года: сюжетные повороты + эхо прошлого + дневник
+// =========================================================================
+// СЮЖЕТНЫЕ СЦЕНЫ ОТДЕЛЬНЫМИ ОКНАМИ: одна за другой, окно года — в конце
+// =========================================================================
+let storyQueue = [];        // [{ line, node }] — что показать в этом году
+let storyQueueDone = [];    // уже закрытые сцены (для итога в окне года)
+let storyQueueWaiting = 0;  // сколько ещё ждёт своего года
+
+function isStoryModalOpen() {
+  return $("story-modal") && $("story-modal").style.display === "flex";
+}
+
+// Открыть очередь сцен года. Если сцен нет — сразу окно итогов.
+function startStorySequence(nodes) {
+  storyQueue = (nodes || []).slice();
+  storyQueueDone = [];
+  storyQueueWaiting = (typeof countYearStoryWaiting === "function") ? countYearStoryWaiting(3) : 0;
+  if (!storyQueue.length) { showYearSummary(); return; }
+  renderStoryScene();
+}
+
+function renderStoryScene() {
+  const el = $("story-modal");
+  const box = $("story-choices");
+  if (!el || !box) { showYearSummary(); return; }
+
+  if (!storyQueue.length) {
+    el.style.display = "none";
+    showYearSummary();
+    return;
+  }
+
+  const { line, node } = storyQueue[0];
+  setText("story-icon", line.icon || "📜");
+  setText("story-line-name", line.title || "Линия судьбы");
+  setText("story-title", node.title);
+  setText("story-text", node.text);
+
+  const total = storyQueue.length + storyQueueDone.length;
+  const idx = storyQueueDone.length + 1;
+
+  let html = "";
+  (node.choices || []).forEach((ch, i) => {
+    const poor = ch.cost && player.coins < ch.cost;
+    const cost = ch.cost ? `<span class="story-cost">${poor ? "Не хватает" : "Цена"}: ${ch.cost}🪙 (у вас ${fmtNum(player.coins)})</span>` : "";
+    html += `<button class="story-choice" ${poor ? "disabled" : ""} data-story-choice="${i}">${esc(ch.text)}${cost}</button>`;
+  });
+  if (node.effect && !(node.choices || []).length) {
+    html += `<button class="story-choice" data-story-choice="-1" style="background:#312e81;">✨ Принять</button>`;
+  }
+  if (!node.choices && !node.effect) {
+    html += `<button class="story-choice" data-story-choice="-1" style="background:#312e81;">Продолжить</button>`;
+  }
+  box.innerHTML = html;
+  box.querySelectorAll("[data-story-choice]").forEach(btn => {
+    btn.onclick = () => resolveStoryScene(node, parseInt(btn.dataset.storyChoice, 10));
+  });
+
+  const foot = $("story-foot");
+  if (foot) {
+    foot.innerHTML = `<span class="story-counter">${idx} из ${total}${storyQueueWaiting ? ` • ещё ${storyQueueWaiting} ждут` : ""}</span>` +
+      `<button class="btn-secondary" onclick="deferStoryScene()">Позже</button>`;
+  }
+
+  el.style.display = "flex";
+  syncTelegramBackButton();
+}
+
+// Решение принято: применяем последствия и переходим к следующей сцене
+function resolveStoryScene(node, idx) {
+  const entry = storyQueue[0];
+  const line = entry ? entry.line : { id: "?" };
+  const lineId = line.id;
+
+  if (idx >= 0) {
+    const ch = node.choices ? node.choices[idx] : null;
+    if (ch && ch.cost && player.coins < ch.cost) return;
+  }
+
+  // Применяем выбор через общий движок (он же ставит флаги и отложенные последствия)
+  const before = { coins: player.coins, hp: player.hp };
+  let res = "";
+  try {
+    const r = chooseStoryNodeResult(lineId, node.id, idx);
+    res = r || "Решение принято.";
+  } catch (e) {
+    console.warn("[BitTensei] Сцена:", e);
+    res = "Сцена прошла стороной.";
+  }
+
+  storyQueue.shift();
+  storyQueueDone.push({ title: node.title, line: line.title, text: res, icon: line.icon || "📜" });
+  queueYearExtra(node.title, res, line.icon || "📜");
+
+  if (player.hp <= 0) { $("story-modal").style.display = "none"; handleDeath("Пал жертвой роковых событий года"); return; }
+
+  // Показываем итог выбора на секунду и идём дальше
+  const box = $("story-choices");
+  if (box) box.innerHTML = `<div class="story-result">${res}</div>`;
+  const foot = $("story-foot");
+  if (foot) foot.innerHTML = `<button class="btn-main" onclick="advanceStoryScene()">Дальше →</button>`;
+  playSound("click");
+  updateUI();
+}
+
+function advanceStoryScene() {
+  playSound("click");
+  if (storyQueue.length) renderStoryScene();
+  else { $("story-modal").style.display = "none"; showYearSummary(); }
+}
+
+// «Позже» — сцена остаётся непройденной, год не переносится
+function deferStoryScene() {
+  playSound("click");
+  $("story-modal").style.display = "none";
+  storyQueue = [];
+  showYearSummary();
+}
+
+// Закрытие окна сцены (кнопка «Назад» в Telegram или крестик).
+// Год не должен «залипать»: если он ещё идёт — завершаем его окном итогов.
+function closeStoryModal() {
+  if ($("story-modal")) $("story-modal").style.display = "none";
+  const wasInYear = yearFlowActive || storyQueue.length > 0 || storyQueueDone.length > 0;
+  storyQueue = [];
+  syncTelegramBackButton();
+  if (wasInYear) {
+    if (!yearFinalized) finalizeYear();
+    showYearSummary();
+  }
+}
+
 function showYearSummary() {
   yearFlowActive = false;
   yearSummary = buildYearSummary();
   const box = $("year-summary-body");
   if (!box) return;
 
-  const twists = (typeof pickYearStoryNodes === "function") ? pickYearStoryNodes(3) : getAvailableStoryNodes();
-  const waiting = (typeof countYearStoryWaiting === "function") ? countYearStoryWaiting(3) : 0;
+  // Сюжетные сцены больше не выводятся здесь: они показываются
+  // отдельными окнами ДО окна года (startStorySequence). Здесь — только итог.
   let html = "";
 
-  if (twists.length) {
-    html += `<div class="year-section-title">📜 Повороты судьбы</div>`;
-    twists.forEach(({ line, node }) => {
+  if (storyQueueDone.length) {
+    html += `<div class="year-section-title">📜 Что решилось в этом году</div>`;
+    storyQueueDone.forEach(d => {
       html += `<div class="year-twist">
-        <div class="year-twist-title">${line.icon} ${esc(node.title)}</div>
-        <div class="year-twist-text">${esc(node.text)}</div>
-        ${(node.choices || []).map((ch, i) => {
-          const poor = ch.cost && player.coins < ch.cost;
-          return `<button class="destiny-choice" ${poor ? "disabled" : ""} style="margin-top:5px;${poor ? "opacity:0.45;" : ""}" onclick="chooseStoryNode('${line.id}','${node.id}',${i})">${esc(ch.text)}</button>`;
-        }).join("")}
-        ${node.effect ? `<button class="destiny-choice" style="margin-top:5px; background:#312e81;" onclick="chooseStoryNode('${line.id}','${node.id}',-1)">✨ Принять</button>` : ""}
+        <div class="year-twist-title">${d.icon} ${esc(d.title)}</div>
+        <div class="year-twist-text">${esc(d.text)}</div>
       </div>`;
     });
-    if (waiting > 0) {
-      html += `<div class="year-waiting">Ещё ${waiting} ${waiting === 1 ? "сцена ждёт" : "сцен ждут"} своего года — мир не стоит на месте.</div>`;
+    if (storyQueueWaiting > 0) {
+      html += `<div class="year-waiting">Ещё ${storyQueueWaiting} ${storyQueueWaiting === 1 ? "сцена ждёт" : "сцен ждут"} своего года — мир не стоит на месте.</div>`;
     }
   }
 
@@ -2378,6 +2721,8 @@ function ageUp() {
 
   // Плоды трона на Монументе Семи Сил
   applySevenPowerSeatYearly();
+  // Союзы с ветвями Грейрат приносят своё каждый год
+  applyGreyratAllianceYearly();
 
   if (player.pregnancy) {
     const isM = Math.random() > 0.5, list = SYLLABLES[isM ? "male" : "female"];
@@ -2461,7 +2806,8 @@ function ageUp() {
   finalizeYear();
   playSound("year");
   updateUI();
-  showYearSummary();   // окно итогов года — всегда
+  // Сначала — сюжетные сцены отдельными окнами, окно года идёт последним
+  startStorySequence(typeof pickYearStoryNodes === "function" ? pickYearStoryNodes(3) : getAvailableStoryNodes());
 }
 
 // Небольшой рост за прожитый год
@@ -2498,7 +2844,11 @@ function triggerRandomEvent(ev) {
       if ($("event-modal")) $("event-modal").style.display = "none";
       log(`<b>[Выбор]</b> ${out}`); playSound("click");
       updateUI();
-      if (yearFlowActive || yearReportOpen) { queueYearExtra(ev.title, out, ev.icon || "⚡"); finalizeYear(); showYearSummary(); }
+      if (yearFlowActive || yearReportOpen) {
+        queueYearExtra(ev.title, out, ev.icon || "⚡");
+        finalizeYear();
+        startStorySequence(typeof pickYearStoryNodes === "function" ? pickYearStoryNodes(3) : getAvailableStoryNodes());
+      }
       else showActionModal("Итог", out, ev.icon || "⚡");
       if (player.hp <= 0) handleDeath("Пал жертвой роковых событий года");
     };

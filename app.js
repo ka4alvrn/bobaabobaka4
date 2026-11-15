@@ -32,7 +32,7 @@ function cloneDefaultPowers() {
 }
 
 const $ = (id) => document.getElementById(id);
-const setText = (id, txt) => { const el = $(id); if (el) el.innerText = txt; };
+const setText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const fmtNum = (n) => Number(n || 0).toLocaleString("ru-RU");
 const pluralYears = (n) => {
@@ -1028,9 +1028,15 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
     player.story.done.push(node.id);
     log(`📜 <b>${esc(node.title)}</b>: ${res}`);
     playSound("win");
-    showActionModal(node.title, res, "📜");
     updateUI();
-    renderDestinyWindow();
+    if (yearFlowActive) {
+      queueYearExtra(node.title, res, "📜");
+      finalizeYear();
+      showYearSummary();
+    } else {
+      showActionModal(node.title, res, "📜");
+      if ($("destiny-modal") && $("destiny-modal").style.display === "flex") renderDestinyWindow();
+    }
     return;
   }
 
@@ -1051,9 +1057,15 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
 
   log(`📜 <b>${esc(node.title)}</b>: ${res}`);
   playSound("win");
+  if (yearFlowActive) {
+    queueYearExtra(node.title, res, "📜");
+    finalizeYear();
+    showYearSummary();
+    return;
+  }
   showActionModal(node.title, res, "📜");
   updateUI();
-  renderDestinyWindow();
+  if ($("destiny-modal") && $("destiny-modal").style.display === "flex") renderDestinyWindow();
 }
 
 function performStoryActivity(storyId) {
@@ -1069,8 +1081,33 @@ function performStoryActivity(storyId) {
   player.storyCompleted.push(st.id);
   const res = st.action(player, worldState);
   log(res); playSound(st.id === "s1_calamity" ? "calamity" : "win");
-  showActionModal("Сюжетная Веха", res, "📜");
+  const wasInYear = yearFlowActive;
   updateUI();
+  // Если веха выпала посреди года (например, Катаклизм), год обязан закончиться
+  // окном итогов — иначе игрок застревает без возможности прожить следующий год
+  finishYearIfActive(wasInYear, st.name, res, "📜");
+}
+
+// Год завершается ровно один раз, в какой бы ветке он ни закончился
+let yearFinalized = false;
+
+function finalizeYear() {
+  if (yearFinalized) return;
+  yearFinalized = true;
+  applyYearlyGrowth();
+  processStoryConsequences();
+  updateDestinyBadge();
+}
+
+// Завершение года после отложенного события: показывает окно итогов
+function finishYearIfActive(wasActive, title, text, icon) {
+  if (!wasActive) return false;
+  if (title) queueYearExtra(title, text, icon);
+  finalizeYear();
+  playSound("year");
+  updateUI();
+  showYearSummary();
+  return true;
 }
 
 // Совместимость со старым кодом: обновляет счётчик новых вех
@@ -2130,8 +2167,136 @@ function meetStranger() {
 // =========================================================================
 // ТЕЧЕНИЕ ГОДА (AGE UP)
 // =========================================================================
+// =========================================================================
+// ДНЕВНИК ГОДА: короткая сводка вместо копания в ленте событий
+// =========================================================================
+let yearSnapshot = null;
+let yearSummary = null;
+
+let yearFlowActive = false;   // сейчас проживается год
+let yearExtras = [];          // итоги выбора и эхо прошлого — всё в одно окно
+let yearReportOpen = false;
+
+// Отложить текст в окно итогов года
+function queueYearExtra(title, text, icon) {
+  yearExtras.push({ title, text, icon: icon || "✨" });
+}
+
+function takeYearSnapshot() {
+  if (!player) return null;
+  return {
+    year: worldState.currentWorldYear,
+    age: player.age,
+    hp: player.hp, maxHp: player.maxHp,
+    mana: player.mana, maxMana: player.maxMana,
+    coins: player.coins,
+    intellect: player.intellect,
+    sword: player.swordGodExp, magic: player.magicExp,
+    water: player.waterGodExp, north: player.northGodExp,
+    guildExp: player.guildExp, guildRank: player.guildRank,
+    reputation: player.reputation,
+    relations: (player.relations || []).filter(r => !r.isDead).length,
+    estateIncome: (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0)
+  };
+}
+
+function buildYearSummary() {
+  if (!player || !yearSnapshot) return null;
+  const before = yearSnapshot, now = takeYearSnapshot();
+  const diff = (now, before) => now - before;
+  const lines = [];
+  const coinDelta = diff(now.coins, before.coins);
+  if (coinDelta) lines.push(`${coinDelta > 0 ? "💰" : "💸"} Золото: ${coinDelta > 0 ? "+" : ""}${fmtNum(coinDelta)}🪙 (всего ${fmtNum(now.coins)})`);
+  const expDelta = diff(now.sword, before.sword) + diff(now.magic, before.magic) + diff(now.water, before.water) + diff(now.north, before.north);
+  if (expDelta > 0) lines.push(`⚔️ Боевой опыт: +${fmtNum(expDelta)} за год`);
+  const intDelta = diff(now.intellect, before.intellect);
+  if (intDelta) lines.push(`📚 Знания: ${intDelta > 0 ? "+" : ""}${intDelta} (всего ${fmtNum(now.intellect)})`);
+  const hpDelta = now.hp - before.hp;
+  if (hpDelta) lines.push(`❤️ Здоровье: ${hpDelta > 0 ? "+" : ""}${fmtNum(hpDelta)} (${now.hp}/${now.maxHp})`);
+  if (now.guildRank !== before.guildRank) lines.push(`🌟 Ранг гильдии: ${before.guildRank} → <b>${now.guildRank}</b>`);
+  const relDelta = now.relations - before.relations;
+  if (relDelta) lines.push(`${relDelta > 0 ? "👥" : "🕯️"} Близких людей: ${relDelta > 0 ? "+" : ""}${relDelta}`);
+  if (now.reputation !== before.reputation) lines.push(`⚖️ Репутация: ${now.reputation > before.reputation ? "+" : ""}${now.reputation - before.reputation}`);
+  if (now.estateIncome) lines.push(`🏰 Имения приносят ${fmtNum(now.estateIncome)}🪙 в год`);
+  const verdict = now.hp / Math.max(1, now.maxHp) > 0.7 ? "Год сложился удачно."
+    : now.hp / Math.max(1, now.maxHp) > 0.35 ? "Год был непростым, но вы держитесь."
+    : "Вы на последнем издыхании — отдохните и подлечитесь!";
+  return { year: now.year, age: now.age, lines, verdict };
+}
+
+// Запоминаем состояние перед прожитым годом
+const takeYearSnapshotBeforeAgeUp = takeYearSnapshot;
+
+// Главное окно года: сюжетные повороты + эхо прошлого + дневник
+function showYearSummary() {
+  yearFlowActive = false;
+  yearSummary = buildYearSummary();
+  const box = $("year-summary-body");
+  if (!box) return;
+
+  const twists = getAvailableStoryNodes();
+  let html = "";
+
+  if (twists.length) {
+    html += `<div class="year-section-title">📜 Повороты судьбы</div>`;
+    twists.forEach(({ line, node }) => {
+      html += `<div class="year-twist">
+        <div class="year-twist-title">${line.icon} ${esc(node.title)}</div>
+        <div class="year-twist-text">${esc(node.text)}</div>
+        ${(node.choices || []).map((ch, i) => {
+          const poor = ch.cost && player.coins < ch.cost;
+          return `<button class="destiny-choice" ${poor ? "disabled" : ""} style="margin-top:5px;${poor ? "opacity:0.45;" : ""}" onclick="chooseStoryNode('${line.id}','${node.id}',${i})">${esc(ch.text)}</button>`;
+        }).join("")}
+        ${node.effect ? `<button class="destiny-choice" style="margin-top:5px; background:#312e81;" onclick="chooseStoryNode('${line.id}','${node.id}',-1)">✨ Принять</button>` : ""}
+      </div>`;
+    });
+  }
+
+  if (yearExtras.length) {
+    html += `<div class="year-section-title">⏳ Что случилось</div>`;
+    html += yearExtras.map(e => `<div class="year-extra"><b>${e.icon} ${esc(e.title)}</b><div>${e.text}</div></div>`).join("");
+  }
+
+  html += `<div class="year-section-title">📖 Дневник года</div>`;
+  html += (yearSummary && yearSummary.lines.length)
+    ? yearSummary.lines.map(l => `<div style="margin:3px 0;">${l}</div>`).join("")
+    : `<div style="color:var(--muted);">Год прошёл спокойно, без перемен.</div>`;
+  if (yearSummary) {
+    html += `<div style="margin-top:8px; color:var(--accent-light); font-size:11px;">${yearSummary.verdict}</div>`;
+  }
+
+  box.innerHTML = html;
+  setText("year-summary-title", yearSummary
+    ? `${yearSummary.year} г. К.Д. • ${yearSummary.age} ${pluralYears(yearSummary.age)}`
+    : `${worldState.currentWorldYear} г. К.Д.`);
+  if ($("year-summary-modal")) $("year-summary-modal").style.display = "flex";
+  yearReportOpen = true;
+  yearExtras = [];
+  yearSnapshot = takeYearSnapshot();
+  syncTelegramBackButton();
+}
+
+function closeYearSummary() {
+  if ($("year-summary-modal")) $("year-summary-modal").style.display = "none";
+  yearReportOpen = false;
+  yearFlowActive = false;
+  playSound("click");
+  syncTelegramBackButton();
+}
+
+// Прожить ещё год прямо из окна итогов
+function closeYearSummaryAndNext() {
+  closeYearSummary();
+  ageUp();
+}
+
 function ageUp() {
-  yearSnapshot = takeYearSnapshot(); // точка отсчёта для дневника года
+  if (!player) return;
+  if (yearFlowActive) return;              // защита от двойного клика
+  yearFlowActive = true;
+  yearFinalized = false;
+  yearExtras = [];
+  yearSnapshot = takeYearSnapshot();       // точка отсчёта для дневника года
   player.age++; worldState.currentWorldYear++;
   saveGame(); // страховка: год уже прожит, даже если игрок закроет приложение посреди события
   player.maxAp = getMaxAP(player.age); player.ap = player.maxAp; player.mana = player.maxMana;
@@ -2146,6 +2311,7 @@ function ageUp() {
       if (npc.race === "Человек" && npc.age > 68 && Math.random() < 0.12) {
         npc.isDead = true; npc.status = "Покойный(ая)";
         log(`🕯️ ${npc.name} скончался(ась) в возрасте ${npc.age} лет.`);
+        queueYearExtra("Утрата", `${esc(npc.name)} скончался(ась) в возрасте ${npc.age} лет.`, "🕯️");
       }
     }
   });
@@ -2164,6 +2330,7 @@ function ageUp() {
       player.coins = 0;
       player.hp = Math.max(1, player.hp - BALANCE.hp.starvationDamage);
       log(`⚠️ На содержание имений не хватило ${upkeep}🪙: слуги разбегаются, замок ветшает (−${BALANCE.hp.starvationDamage} HP).`);
+      queueYearExtra("Замок ветшает", `На содержание не хватило ${upkeep}🪙 — слуги разбежались, замок пострадал (−${BALANCE.hp.starvationDamage} HP).`, "⚠️");
     }
   }
   if (player.currentJob) {
@@ -2177,6 +2344,7 @@ function ageUp() {
         const fine = Math.min(player.coins, ur.salary * 2);
         player.coins -= fine; player.hp = Math.max(10, player.hp - 25);
         log(`🚨 <b>ОБЛАВА!</b> Откуп: -${fine}🪙, -25 HP.`); playSound("death");
+        queueYearExtra("Облава", `Подполье накрыли: откуп ${fine}🪙 и −25 HP.`, "🚨");
       } else { player.coins += ur.salary; log(`🗡️ Доля подполья: +${ur.salary}🪙.`); }
     }
   }
@@ -2201,6 +2369,7 @@ function ageUp() {
     player.children.push(child); player.relations.push(child);
     if (!player.appointedHeirId) player.appointedHeirId = child.id;
     log(`🎉 Родился ребёнок — <b>${child.name}</b> (${childRace})!`); playSound("win"); player.pregnancy = null;
+    queueYearExtra("Пополнение в роду", `Родился(ась) <b>${esc(child.name)}</b> (${esc(childRace)}).`, "🎉");
   }
 
   if (worldState.currentWorldYear === CALAMITY_YEAR && !worldState.calamityOccurred) {
@@ -2208,7 +2377,10 @@ function ageUp() {
   }
 
   const canon = trySpawnCanonNpc(false);
-  if (canon) log(`⭐ На пути вам повстречался канонический герой: <b>${canon.name}</b>!`);
+  if (canon) {
+    log(`⭐ На пути вам повстречался канонический герой: <b>${canon.name}</b>!`);
+    queueYearExtra("Встреча", `На пути вам повстречался <b>${esc(canon.name)}</b> (${esc(canon.role)}).`, "⭐");
+  }
 
   if (player.currentPowersSeat && Math.random() < 0.14) {
     const seat = player.currentPowersSeat, myCp = calcCombatPower(player), chCp = Math.floor(myCp * (0.8 + Math.random() * 0.4));
@@ -2260,84 +2432,10 @@ function ageUp() {
 
   // Пассивный рост: годы сами по себе учат героя, иначе первое поколение упирается в потолок.
   // Восстановление стоит после увядания — иначе отдых за год «съедал» эффект старости.
-  applyYearlyGrowth();
-  processStoryConsequences();
-  updateDestinyBadge();
+  finalizeYear();
   playSound("year");
-  showYearSummary();
   updateUI();
-}
-
-// =========================================================================
-// ДНЕВНИК ГОДА: короткая сводка вместо копания в ленте событий
-// =========================================================================
-let yearSnapshot = null;
-let yearSummary = null;
-
-function takeYearSnapshot() {
-  if (!player) return null;
-  return {
-    year: worldState.currentWorldYear,
-    age: player.age,
-    hp: player.hp, maxHp: player.maxHp,
-    mana: player.mana, maxMana: player.maxMana,
-    coins: player.coins,
-    intellect: player.intellect,
-    sword: player.swordGodExp, magic: player.magicExp,
-    water: player.waterGodExp, north: player.northGodExp,
-    guildExp: player.guildExp, guildRank: player.guildRank,
-    reputation: player.reputation,
-    relations: (player.relations || []).filter(r => !r.isDead).length,
-    estateIncome: (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0)
-  };
-}
-
-function buildYearSummary() {
-  if (!player || !yearSnapshot) return null;
-  const before = yearSnapshot, now = takeYearSnapshot();
-  const diff = (now, before) => now - before;
-  const lines = [];
-  const coinDelta = diff(now.coins, before.coins);
-  if (coinDelta) lines.push(`${coinDelta > 0 ? "💰" : "💸"} Золото: ${coinDelta > 0 ? "+" : ""}${fmtNum(coinDelta)}🪙 (всего ${fmtNum(now.coins)})`);
-  const expDelta = diff(now.sword, before.sword) + diff(now.magic, before.magic) + diff(now.water, before.water) + diff(now.north, before.north);
-  if (expDelta > 0) lines.push(`⚔️ Боевой опыт: +${fmtNum(expDelta)} за год`);
-  const intDelta = diff(now.intellect, before.intellect);
-  if (intDelta) lines.push(`📚 Знания: ${intDelta > 0 ? "+" : ""}${intDelta} (всего ${fmtNum(now.intellect)})`);
-  const hpDelta = now.hp - before.hp;
-  if (hpDelta) lines.push(`❤️ Здоровье: ${hpDelta > 0 ? "+" : ""}${fmtNum(hpDelta)} (${now.hp}/${now.maxHp})`);
-  if (now.guildRank !== before.guildRank) lines.push(`🌟 Ранг гильдии: ${before.guildRank} → <b>${now.guildRank}</b>`);
-  const relDelta = now.relations - before.relations;
-  if (relDelta) lines.push(`${relDelta > 0 ? "👥" : "🕯️"} Близких людей: ${relDelta > 0 ? "+" : ""}${relDelta}`);
-  if (now.reputation !== before.reputation) lines.push(`⚖️ Репутация: ${now.reputation > before.reputation ? "+" : ""}${now.reputation - before.reputation}`);
-  if (now.estateIncome) lines.push(`🏰 Имения приносят ${fmtNum(now.estateIncome)}🪙 в год`);
-  const verdict = now.hp / Math.max(1, now.maxHp) > 0.7 ? "Год сложился удачно."
-    : now.hp / Math.max(1, now.maxHp) > 0.35 ? "Год был непростым, но вы держитесь."
-    : "Вы на последнем издыхании — отдохните и подлечитесь!";
-  return { year: now.year, age: now.age, lines, verdict };
-}
-
-// Запоминаем состояние перед прожитым годом
-const takeYearSnapshotBeforeAgeUp = takeYearSnapshot;
-
-function showYearSummary() {
-  yearSummary = buildYearSummary();
-  if (!yearSummary) return;
-  const box = $("year-summary-body");
-  if (!box) return;
-  box.innerHTML = (
-    yearSummary.lines.length
-      ? yearSummary.lines.map(l => `<div style="margin:3px 0;">${l}</div>`).join("")
-      : `<div style="color:var(--muted);">Год прошёл спокойно, без перемен.</div>`
-  ) + `<div style="margin-top:8px; color:var(--accent-light); font-size:11px;">${yearSummary.verdict}</div>`;
-  setText("year-summary-title", `${yearSummary.year} г. К.Д. • ${yearSummary.age} ${pluralYears(yearSummary.age)}`);
-  if ($("year-summary-modal")) $("year-summary-modal").style.display = "flex";
-  yearSnapshot = takeYearSnapshot();
-}
-
-function closeYearSummary() {
-  if ($("year-summary-modal")) $("year-summary-modal").style.display = "none";
-  playSound("click");
-  syncTelegramBackButton();
+  showYearSummary();   // окно итогов года — всегда
 }
 
 // Небольшой рост за прожитый год
@@ -2373,9 +2471,9 @@ function triggerRandomEvent(ev) {
       const out = ch.action(player);
       if ($("event-modal")) $("event-modal").style.display = "none";
       log(`<b>[Выбор]</b> ${out}`); playSound("click");
-      showActionModal("Итог", out, ev.icon || "⚡");
-      showYearSummary();
       updateUI();
+      if (yearFlowActive) { finalizeYear(); showYearSummary(); }
+      else showActionModal("Итог", out, ev.icon || "⚡");
       if (player.hp <= 0) handleDeath("Пал жертвой роковых событий года");
     };
     cBox.appendChild(btn);
@@ -2387,6 +2485,9 @@ function triggerRandomEvent(ev) {
 // СМЕРТЬ, НАСЛЕДОВАНИЕ, ПЕРЕРОЖДЕНИЕ И СБРОС МИРА
 // =========================================================================
 function handleDeath(reason) {
+  yearFlowActive = false;
+  yearExtras = [];
+  if ($("year-summary-modal")) $("year-summary-modal").style.display = "none";
   playSound("death");
   worldState.dynastyHistory.push({
     gen: player.generation, name: player.name, gender: player.gender, race: player.race,

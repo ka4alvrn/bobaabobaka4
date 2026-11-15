@@ -436,11 +436,13 @@ function processStoryConsequences() {
         const fn = new Function("p", "ws", "return (" + c.effect + ")(p, ws);");
         const res = fn(player, worldState);
         log(`⏳ <b>Отзвук прошлого:</b> ${c.text}${res ? " — " + res : ""}`);
+        if (typeof queueYearExtra === "function") queueYearExtra("Отзвук прошлого", `${c.text}${res ? " — " + res : ""}`, "⏳");
       } catch (e) {
         console.warn("[BitTensei] Отложенное последствие:", e);
       }
     } else {
       log(`⏳ <b>Отзвук прошлого:</b> ${c.text}`);
+      if (typeof queueYearExtra === "function") queueYearExtra("Отзвук прошлого", c.text, "⏳");
     }
   });
 }

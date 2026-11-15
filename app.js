@@ -20,6 +20,12 @@ let creationGender = "male";
 let activeDungeon = null;
 let confirmCallback = null;
 let selectedMapRegion = "asura";
+let currentTabId = "character";
+let saveTimer = null;
+let dunsRested = {};
+let logHistory = [];
+const MAX_LOG = 120;
+const DUNGEON_RESTS_PER_RUN = 2;
 
 function cloneDefaultPowers() {
   return SEVEN_GREAT_POWERS.map(p => ({ ...p, holderType: "npc" }));
@@ -27,6 +33,73 @@ function cloneDefaultPowers() {
 
 const $ = (id) => document.getElementById(id);
 const setText = (id, txt) => { const el = $(id); if (el) el.innerText = txt; };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const fmtNum = (n) => Number(n || 0).toLocaleString("ru-RU");
+
+function closeModalIfOpen(id) {
+  const el = $(id);
+  if (!el) return false;
+  const hidden = !el.style.display || el.style.display === "none";
+  if (hidden) return false;
+  el.style.display = "none";
+  return true;
+}
+
+// Первый год жизни нового героя: подарок рода начинающим
+function grantBirthYearBonus() {
+  if (!player) return;
+  if (typeof player.birthYear !== "number") player.birthYear = worldState.currentWorldYear - (player.age || 0);
+  if (player.birthYearBonus) return;
+  player.birthYearBonus = true;
+  player.hp = Math.min(player.maxHp, (player.hp || 0) + 40);
+  player.mana = Math.min(player.maxMana, (player.mana || 0) + 20);
+  player.potionsCount = (player.potionsCount || 0) + 2;
+  player.coins = (player.coins || 0) + 30;
+  log("🎁 Родня позаботилась о вас: +40 HP, +20 маны, +2 зелья и 30🪙 на первое время.");
+}
+
+// Кнопка «Назад» в Telegram: закрывает окно, а не сворачивает всю игру
+function syncTelegramBackButton() {
+  const bb = tg?.BackButton;
+  if (!bb) return;
+  const modals = ["event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const anyOpen = modals.some(id => $(id) && $(id).style.display && $(id).style.display !== "none");
+  try { if (anyOpen) bb.show(); else bb.hide(); } catch (e) { /* Telegram может быть недоступен — не критично */ }
+}
+
+function handleTelegramBack() {
+  const closers = [
+    ["portrait-modal", closePortraitModal],
+    ["save-modal", closeSaveModal],
+    ["confirm-modal", closeConfirmModal],
+    ["action-modal", closeActionModal],
+    ["birth-modal", closeBirthModal]
+  ];
+  for (const [id, fn] of closers) {
+    if (closeModalIfOpen(id)) { fn(); return; }
+  }
+  if (closeModalIfOpen("event-modal")) { log("Вы отложили решение до следующего года."); updateUI(); return; }
+  if (closeModalIfOpen("dungeon-modal")) { closeDungeonModal(); return; }
+  if (closeModalIfOpen("battle-modal")) {
+    const fled = currentBattle && !currentBattle.isSevenPower && !currentBattle.isEndgame;
+    if ($("battle-modal")) $("battle-modal").style.display = "none";
+    currentBattle = null;
+    log(fled ? "Вы покинули поле боя." : "Из судьбоносной битвы не сбежать — бой прерван.");
+    updateUI();
+    return;
+  }
+}
+
+if (tg?.BackButton) {
+  try { tg.BackButton.onClick(handleTelegramBack); } catch (e) {}
+  const modalIds = ["event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  try {
+    const observer = new MutationObserver(() => syncTelegramBackButton());
+    modalIds.forEach(id => { const el = $(id); if (el) observer.observe(el, { attributes: true, attributeFilter: ["style"] }); });
+  } catch (e) { /* старые WebView без MutationObserver */ }
+  setTimeout(syncTelegramBackButton, 0);
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") handleTelegramBack(); });
 
 function getWorldEra(year) {
   return WORLD_ERAS.find(e => year <= e.maxYear) || WORLD_ERAS[WORLD_ERAS.length - 1];
@@ -59,10 +132,14 @@ function toggleSound() {
 }
 
 document.addEventListener("visibilitychange", () => {
+  // Главное: не терять прогресс, если игрок свернул Telegram
+  if (document.hidden && player) saveGame();
   if (typeof audioEngine === "undefined") return;
   if (document.hidden) audioEngine.stopMusic();
   else if (!audioEngine.isMuted) audioEngine.startMusic();
 });
+
+window.addEventListener("pagehide", () => { if (player) saveGame(); });
 
 // =========================================================================
 // ПОРТРЕТ ПЕРСОНАЖА (ЖИВОЙ SVG + ЗАГРУЗКА СВОЕГО ФОТО)
@@ -193,6 +270,10 @@ function showActionModal(title, text, icon = "⚡") {
   if ($("action-modal")) $("action-modal").style.display = "flex";
 }
 function closeActionModal() { if ($("action-modal")) $("action-modal").style.display = "none"; playSound("click"); }
+// Показываем актуальную подпись кнопки звука при старте
+if (typeof audioEngine !== "undefined") {
+  setText("btn-sound-toggle", audioEngine.isMuted ? "🔇 Звук: ВЫКЛ" : "🔊 Звук: ВКЛ");
+}
 
 function askConfirm(title, text, onYes) {
   setText("confirm-modal-title", title);
@@ -209,7 +290,7 @@ function showBirthModal() {
   if ($("birth-portrait")) $("birth-portrait").innerHTML = `<div class="char-portrait-wrap" style="width:76px; height:76px;">${buildPortraitHTML(player)}</div>`;
   if ($("birth-card-content")) {
     $("birth-card-content").innerHTML = `
-      <div><b>Имя:</b> ${player.name} (${player.gender === "male" ? "♂️" : "♀️"})</div>
+      <div><b>Имя:</b> ${esc(player.name)} (${player.gender === "male" ? "♂️" : "♀️"})</div>
       <div><b>Год и Эпоха:</b> ${worldState.currentWorldYear} г. К.Д. (${era.name})</div>
       <div><b>Раса:</b> ${player.race} (предел жизни ~${player.maxAge} лет)</div>
       <div><b>Регион:</b> ${REGIONS[player.currentRegionKey]?.name}</div>
@@ -229,8 +310,28 @@ function log(msg) {
   el.className = "log-entry";
   el.innerHTML = `<span class="log-year">[${player ? player.age : 0} л. | ${worldState.currentWorldYear} г.]</span> ${msg}`;
   box.appendChild(el);
+  // Лог больше не хранится в сейве — держим в памяти последние записи
+  if (!Array.isArray(logHistory)) logHistory = [];
+  logHistory.push({ age: player ? player.age : 0, year: worldState.currentWorldYear, text: msg });
+  if (logHistory.length > MAX_LOG) logHistory.splice(0, logHistory.length - MAX_LOG);
+  while (box.children.length > MAX_LOG) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
   try { tg?.HapticFeedback?.impactOccurred("light"); } catch (e) {}
+}
+
+// Восстановление ленты событий из сейва (без хранения HTML)
+function renderLogHistory() {
+  const box = $("logs");
+  if (!box) return;
+  box.innerHTML = "";
+  const items = (logHistory || []).slice(-MAX_LOG);
+  for (const it of items) {
+    const el = document.createElement("div");
+    el.className = "log-entry";
+    el.innerHTML = `<span class="log-year">[${it.age} л. | ${it.year} г.]</span> ${it.text}`;
+    box.appendChild(el);
+  }
+  box.scrollTop = box.scrollHeight;
 }
 
 // =========================================================================
@@ -338,8 +439,12 @@ function showCreation() {
 }
 
 function confirmCreation() {
-  const fName = $("input-name")?.value.trim() || (creationGender === "male" ? "Рудеус" : "Эрис");
-  const sName = $("input-surname")?.value.trim() || "Грейрат";
+  const cleanName = (raw, fallback, max) => {
+    const v = String(raw || "").replace(/<[^>]*>/g, "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, max);
+    return v || fallback;
+  };
+  const fName = cleanName($("input-name")?.value, creationGender === "male" ? "Рудеус" : "Эрис", 16);
+  const sName = cleanName($("input-surname")?.value, "Грейрат", 16);
   const race = RACES[$("select-race")?.value] || RACES.human;
   const regKey = $("select-region")?.value || "asura";
   const reg = REGIONS[regKey] || REGIONS.asura;
@@ -421,9 +526,11 @@ function initCharacter(fName, sName, gender, race, regionKey, origin, trait, fam
   selectedMapRegion = regionKey;
   generateYearlyGuildQuests();
   if ($("logs")) $("logs").innerHTML = "";
+  logHistory = [];
   log(`🌍 Воплощение: <b>${player.race}</b> (${gender === "male" ? "♂️" : "♀️"}) в <b>${REGIONS[regionKey].name}</b> (${worldState.currentWorldYear} г. К.Д.).`);
   log(`🏛️ Семья: <b>${familyStatus.name}</b> • ${origin.log}`);
   if (karma > 0) log(`✨ Карма Сансары ур. ${karma}.`);
+  grantBirthYearBonus();
   updateUI();
 }
 
@@ -550,7 +657,11 @@ function renderUI() {
   renderEndgameFactionSection();
 }
 
-function updateUI() { renderUI(); saveGame(); }
+function updateUI() {
+  if (player) checkGuildRankUp(true);
+  renderUI();
+  saveGame();
+}
 
 function switchTab(tabId) {
   document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
@@ -919,7 +1030,7 @@ function renderTestament() {
     </div>
     <div style="font-size:11px; color:var(--muted); margin:4px 0;">Наследник получает <b>100% казны</b>, замки, титул Семи Сил и 1 Реликвию (включая заточку)!</div>
     ${children.length ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
-      ${children.map(c => `<button style="font-size:10px; padding:5px 8px; background:${player.appointedHeirId === c.id ? "#059669" : "#312e81"};" onclick="appointTestamentHeir('${c.id}')">${player.appointedHeirId === c.id ? "👑 " : ""}${c.name}</button>`).join("")}
+      ${children.map(c => `<button style="font-size:10px; padding:5px 8px; background:${player.appointedHeirId === c.id ? "#059669" : "#312e81"};" onclick="appointTestamentHeir('${c.id}')">${player.appointedHeirId === c.id ? "👑 " : ""}${esc(c.name)}</button>`).join("")}
     </div>` : `<div style="font-size:11px; color:#fbbf24;">Заведите ребёнка в браке, чтобы выбрать преемника!</div>`}
     ${eqButtons ? `<div style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px;"><div style="font-size:10px; color:var(--gold); margin-bottom:4px;">Фамильная Реликвия:</div><div style="display:flex; gap:6px; flex-wrap:wrap;">${eqButtons}</div></div>` : ""}
   </div>`;
@@ -1064,13 +1175,21 @@ function equipItem(idx) {
   const slot = it.type;
   if (player.equipment[slot]) unequipSlot(slot, true);
   player.equipment[slot] = it;
-  if (it.hp) { player.maxHp += it.hp; player.hp += it.hp; }
+  if (it.hp) {
+    player.maxHp += it.hp; player.hp += it.hp;
+    player.maxHpBonus = (player.maxHpBonus || 0) + it.hp;
+  }
   player.inventory.splice(idx, 1);
   log(`⚔️ Надето: <b>${it.name}</b>.`); playSound("sword"); updateUI(); renderInventoryTab(); renderForge(); renderTestament();
 }
 function unequipSlot(slot, silent = false) {
   const it = player.equipment[slot]; if (!it) return;
-  if (it.hp) { player.maxHp = Math.max(20, player.maxHp - it.hp); player.hp = Math.min(player.hp, player.maxHp); }
+  // Бонус к максимуму HP не должен «застревать» в организме: запоминаем, сколько именно дал предмет
+  if (silent && it.hp && player.maxHpBonus > 0) {
+    player.maxHpBonus = Math.max(0, player.maxHpBonus - it.hp);
+    player.maxHp = Math.max(20, player.maxHp - it.hp);
+    player.hp = Math.min(player.hp, player.maxHp);
+  }
   if (player.heirloomSlot === slot) player.heirloomSlot = null;
   player.inventory.push(it); player.equipment[slot] = null;
   if (!silent) { log(`Снято: ${it.name}.`); playSound("click"); updateUI(); renderInventoryTab(); renderForge(); renderTestament(); }
@@ -1123,6 +1242,7 @@ function openDungeonExploration(id) {
   if (checkSquadBetrayal()) return;
   const d = DUNGEONS.find(x => x.id === id);
   player.dungeonProgress[id] = player.dungeonProgress[id] || 1;
+  dunsRested = {};
   activeDungeon = { id, obj: d };
   updateDungeonModalUI("Вы ступили под древние своды лабиринта.");
   if ($("dungeon-modal")) $("dungeon-modal").style.display = "flex";
@@ -1138,11 +1258,12 @@ function updateDungeonModalUI(text) {
   if ($("dung-hp-bar")) $("dung-hp-bar").style.width = `${Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100))}%`;
   if ($("dung-modal-body")) $("dung-modal-body").innerHTML = text;
   const box = $("dung-modal-actions"); if (!box) return;
+  const restLeft = Math.max(0, DUNGEON_RESTS_PER_RUN - (dunsRested[d.id] || 0));
   box.innerHTML = floor > d.maxFloors
     ? `<button class="btn-main" onclick="closeDungeonModal()">👑 Покинуть лабиринт</button>`
     : `<button style="background:#4338ca;" onclick="dungeonTurn('fight')">⚔️ Пробиваться через этаж</button>
        <button style="background:#1d4ed8;" onclick="dungeonTurn('scout')">👁️ Разведка тайников</button>
-       <button style="background:#059669;" onclick="dungeonTurn('rest')">🧪 Привал (+30 HP, +20 маны)</button>
+       <button style="background:#059669;" onclick="dungeonTurn('rest')">🧪 Привал (+30 HP, +20 маны)${restLeft > 0 ? ` • осталось ${restLeft}` : " • исчерпан"}</button>
        <button class="action-danger" onclick="closeDungeonModal()">🏃 Выйти наружу</button>`;
 }
 
@@ -1152,17 +1273,30 @@ function dungeonTurn(choice) {
   const hasManaSight = player.demonEyes.left?.id === "mana_sight" || player.demonEyes.right?.id === "mana_sight";
   let txt = "";
   if (choice === "rest") {
-    player.hp = Math.min(player.maxHp, player.hp + 30); player.mana = Math.min(player.maxMana, player.mana + 20);
-    txt = "Отряд перевёл дух (+30 HP, +20 маны)."; playSound("magic");
+    const used = dunsRested[d.id] || 0;
+    if (used >= DUNGEON_RESTS_PER_RUN) {
+      txt = `⛺ Привал уже был — больше отдохнуть в этом заходе не выйдет (${DUNGEON_RESTS_PER_RUN} из ${DUNGEON_RESTS_PER_RUN}).`;
+      playSound("click");
+    } else {
+      dunsRested[d.id] = used + 1;
+      player.hp = Math.min(player.maxHp, player.hp + 30); player.mana = Math.min(player.maxMana, player.mana + 20);
+      txt = `Отряд перевёл дух (+30 HP, +20 маны). Осталось привалов: ${DUNGEON_RESTS_PER_RUN - dunsRested[d.id]}.`;
+      playSound("magic");
+    }
   } else if (choice === "scout") {
     const r = Math.random();
-    if (r < 0.35 && floor > 1) {
+    // Чем глубже этаж, тем чаще ловушки и реже халявный спуск
+    const trapChance = 0.25 + Math.min(0.25, floor * 0.02);
+    const shortcutChance = Math.max(0.06, 0.28 - floor * 0.02);
+    if (r < trapChance && floor > 1) {
       if (hasManaSight) txt = "🔮 <b>Глаз Маны</b> раскрыл ловушку и уберёг отряд!";
       else { const back = Math.min(floor - 1, 2); player.dungeonProgress[d.id] -= back; txt = `🌀 Ловушка отбросила вас на -${back} этажа!`; playSound("calamity"); }
-    } else if (r < 0.7) {
+    } else if (r < trapChance + shortcutChance) {
+      player.dungeonProgress[d.id]++; txt = `Вы нашли тайный спуск на ${player.dungeonProgress[d.id]} этаж!`; playSound("win");
+    } else {
       const gold = Math.floor(Math.random() * 45) + 20; player.coins += gold;
       txt = `💎 В тайнике найден клад (+${gold}🪙)!`; playSound("coin");
-    } else { player.dungeonProgress[d.id]++; txt = `Вы нашли тайный спуск на ${player.dungeonProgress[d.id]} этаж!`; playSound("win"); }
+    }
   } else {
     const mCp = Math.floor(d.cpBase * (1 + floor * 0.42)), dmg = Math.max(6, Math.floor(mCp / (calcSquadCombatPower(player) + 80) * 18) + 8);
     player.hp -= dmg;
@@ -1190,7 +1324,7 @@ function renderPowersMonument() {
     const isMe = player.currentPowersSeat === pow.rank, found = player.discoveredSevenPowers.includes(pow.rank);
     return `<div class="power-row ${isMe ? "power-player" : ""}">
       <div style="display:flex; align-items:center;"><span class="power-rank">#${pow.rank}</span>
-        <div><b>${isMe ? `${player.name} (ВЫ!)` : `${pow.title} — ${pow.name}`}</b>
+        <div><b>${isMe ? `${esc(player.name)} (ВЫ!)` : `${esc(pow.title)} — ${esc(pow.name)}`}</b>
         <div style="font-size:10px; color:var(--muted);">${isMe ? `Ваш трон • ${calcCombatPower(player).toLocaleString()} БМ` : `Мощь: ${pow.cp.toLocaleString()} БМ`}</div></div></div>
       <div>${isMe ? `<span class="badge-legendary">ВАШ ТИТУЛ 👑</span>` : `<button class="btn-challenge" ${found ? "" : "disabled"} onclick="challengeSevenPower(${pow.rank})">${found ? "⚔️ Вызов" : "🔒 Не найден"}</button>`}</div>
     </div>`;
@@ -1417,12 +1551,15 @@ function combatAction(type) {
   }
 }
 
-function checkGuildRankUp() {
+function checkGuildRankUp(force) {
+  if (!player) return;
   const next = ADVENTURER_RANKS[ADVENTURER_RANKS.indexOf(player.guildRank) + 1];
   if (next && player.guildExp >= ADVENTURER_REQ[next]) {
     player.guildRank = next;
     const msg = `🌟 Ваш ранг Гильдии повышен до <b>${next}</b>!`;
-    log(msg); playSound("win"); showActionModal("Ранг Гильдии", msg, "🌟");
+    log(msg); playSound("win");
+    // Во время загрузки не показываем модалки — только пишем в летопись
+    if (!force) showActionModal("Ранг Гильдии", msg, "🌟");
   }
 }
 
@@ -1502,14 +1639,14 @@ function buyNobilityTitle(id, cost, reqInf) {
 function renderDynastyTree() {
   const cont = $("dynasty-tree-container"); if (!cont) return;
   let html = `<div class="tree-node current"><div class="tree-gen">👑 Поколение ${player.generation} (Сейчас • ${worldState.currentWorldYear} г.)</div>
-    <b>${player.name}</b> (${player.race}) • БМ ${calcCombatPower(player).toLocaleString()}</div>`;
+    <b>${esc(player.name)}</b> (${player.race}) • БМ ${calcCombatPower(player).toLocaleString()}</div>`;
   if (worldState.chronicles.length) {
-    html += `<div class="section-title">Летопись Мира</div>` + worldState.chronicles.slice(-8).reverse().map(c => `<div class="tree-node" style="font-size:11px;"><b style="color:var(--gold);">[${c.year} г.]</b> ${c.text}</div>`).join("");
+    html += `<div class="section-title">Летопись Мира</div>` + worldState.chronicles.slice(-8).reverse().map(c => `<div class="tree-node" style="font-size:11px;"><b style="color:var(--gold);">[${c.year} г.]</b> ${esc(c.text)}</div>`).join("");
   }
   html += `<div class="section-title">Зал Славы Предков (${worldState.dynastyHistory.length})</div>`;
   html += worldState.dynastyHistory.length ? worldState.dynastyHistory.slice().reverse().map(a => `
     <div class="tree-node"><div class="tree-gen">📜 Поколение ${a.gen} ${a.powersSeat ? `• #${a.powersSeat} Семи Сил` : ""}</div>
-    <b>${a.name}</b> (${a.race}) • Пик БМ: ${a.peakCp.toLocaleString()} • ${a.maxAge} л.<div style="font-size:10px; color:var(--muted);">${a.deathReason}</div></div>`).join("") : `<div style="color:var(--muted); font-size:11px;">Летопись предков пока пуста.</div>`;
+    <b>${esc(a.name)}</b> (${a.race}) • Пик БМ: ${fmtNum(a.peakCp)} • ${a.maxAge} л.<div style="font-size:10px; color:var(--muted);">${a.deathReason}</div></div>`).join("") : `<div style="color:var(--muted); font-size:11px;">Летопись предков пока пуста.</div>`;
   cont.innerHTML = html;
 }
 
@@ -1610,7 +1747,7 @@ function renderRelations() {
     }
     const badges = `${npc.isCanon ? '<span class="badge-canon">Канон ⭐</span> ' : ""}${npc.isChild ? '<span style="color:#fbbf24;">(Наследник)</span> ' : ""}${npc.isLost ? '<span class="badge-mythic">Пропал ⚡</span> ' : ""}${inSquad ? '<span class="badge-rare">Отряд 🛡️</span>' : ""}`;
     return `<div class="relation-card"><div class="rel-header" onclick="${npc.isDead ? "" : `toggleNpcActions('${npc.id}')`}" style="cursor:${npc.isDead ? "default" : "pointer"};">
-      <div><div class="rel-name">${npc.name} ${badges}</div><div class="rel-role">${npc.role || npc.race} • ${npc.age} л. • БМ ${(npc.cp || 400).toLocaleString()}</div></div>
+      <div><div class="rel-name">${esc(npc.name)} ${badges}</div><div class="rel-role">${npc.role || npc.race} • ${npc.age} л. • БМ ${(npc.cp || 400).toLocaleString()}</div></div>
       <div style="text-align:right;"><div style="font-size:12px; font-weight:700;"><span class="${cls}">${npc.status}</span> ${npc.isDead ? "" : `(${npc.relation}%)`}</div></div></div>
       ${!npc.isDead ? `<div class="bar-bg"><div class="bar-fill bar-relation" style="width:${npc.relation}%; background:${npc.relation < 30 ? "var(--hp)" : "var(--green)"};"></div></div>` : ""}
       ${actHtml ? `<div class="npc-inline-actions">${actHtml}</div>` : ""}</div>`;
@@ -1696,6 +1833,7 @@ function meetStranger() {
 // =========================================================================
 function ageUp() {
   player.age++; worldState.currentWorldYear++;
+  saveGame(); // страховка: год уже прожит, даже если игрок закроет приложение посреди события
   player.maxAp = getMaxAP(player.age); player.ap = player.maxAp; player.mana = player.maxMana;
 
   const seatObj = ESTATES.find(e => e.id === player.familySeat);
@@ -1843,7 +1981,7 @@ function handleDeath(reason) {
 
   setText("death-reason", `${reason} в возрасте ${player.age} лет.`);
   if ($("death-summary")) $("death-summary").innerHTML = `
-    <div>🎖️ <b>${player.name}</b> (${player.race}) • Прожито: <b>${player.age} л.</b></div>
+    <div>🎖️ <b>${esc(player.name)}</b> (${player.race}) • Прожито: <b>${player.age} л.</b></div>
     <div>⚡ Пиковая БМ: <b>${calcCombatPower(player).toLocaleString()}</b> • Золото: <b>${player.coins.toLocaleString()}🪙</b></div>
     ${player.currentPowersSeat ? `<div style="color:var(--gold);">🏆 Титул #${player.currentPowersSeat} Семи Сил (наследуется преемником!)</div>` : ""}`;
 
@@ -1855,7 +1993,7 @@ function handleDeath(reason) {
       hList.innerHTML = children.map(c => {
         const age = Math.max(1, worldState.currentWorldYear - (c.birthYear || worldState.currentWorldYear - 20));
         const app = player.appointedHeirId === c.id;
-        return `<div class="shop-item"><div><b>${c.name}</b> ${app ? '<span class="badge-legendary">Завещание 👑</span>' : ""}
+        return `<div class="shop-item"><div><b>${esc(c.name)}</b> ${app ? '<span class="badge-legendary">Завещание 👑</span>' : ""}
           <div style="font-size:11px; color:var(--muted);">${c.gender === "male" ? "Сын" : "Дочь"} • ${c.race || player.race} • ${age} л.</div></div>
           <button style="background:#10b981;" onclick="continueAsHeir('${c.id}', ${age})">Играть 👑</button></div>`;
       }).join("");
@@ -1864,7 +2002,7 @@ function handleDeath(reason) {
       if (player.currentPowersSeat) vacatePowerSeatToWorld(player, "умер без наследников");
     }
   }
-  saveGame();
+  saveGameNow();
   if ($("death-overlay")) $("death-overlay").style.display = "flex";
 }
 
@@ -1894,7 +2032,8 @@ function continueAsHeir(childId, realAge) {
   });
 
   if ($("death-overlay")) $("death-overlay").style.display = "none";
-  initCharacter(child.name.split(" ")[0], prev.surname, child.gender, raceObj, prev.currentRegionKey, originMock, prev.trait, prev.familyStatus, realAge, familyRels);
+  const heirFirstName = String(child.name).replace(/<[^>]*>/g, "").replace(/[<>]/g, "").trim().split(" ")[0] || "Наследник";
+  initCharacter(heirFirstName, prev.surname, child.gender, raceObj, prev.currentRegionKey, originMock, prev.trait, prev.familyStatus, realAge, familyRels);
 
   player.estates = [...prev.estates];
   player.familySeat = prev.familySeat;
@@ -1920,11 +2059,12 @@ function continueAsHeir(childId, realAge) {
   if (prev.heirloomSlot && prev.equipment[prev.heirloomSlot]) {
     const relic = { ...prev.equipment[prev.heirloomSlot] };
     player.equipment[prev.heirloomSlot] = relic;
-    if (relic.hp) { player.maxHp += relic.hp; player.hp += relic.hp; }
+    if (relic.hp) { player.maxHp += relic.hp; player.hp += relic.hp; player.maxHpBonus = (player.maxHpBonus || 0) + relic.hp; }
     log(`✨ Вы унаследовали Фамильную Реликвию: <b>${relic.name}${relic.forgeLevel ? ` [+${relic.forgeLevel}]` : ""}</b>!`);
   }
 
   updateUI();
+  saveGameNow(); // важная точка: новое поколение уже должно быть на диске
 }
 
 function reincarnateNewSoul() {
@@ -1932,7 +2072,7 @@ function reincarnateNewSoul() {
   const karma = addReincarnationKarma();
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   dynastyGeneration = 1; player = null;
-  saveGame();
+  saveGameNow();
   showActionModal("Колесо Сансары", `Время мира продолжается (сейчас <b>${worldState.currentWorldYear} г. К.Д.</b>)! Накоплена Карма ур. ${karma}.`, "🔄");
   showCreation();
 }
@@ -1948,7 +2088,7 @@ function askFullWorldReset() {
 function fullWorldReset() {
   worldState = { currentWorldYear: START_YEAR, calamityOccurred: false, sevenPowers: cloneDefaultPowers(), teleportNodes: [], chronicles: [], dynastyHistory: [] };
   dynastyGeneration = 1; player = null;
-  try { localStorage.removeItem("bit_tensei_save"); } catch {}
+  try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(SAVE_BACKUP_KEY); } catch (e) { console.warn("[BitTensei] Сброс мира:", e); }
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   showActionModal("Чистый лист", "Мир возвращён к 407 г. К.Д. Все Семь Великих Сил вновь на своих тронах!", "🌅");
   showCreation();
@@ -1963,40 +2103,161 @@ function generateYearlyGuildQuests() {
   player.guildQuestsThisYear = [...pool].sort(() => 0.5 - Math.random()).slice(0, 5);
 }
 
+const SAVE_KEY = "bit_tensei_save";
+const SAVE_BACKUP_KEY = "bit_tensei_save_backup";
+
 function buildSavePayload() {
-  return JSON.stringify({ player, dynastyGeneration, worldState, logsHtml: $("logs")?.innerHTML || "" });
+  return JSON.stringify({
+    version: 2,
+    savedAt: Date.now(),
+    player,
+    dynastyGeneration,
+    worldState,
+    logHistory: (logHistory || []).slice(-MAX_LOG)
+  });
 }
 
-function saveGame() {
+// Немедленная запись на диск (используется на важных точках: смерть, наследование, скрытие вкладки)
+function saveGameNow() {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   try {
     const json = buildSavePayload();
-    localStorage.setItem("bit_tensei_save", json);
-    if (tg?.CloudStorage && json.length < 4000) tg.CloudStorage.setItem("bit_tensei_save", json);
-  } catch (e) {}
+    const prev = localStorage.getItem(SAVE_KEY);
+    if (prev && prev !== json) localStorage.setItem(SAVE_BACKUP_KEY, prev);
+    localStorage.setItem(SAVE_KEY, json);
+  } catch (e) { console.warn("[BitTensei] Не удалось сохранить игру:", e); }
+}
+
+// Обычное сохранение: откладываем запись, чтобы не тормозить на каждом клике
+function saveGame() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { saveTimer = null; saveGameNow(); }, 400);
+}
+
+// Приводим старые/битые сохранения к актуальной структуре
+function normalizeLoadedData(data) {
+  if (!data || typeof data !== "object") return false;
+
+  const ws = data.worldState;
+  if (!ws || typeof ws !== "object") return false;
+
+  worldState = ws;
+  worldState.currentWorldYear = Number(worldState.currentWorldYear) || START_YEAR;
+  worldState.teleportNodes = Array.isArray(worldState.teleportNodes) ? worldState.teleportNodes : [];
+  worldState.chronicles = Array.isArray(worldState.chronicles) ? worldState.chronicles : [];
+  worldState.dynastyHistory = Array.isArray(worldState.dynastyHistory) ? worldState.dynastyHistory : [];
+  if (!Array.isArray(worldState.sevenPowers) || !worldState.sevenPowers.length) {
+    worldState.sevenPowers = cloneDefaultPowers();
+  }
+  worldState.calamityOccurred = !!worldState.calamityOccurred;
+
+  dynastyGeneration = Number(data.dynastyGeneration) || 1;
+  player = data.player || null;
+  if (!player) return false;
+
+  // Значения по умолчанию для полей, которых могло не быть в старых сейвах
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const defaults = {
+    relations: [], squad: [], estates: [], castleUpgrades: [], injuries: [],
+    languages: ["human"], tabletsDeciphered: [], perugiusTrials: [], greyratAllies: [],
+    discoveredSevenPowers: [], canonQuestsDone: [], storyCompleted: [],
+    inventory: [], children: [], graduatedSchools: [],
+    equipment: { weapon: null, armor: null, accessory: null },
+    demonEyes: { left: null, right: null },
+    dungeonProgress: {}, guildQuestsThisYear: []
+  };
+  for (const [k, v] of Object.entries(defaults)) {
+    if (Array.isArray(v)) player[k] = arr(player[k]);
+    else if (player[k] == null || typeof player[k] !== "object") player[k] = v;
+  }
+  // Объект экипировки мог частично потеряться
+  if (typeof player.equipment !== "object" || player.equipment === null) {
+    player.equipment = { weapon: null, armor: null, accessory: null };
+  } else {
+    ["weapon", "armor", "accessory"].forEach(slot => {
+      if (!(slot in player.equipment)) player.equipment[slot] = null;
+    });
+  }
+  if (typeof player.demonEyes !== "object" || player.demonEyes === null) {
+    player.demonEyes = { left: null, right: null };
+  }
+
+  const num = { age: 0, hp: 100, maxHp: 100, mana: 30, maxMana: 30, coins: 0, ap: 6, maxAp: 8,
+                magicExp: 0, swordGodExp: 0, waterGodExp: 0, northGodExp: 0, intellect: 10,
+                reputation: 0, guildExp: 0, squadFame: 0, potionsCount: 0, asuraInfluence: 0,
+                factionProgress: 0, hitogamiTrust: 0, generation: dynastyGeneration, maxAge: 80,
+                jobRankIndex: 0, undergroundRankIndex: 0, schoolProgress: 0, lastCryptMeditationAge: -10 };
+  for (const [k, v] of Object.entries(num)) {
+    const parsed = Number(player[k]);
+    player[k] = Number.isFinite(parsed) ? parsed : v;
+  }
+  if (!player.name) player.name = `Безымянный ${dynastyGeneration}`;
+  if (!player.firstName) player.firstName = String(player.name).split(" ")[0];
+  if (!player.gender) player.gender = "male";
+  if (!player.race) player.race = "Человек";
+  if (!player.currentRegionKey || !REGIONS[player.currentRegionKey]) player.currentRegionKey = player.regionKey || "asura";
+  if (!REGIONS[player.currentRegionKey]) player.currentRegionKey = "asura";
+  if (!player.familyStatus || typeof player.familyStatus !== "object") {
+    player.familyStatus = { id: "unknown", name: "Безымянная семья" };
+  }
+  if (!player.trait || typeof player.trait !== "object" || !player.trait.id) {
+    player.trait = { id: "healthy", name: "Стальное здоровье", rarity: "common" };
+  }
+  if (!player.guildRank || !ADVENTURER_RANKS.includes(player.guildRank)) player.guildRank = "F";
+  player.maxHpBonus = Math.max(0, Number(player.maxHpBonus) || 0);
+  player.birthYearBonus = !!player.birthYearBonus;
+  if (!player.nobilityTitle) player.nobilityTitle = "citizen";
+  player.maxHp = Math.max(20, player.maxHp);
+  player.maxMana = Math.max(1, player.maxMana);
+  player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
+  player.mana = Math.min(player.maxMana, player.mana);
+  player.maxAp = Math.max(1, Number(player.maxAp) || getMaxAP(player.age));
+  player.ap = Math.min(player.maxAp, Math.max(0, player.ap));
+
+  logHistory = arr(data.logHistory);
+  if (!logHistory.length && typeof data.logsHtml === "string") {
+    logHistory = [{ age: player.age, year: worldState.currentWorldYear, text: "Летопись восстановлена из прежнего сохранения." }];
+  }
+  return true;
 }
 
 function applyLoadedData(data) {
-  if (!data?.worldState) return false;
-  worldState = data.worldState;
-  worldState.teleportNodes = worldState.teleportNodes || [];
-  dynastyGeneration = data.dynastyGeneration || 1;
-  player = data.player || null;
-  if ($("logs") && data.logsHtml) $("logs").innerHTML = data.logsHtml;
-  if (player) {
-    selectedMapRegion = player.currentRegionKey || "asura";
-    if ($("creation-overlay")) $("creation-overlay").style.display = "none";
+  if (!normalizeLoadedData(data)) return false;
+  selectedMapRegion = player.currentRegionKey || "asura";
+  if ($("creation-overlay")) $("creation-overlay").style.display = "none";
+  if ($("death-overlay")) $("death-overlay").style.display = "none";
+  renderLogHistory();
+  try {
     renderUI();
-    return true;
+  } catch (e) {
+    console.error("[BitTensei] Ошибка отрисовки загруженного героя:", e);
+    return false;
   }
-  return false;
+  return true;
 }
 
 function loadGame() {
-  try {
-    const raw = localStorage.getItem("bit_tensei_save");
-    if (!raw) return false;
-    return applyLoadedData(JSON.parse(raw));
-  } catch { return false; }
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw) {
+    try {
+      if (applyLoadedData(JSON.parse(raw))) return true;
+      console.warn("[BitTensei] Сохранение повреждено — пробуем запасную копию.");
+    } catch (e) {
+      console.warn("[BitTensei] Сохранение повреждено — пробуем запасную копию.", e);
+    }
+  }
+  const backup = localStorage.getItem(SAVE_BACKUP_KEY);
+  if (backup) {
+    try {
+      if (applyLoadedData(JSON.parse(backup))) {
+        log("⚠️ Основное сохранение было повреждено — загружена запасная копия.");
+        return true;
+      }
+    } catch (e) {
+      console.warn("[BitTensei] Запасная копия тоже повреждена.", e);
+    }
+  }
+  return false;
 }
 
 function openSaveModal() {

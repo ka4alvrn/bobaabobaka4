@@ -96,6 +96,39 @@ const GameMusic = (function() {
     osc.stop(now + 0.18);
   }
 
+  // Короткие звуковые эффекты интерфейса и боя (без внешних файлов)
+  const SFX = {
+    click:   { f: 620, to: 480,  d: 0.06, type: "triangle", v: 0.09 },
+    coin:    { f: 880, to: 1320, d: 0.12, type: "square",   v: 0.07 },
+    hit:     { f: 210, to: 70,   d: 0.16, type: "sawtooth", v: 0.15 },
+    magic:   { f: 520, to: 1040, d: 0.22, type: "sine",     v: 0.12 },
+    levelup: { f: 523, to: 1046, d: 0.30, type: "triangle", v: 0.13 },
+    year:    { f: 392, to: 523,  d: 0.20, type: "sine",     v: 0.09 }
+  };
+
+  function playSfx(kind) {
+    const audio = getContext();
+    if (!audio || !isEnabled) return;
+    const cfg = SFX[kind] || SFX.click;
+    const now = audio.currentTime;
+
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+
+    osc.type = cfg.type;
+    osc.frequency.setValueAtTime(cfg.f, now);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(30, cfg.to), now + cfg.d);
+
+    gain.gain.setValueAtTime(cfg.v, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + cfg.d);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc.stop(now + cfg.d + 0.02);
+  }
+
   function tick() {
     if (!isEnabled || currentMode === "silent") return;
 
@@ -172,12 +205,45 @@ const GameMusic = (function() {
 
     isMusicOn: function() {
       return isEnabled;
-    }
+    },
+
+    // Короткий звуковой эффект: click / coin / hit / magic / levelup / year
+    playSfx: playSfx
   };
 })();
+
+// ==========================================
+// АДАПТЕР: app.js обращается к audioEngine
+// ==========================================
+const audioEngine = {
+  isMuted: false,
+
+  playSFX: function(kind) {
+    if (this.isMuted) return;
+    GameMusic.playSfx(kind);
+  },
+
+  startMusic: function(mode) {
+    if (this.isMuted) { GameMusic.setMode("silent"); return; }
+    GameMusic.setMode(mode || "peaceful");
+  },
+
+  stopMusic: function() {
+    GameMusic.setMode("silent");
+  },
+
+  toggleMute: function() {
+    // GameMusic.toggle() возвращает новое состояние "включено"
+    const musicOn = GameMusic.toggle();
+    this.isMuted = !musicOn;
+    if (!this.isMuted) GameMusic.setMode("peaceful");
+    return this.isMuted;
+  }
+};
 
 // Инициализация при загрузке документа
 if (typeof window !== "undefined") {
   window.GameMusic = GameMusic;
+  window.audioEngine = audioEngine;
   GameMusic.init();
 }

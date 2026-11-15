@@ -711,11 +711,230 @@ function jumpToWorldMap() {
 }
 
 // =========================================================================
+// ЖИВОЙ МИР: у регионов есть состояния, они меняются и дают последствия
+// =========================================================================
+// Идея: мир не декорация. Каждый регион раз в несколько лет получает
+// состояние (голод, чума, война, ярмарка, репрессии, спокойствие).
+// Состояния меняют цены, доход, заказы и открывают особые сюжеты.
+// Игрок может вмешаться: прислать хлеб, выкупить пленных, наняться.
+// Помог — регион это помнит. Ушёл — тоже помнит.
+
+const WORLD_STATES = [
+  {
+    id: "calm", name: "Спокойствие", icon: "🌤", years: [1, 2], weight: 30,
+    desc: "Торговля идёт, поля зреют, стража спит у ворот.",
+    color: "#94a3b8",
+    effect: { travel: 1, income: 1, prices: 1 }
+  },
+  {
+    id: "famine", name: "Голод", icon: "🌾", years: [2, 4], weight: 20,
+    desc: "Третий месяц без дождя. Амбары пусты, цены растут, у ворот стоят чужие.",
+    color: "#f59e0b",
+    effect: { travel: 1.2, income: 0.7, prices: 1.5 },
+    help: {
+      cost: 120, label: "🌾 Прислать хлеб", good: "Сытый регион помнит добро: +40 репутации, а на рынке цены вернулись в норму.",
+      bad: "Хлеба не хватило на всех. Голод останется ещё год."
+    }
+  },
+  {
+    id: "plague", name: "Чума", icon: "🦠", years: [1, 3], weight: 14,
+    desc: "По улицам возят дым. Ворота закрыты, лекари спят у постелей.",
+    color: "#a855f7",
+    effect: { travel: 2, income: 0.5, prices: 1.8 },
+    help: {
+      cost: 90, label: "🧪 Дать зелья и лекарей", good: "Вы спасли квартал: +40 репутации, +20 к ремеслу, а регион заговорил о вас.",
+      bad: "Лекарей не хватило. Морва продолжится без вас."
+    }
+  },
+  {
+    id: "war", name: "Война", icon: "⚔️", years: [2, 5], weight: 16,
+    desc: "Мобилизация, реквизиции, шёпот в тавернах. Дороги держат отряды.",
+    color: "#ef4444",
+    effect: { travel: 1.5, income: 0.8, prices: 1.6 },
+    help: {
+      cost: 0, label: "🛡️ Наняться в отряд", good: "Из боя вы вышли живым и с именем: +60 славы, +25 к мечу, +200🪙.",
+      bad: "Отряд потерян. Вы унесли ноги, но и только."
+    }
+  },
+  {
+    id: "fair", name: "Ярмарка", icon: "🎪", years: [1, 2], weight: 20,
+    desc: "Столичный базар грохочет на тридцать миль. Всё продаётся и всё покупается.",
+    color: "#eab308",
+    effect: { travel: 0.8, income: 1.3, prices: 0.75 },
+    help: {
+      cost: 50, label: "🎪 Снять лавку", good: "Товар с переплатой: +350🪙 и знакомство с торговым домом.",
+      bad: "Лавка простояла пустой — ярмарка прошла мимо."
+    }
+  },
+  {
+    id: "purge", name: "Репрессии", icon: "🔒", years: [1, 3], weight: 12,
+    desc: "Корона ищет заговор. Стучат ночью, допрашивают днём, если согласны. Донос — почётная профессия.",
+    color: "#db2777",
+    effect: { travel: 1.3, income: 0.9, prices: 1.3 },
+    help: {
+      cost: 150, label: "💰 Выкупить невиновных", good: "Двадцать человек вышли из ямы: +50 репутации, +30 влияния, а доносчики затихли.",
+      bad: "Денег хватило на двоих из двадцати."
+    }
+  }
+];
+
+const WORLD_STATE_BY_ID = {};
+WORLD_STATES.forEach(s => WORLD_STATE_BY_ID[s.id] = s);
+
+// Создание состояния мира для старого сейва и новой игры
+function ensureWorldState() {
+  if (!worldState.regionStates || typeof worldState.regionStates !== "object") worldState.regionStates = {};
+  if (!worldState.regionOpinion || typeof worldState.regionOpinion !== "object") worldState.regionOpinion = {};
+  Object.keys(REGIONS).forEach(k => {
+    if (!worldState.regionStates[k]) worldState.regionStates[k] = { id: "calm", yearsLeft: 1 };
+    if (typeof worldState.regionOpinion[k] !== "number") worldState.regionOpinion[k] = 0;
+  });
+  if (!Array.isArray(worldState.worldNews)) worldState.worldNews = [];
+}
+
+function currentRegionState(key) {
+  ensureWorldState();
+  const st = worldState.regionStates[key] || { id: "calm", yearsLeft: 1 };
+  return { ...st, def: WORLD_STATE_BY_ID[st.id] || WORLD_STATE_BY_ID.calm };
+}
+
+function regionOpinion(key) { ensureWorldState(); return worldState.regionOpinion[key] || 0; }
+
+// Раз в год: старые состояния истекают, иногда рождаются новые
+function advanceWorldStates() {
+  ensureWorldState();
+  const news = [];
+  Object.keys(REGIONS).forEach(k => {
+    const st = worldState.regionStates[k];
+    if (st.id !== "calm") {
+      st.yearsLeft--;
+      if (st.yearsLeft <= 0) {
+        const old = WORLD_STATE_BY_ID[st.id];
+        worldState.regionStates[k] = { id: "calm", yearsLeft: 1 };
+        news.push({ region: k, text: `${old.icon} <b>${regionShortName(k)}</b>: ${old.name.toLowerCase()} ${({famine:"закончился",plague:"закончилась",war:"закончилась",fair:"закончилась",purge:"закончились"})[old.id] || "закончилась"}. Земля выдохнула.` });
+      }
+      return;
+    }
+    // Спокойный регион может впасть в состояние: 35% на регион в год
+    if (Math.random() < 0.35) {
+      const pool = WORLD_STATES.filter(s => s.id !== "calm");
+      const total = pool.reduce((a, s) => a + s.weight, 0);
+      let roll = Math.random() * total, picked = pool[0];
+      for (const s of pool) { roll -= s.weight; if (roll <= 0) { picked = s; break; } }
+      const len = picked.years[0] + Math.floor(Math.random() * (picked.years[1] - picked.years[0] + 1));
+      worldState.regionStates[k] = { id: picked.id, yearsLeft: len };
+      news.push({ region: k, text: `${picked.icon} <b>${regionShortName(k)}</b> — ${picked.name.toLowerCase()}. ${picked.desc}` });
+    }
+  });
+  // Вестник: не больше трёх новостей в год, иначе окно года превратится в газету
+  worldState.worldNews = news.slice(0, 3);
+  if (news.length) {
+    const list = worldState.worldNews.map(n => `${n.text}`).join("<br>");
+    queueYearExtra("Вестник мира", list, "📰");
+    worldState.worldNews.forEach(n => worldState.chronicles.push({ year: worldState.currentWorldYear, text: n.text }));
+  }
+}
+
+function regionShortName(k) {
+  const r = REGIONS[k];
+  if (!r) return k;
+  return r.mapLabel || r.name.replace(/^[^\s]+\s/, "");
+}
+
+// Множители состояния — используются ценами и доходом
+function worldPriceMult(key) {
+  const st = currentRegionState(key);
+  return st.def.effect?.prices || 1;
+}
+function worldTravelMult(key) {
+  const st = currentRegionState(key);
+  return st.def.effect?.travel || 1;
+}
+
+// Вмешательство игрока: помочь региону или пройти мимо
+function helpRegion(key) {
+  const st = currentRegionState(key);
+  if (st.id === "calm") return showActionModal("Живой мир", "В этом регионе сейчас спокойно — помогать некому.", "🌤");
+  const h = st.def.help;
+  if (!h) return;
+  if (player.coins < h.cost) return showActionModal("Живой мир", `Нужно ${h.cost}🪙.`, h.icon || "🪙");
+  if (h.cost) player.coins -= h.cost;
+
+  // Война — проверка силой, остальные — деньгами и волей
+  let ok = true;
+  if (st.id === "war") {
+    ok = calcCombatPower(player) >= 2500 || Math.random() < 0.5;
+    if (ok) { player.swordGodExp += 25; player.squadFame += 60; player.coins += 200; }
+    else { player.hp = Math.max(10, player.hp - 40); }
+  } else {
+    player.asuraInfluence = (player.asuraInfluence || 0) + 20;
+  }
+
+  if (ok) {
+    ensureWorldState();
+    worldState.regionStates[key] = { id: "calm", yearsLeft: 1 };
+    worldState.regionOpinion[key] = regionOpinion(key) + 40;
+    worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} помог ${regionShortName(key)}: ${h.label.replace(/^[^\s]+\s/, "")}.` });
+    queueYearExtra("Живой мир", `${REGIONS[key].name}: ${h.good}`, "🌍");
+    log(`🌍 ${REGIONS[key].name}: ${h.good}`);
+    playSound("win");
+    showActionModal(`${st.def.icon} ${st.def.name} — ${regionShortName(key)}`, `<div style="text-align:left; line-height:1.55;">${h.good}</div>`, "🌍");
+  } else {
+    queueYearExtra("Живой мир", `${REGIONS[key].name}: ${h.bad}`, "🌍");
+    log(`🌍 ${REGIONS[key].name}: ${h.bad}`);
+    showActionModal(`${st.def.icon} ${st.def.name} — ${regionShortName(key)}`, `<div style="text-align:left; line-height:1.55;">${h.bad}</div>`, "🌍");
+  }
+
+  const wasInYear = yearFlowActive || yearReportOpen;
+  updateUI(); renderTravelTab();
+  finishYearIfActive(wasInYear, "Живой мир", `${regionShortName(key)}: ${ok ? h.good : h.bad}`, "🌍");
+}
+
+// Блок «что происходит в мире» на вкладке карты
+function renderWorldNews() {
+  const box = $("world-news-box");
+  if (!box) return;
+  ensureWorldState();
+  const rows = Object.keys(REGIONS).map(k => {
+    const st = currentRegionState(k);
+    const op = regionOpinion(k);
+    const isHere = player.currentRegionKey === k;
+    const price = Math.round(worldPriceMult(k) * 100);
+    const travel = Math.round(worldTravelMult(k) * 100);
+    return `<div class="world-state-row" style="border-left-color:${st.def.color};">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+        <div>
+          <b style="font-size:12px; ${isHere ? "color:#fde68a;" : ""}">${esc(regionShortName(k))}${isHere ? " 📍" : ""}</b>
+          <span style="font-size:11px; color:${st.def.color}; margin-left:5px;">${st.def.icon} ${esc(st.def.name)}</span>
+          <span style="font-size:10px; color:var(--muted); margin-left:4px;">${st.id === "calm" ? "" : `ещё ${st.yearsLeft} г.`}</span>
+        </div>
+        <div style="font-size:10px; color:${op >= 20 ? "#34d399" : op <= -20 ? "#f87171" : "#94a3b8"}; white-space:nowrap;">
+          ${op > 0 ? "+" : ""}${op} мнение
+        </div>
+      </div>
+      ${st.id !== "calm" ? `<div style="font-size:10.5px; color:#cbd5e1; margin-top:3px; line-height:1.4;">${esc(st.def.desc)}</div>
+        <div style="font-size:10px; color:#94a3b8; margin-top:3px;">Цены ×${(price / 100).toFixed(2)} • Дорога ×${(travel / 100).toFixed(2)}</div>
+        <button style="width:100%; margin-top:5px; font-size:11px; background:${st.def.color}; color:#0b0c10; padding:5px;" onclick="helpRegion('${k}')">${esc(st.def.help?.label || "Вмешаться")}${st.def.help?.cost ? ` (${st.def.help.cost}🪙)` : ""}</button>` : ""}
+    </div>`;
+  }).join("");
+
+  box.innerHTML = `<div class="card" style="margin-bottom:0; background:#0e1622; border-color:rgba(56,189,248,0.25);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <b style="font-size:12.5px; color:#7dd3fc;">🌍 Что сейчас в мире</b>
+      <span style="font-size:10px; color:var(--muted);">состояния меняются каждый год</span>
+    </div>
+    <div style="margin-top:7px;">${rows}</div>
+  </div>`;
+}
+
+// =========================================================================
 // ИНТЕРАКТИВНАЯ КАРТА МИРА И СЕТЬ ТЕЛЕПОРТОВ
 // =========================================================================
 function renderTravelTab() {
   const mapBox = $("world-map-box"), cardBox = $("map-region-card"), tpBox = $("teleport-network-box");
   if (!mapBox) return;
+  ensureWorldState();
+  renderWorldNews();
 
   const tp = worldState.teleportNodes || [];
   const hasHub = tp.length > 0;
@@ -2373,7 +2592,68 @@ function learnLanguage(k) {
 // =========================================================================
 function toggleNpcActions(id) { currentOpenedNpcId = currentOpenedNpcId === id ? null : id; renderRelations(); }
 
+// =========================================================================
+// СОЦИАЛЬНЫЕ ДЕЙСТВИЯ: отдельный запас на общение, не из общих сил
+// =========================================================================
+// Почему отдельно: общие силы — про труд и тренировки (12 в год).
+// Общение — про людей. Если тратить общие силы, игрок никогда не выберет
+// разговор вместо тренировки. Поэтому у общения свой счётчик.
+//
+// Сколько давать: у героя 19 разных дел на 12 сил, то есть каждый год
+// он выбирает, чем заняться. На людей логично оставлять примерно четверть
+// времени: 3 действия в год во взрослой жизни, 2 в юности, 4 в старости
+// (когда дел меньше, а разговоров больше). Свадьба и ребёнок бесплатны.
+const SOCIAL_AP_BY_AGE = (age) => age <= 3 ? 2 : age <= 9 ? 2 : age <= 15 ? 3 : age <= 59 ? 3 : 4;
+
+function getMaxSocialAp() { return SOCIAL_AP_BY_AGE(player?.age || 20); }
+
+function ensureSocialAp() {
+  if (!player) return;
+  if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
+  const max = getMaxSocialAp();
+  if (player.socialAp > max) player.socialAp = max;   // повзрослел — запас подрезается
+}
+
+function spendSocialAp(n) {
+  ensureSocialAp();
+  if (player.socialAp < n) {
+    showActionModal("Не о чем говорить", `Осталось ${player.socialAp} из ${getMaxSocialAp()} разговоров. Следующие — после «Прожить 1 год».`, "👥");
+    return false;
+  }
+  player.socialAp -= n;
+  return true;
+}
+
+// Сколько бесплатных «человеческих» действий стоит у каждого варианта
+const SOCIAL_COST = { talk: 1, gift: 1, drink: 1, spar: 1, pocket: 1, story: 1, loan: 1, insult: 1, play: 1, cuddle: 1, confess: 1, marry: 0, child: 0, found: 1 };
+
+// Блок-счётчик под заголовком вкладки «Связи»
+function renderSocialCounter() {
+  const box = $("social-counter");
+  if (!box) return;
+  if (!player) { box.innerHTML = ""; return; }
+  ensureSocialAp();
+  const cur = player.socialAp, max = getMaxSocialAp();
+  const pct = max ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0;
+  box.innerHTML = `<div class="card social-counter-card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <b style="font-size:12.5px; color:#fbcfe8;">👥 Разговоры на этот год</b>
+      <span style="font-size:12px; font-weight:800; color:${cur ? "#f9a8d4" : "#94a3b8"};">${cur} из ${max}</span>
+    </div>
+    <div class="social-ap-track"><div class="social-ap-fill" style="width:${pct}%;"></div></div>
+    <div style="font-size:10.5px; color:var(--muted); margin-top:5px; line-height:1.45;">
+      ${cur > 0
+        ? "Беседа, подарок, таверна, спарринг, признание — каждое стоит один разговор. Свадьба и ребёнок — бесплатно. Восстанавливаются после «Прожить 1 год»."
+        : "Разговоры на этот год закончились. Люди подождут до следующего года — как и вы."}
+    </div>
+  </div>`;
+}
+
+// Подзаголовок «Искать знакомства» тоже стоит разговор
+function searchStrangerCost() { return 1; }
+
 function renderRelations() {
+  renderSocialCounter();
   const cont = $("relations-list"); if (!cont) return;
   if (!player.relations.length) { cont.innerHTML = `<div style="color:var(--muted); text-align:center;">Знакомых пока нет.</div>`; return; }
   cont.innerHTML = player.relations.map(npc => {
@@ -2383,13 +2663,13 @@ function renderRelations() {
     const hasCanonQ = npc.isCanon && npc.relation >= 80 && CANON_QUESTS[npc.id] && !player.canonQuestsDone?.includes(npc.id);
     let actHtml = "";
     if (open) {
-      if (npc.isLost) actHtml = `<button class="npc-action-full" style="background:#b45309;" onclick="searchLostFamily('${npc.id}')">🔍 Искать пропавшего (⚡ 1 сила)</button>`;
-      else if (player.age < 4) actHtml = `<button onclick="npcInteract('${npc.id}','play')">👶 Поиграть</button><button onclick="npcInteract('${npc.id}','cuddle')">🍼 На ручки</button>`;
-      else if (player.age < 10) actHtml = `<button onclick="npcInteract('${npc.id}','story')">📖 Сказка</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙)</button><button onclick="npcInteract('${npc.id}','spar')">🪵 Урок меча</button><button onclick="npcInteract('${npc.id}','pocket')">🪙 На сладости</button>`;
+      if (npc.isLost) actHtml = `<button class="npc-action-full" style="background:#b45309;" onclick="searchLostFamily('${npc.id}')">🔍 Искать пропавшего (👥 1 разговор)</button>`;
+      else if (player.age < 4) actHtml = `<button onclick="npcInteract('${npc.id}','play')">👶 Поиграть (1👥)</button><button onclick="npcInteract('${npc.id}','cuddle')">🍼 На ручки (1👥)</button>`;
+      else if (player.age < 10) actHtml = `<button onclick="npcInteract('${npc.id}','story')">📖 Сказка (1👥)</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙 • 1👥)</button><button onclick="npcInteract('${npc.id}','spar')">🪵 Урок меча (1👥)</button><button onclick="npcInteract('${npc.id}','pocket')">🪙 На сладости (1👥)</button>`;
       else {
-        actHtml = `<button onclick="npcInteract('${npc.id}','talk')">💬 Беседа</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙)</button>
-          <button onclick="npcInteract('${npc.id}','drink')">🍻 Таверна (6🪙)</button><button onclick="npcInteract('${npc.id}','spar')">⚔️ Спарринг</button>
-          <button onclick="npcInteract('${npc.id}','loan')">🪙 Занять</button><button class="action-danger" onclick="npcInteract('${npc.id}','insult')">🤬 Оскорбить</button>`;
+        actHtml = `<button onclick="npcInteract('${npc.id}','talk')">💬 Беседа (1👥)</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙 • 1👥)</button>
+          <button onclick="npcInteract('${npc.id}','drink')">🍻 Таверна (6🪙 • 1👥)</button><button onclick="npcInteract('${npc.id}','spar')">⚔️ Спарринг (1👥)</button>
+          <button onclick="npcInteract('${npc.id}','loan')">🪙 Занять (1👥)</button><button class="action-danger" onclick="npcInteract('${npc.id}','insult')">🤬 Оскорбить (1👥)</button>`;
         if (hasCanonQ) actHtml += `<button class="npc-action-full" style="background:#b45309;" onclick="doCanonQuest('${npc.id}')">⭐ Квест: ${CANON_QUESTS[npc.id].title}</button>`;
         if (player.age >= 16 && !inSquad && !npc.isChild) actHtml += `<button class="npc-action-full" style="background:#312e81;" onclick="addToSquad('${npc.id}')">🛡️ В боевой отряд</button>`;
         if (player.age >= 14 && !npc.isFamily && !npc.isChild && npc.status !== "Пара" && npc.status !== "Супруг/Супруга") actHtml += `<button class="action-love npc-action-full" onclick="npcInteract('${npc.id}','confess')">❤️ Признаться в чувствах</button>`;
@@ -2419,6 +2699,12 @@ function doCanonQuest(id) {
 
 function npcInteract(id, act) {
   const npc = player.relations.find(r => r.id === id); if (!npc) return;
+  const cost = SOCIAL_COST[act] ?? 1;
+  if (cost > 0) {
+    if (act === "gift" && player.coins < 8) return showActionModal("Золото", "Нужно 8🪙!", "🪙");
+    if (act === "drink" && player.coins < 6) return showActionModal("Золото", "Нужно 6🪙!", "🍻");
+    if (!spendSocialAp(cost)) return;
+  }
   const beastBoost = (npc.race?.includes("Зверочеловек") && player.languages.includes("beast")) ? 1.25 : 1;
   const gainRel = (v) => { npc.relation = Math.min(100, npc.relation + Math.round(v * beastBoost)); };
   let msg = "";
@@ -2434,16 +2720,15 @@ function npcInteract(id, act) {
   else if (act === "confess") { if (npc.relation >= 75) { npc.status = "Пара"; msg = `💖 ${npc.name} ответил(а) взаимностью!`; playSound("win"); } else { npc.relation = Math.max(0, npc.relation - 10); msg = `💔 ${npc.name}: "Останемся друзьями..."`; } }
   else if (act === "marry") { if (npc.relation >= 88) { npc.status = "Супруг/Супруга"; player.spouse = npc; msg = `💍 Вы и ${npc.name} поженились!`; playSound("win"); } else msg = `Укрепите отношения до 88%+!`; }
   else if (act === "child") { player.pregnancy = { partnerName: npc.name, partnerRace: npc.race || "Человек" }; msg = `👶 Вы с ${npc.name} ждёте ребёнка!`; playSound("win"); }
-  log(msg); showActionModal("Отношения", msg, "👥"); updateUI(); renderRelations();
+  log(msg); showActionModal("Отношения", msg, "👥"); updateUI(); renderRelations(); renderSocialCounter();
 }
 
 function searchLostFamily(id) {
-  if (player.ap < 1) return showActionModal("Усталость", "Нужно ⚡ 1 сила!", "💤");
-  player.ap -= 1;
+  if (!spendSocialAp(1)) return;
   const npc = player.relations.find(r => r.id === id);
   if (npc && Math.random() < 0.6) { npc.isLost = false; log(`🎉 Вы нашли <b>${npc.name}</b>!`); playSound("win"); showActionModal("Воссоединение!", `Вы нашли <b>${npc.name}</b>!`, "🎉"); }
   else showActionModal("Поиски", "Пока следов нет, ищите дальше!", "🔍");
-  updateUI(); renderRelations();
+  updateUI(); renderRelations(); renderSocialCounter();
 }
 
 function trySpawnCanonNpc(isSearch = false) {
@@ -2459,6 +2744,8 @@ function trySpawnCanonNpc(isSearch = false) {
 }
 
 function meetStranger() {
+  if (!spendSocialAp(1)) return;
+  renderSocialCounter();
   const canon = trySpawnCanonNpc(true);
   if (canon) {
     const msg = `⭐ <b>КАНОНИЧЕСКАЯ ВСТРЕЧА!</b> Вы познакомились с <b>${canon.name}</b> (${canon.role})!`;
@@ -2774,6 +3061,7 @@ function ageUp() {
   player.age++; worldState.currentWorldYear++;
   saveGame(); // страховка: год уже прожит, даже если игрок закроет приложение посреди события
   player.maxAp = getMaxAP(player.age); player.ap = player.maxAp; player.mana = player.maxMana;
+  player.socialAp = getMaxSocialAp();   // новый год — новые разговоры
 
   const seatObj = ESTATES.find(e => e.id === player.familySeat);
   const regen = (seatObj ? seatObj.hpRegen : 5) + (player.trait.id === "miko_healing" ? 25 : 0);
@@ -2793,13 +3081,17 @@ function ageUp() {
   generateYearlyGuildQuests();
 
   if (player.estates.length) {
+    // Доход зависит от того, что творится в землях и как к вам там относятся
+    const stMult = currentRegionState(player.currentRegionKey).def.effect?.income || 1;
+    const opBonus = 1 + Math.min(0.5, Math.max(-0.4, regionOpinion(player.currentRegionKey) / 200));
     const inc = player.estates.reduce((s, id) => s + (ESTATES.find(e => e.id === id)?.income || 0), 0);
-    player.coins += inc;
+    const adjusted = Math.round(inc * stMult * opBonus);
+    player.coins += adjusted;
     // Содержание имущества: доход не бесплатный
-    const upkeep = Math.floor(inc * BALANCE.upkeepPercent);
+    const upkeep = Math.floor(adjusted * BALANCE.upkeepPercent);
     if (upkeep > 0 && player.coins >= upkeep) {
       player.coins -= upkeep;
-      log(`💰 Имения: +${inc}🪙 дохода, −${upkeep}🪙 содержания (итого +${inc - upkeep}🪙).`);
+      log(`💰 Имения: +${adjusted}🪙 дохода, −${upkeep}🪙 содержания (итого +${adjusted - upkeep}🪙).`);
     } else if (upkeep > 0) {
       player.coins = 0;
       player.hp = Math.max(1, player.hp - BALANCE.hp.starvationDamage);
@@ -2828,6 +3120,8 @@ function ageUp() {
   applySevenPowerSeatYearly();
   // Союзы с ветвями Грейрат приносят своё каждый год
   applyGreyratAllianceYearly();
+  // Живой мир: состояния регионов меняются, вестник пишет новости года
+  advanceWorldStates();
 
   if (player.pregnancy) {
     const isM = Math.random() > 0.5, list = SYLLABLES[isM ? "male" : "female"];
@@ -3166,6 +3460,8 @@ function normalizeLoadedData(data) {
     if (Array.isArray(v)) player[k] = arr(player[k]);
     else if (player[k] == null || typeof player[k] !== "object") player[k] = v;
   }
+  // Запас разговоров: в старых сейвах его нет — выдаём полный на этот год
+  if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
   // Объект экипировки мог частично потеряться
   if (typeof player.equipment !== "object" || player.equipment === null) {
     player.equipment = { weapon: null, armor: null, accessory: null };
@@ -3227,6 +3523,7 @@ function applyLoadedData(data) {
   selectedMapRegion = player.currentRegionKey || "asura";
   ensureStoryState();
   ensureSevenPowersLore();
+  ensureWorldState();
   if ($("creation-overlay")) $("creation-overlay").style.display = "none";
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   renderLogHistory();

@@ -925,13 +925,15 @@ function renderDestinyYearTab() {
 // --- вкладка «Линии судьбы»: сюжетные цепочки ---
 function renderDestinyLinesTab() {
   const nodes = getAvailableStoryNodes();
+  const thisYear = (typeof pickYearStoryNodes === "function") ? pickYearStoryNodes(3) : nodes;
+  const later = nodes.filter(n => !thisYear.some(t => t.node.id === n.node.id));
   let html = "";
 
   if (!nodes.length) {
     html += `<div class="destiny-card"><div class="destiny-muted">Сейчас новых завязок нет — живите, и судьба догонит.</div></div>`;
   } else {
-    html += `<div class="destiny-muted" style="margin-bottom:6px;">Доступно сейчас: ${nodes.length}</div>`;
-    nodes.forEach(({ line, node }) => {
+    html += `<div class="destiny-muted" style="margin-bottom:6px;">В этом году выпало: ${thisYear.length} • ждут своего года: ${later.length}</div>`;
+    thisYear.forEach(({ line, node }) => {
       html += `<div class="destiny-card story">
         <div class="destiny-line-title">${line.icon} ${esc(node.title)}</div>
         <div class="destiny-muted" style="margin-bottom:5px;">Линия: ${esc(line.title)}</div>
@@ -944,6 +946,14 @@ function renderDestinyLinesTab() {
         }).join("")}
         ${node.effect ? `<button class="destiny-choice" style="background:#312e81;" onclick="chooseStoryNode('${line.id}','${node.id}',-1)">✨ Принять</button>` : ""}
       </div>`;
+    });
+  }
+
+  if (later.length) {
+    html += `<div class="destiny-muted" style="margin:10px 0 6px;">⏳ Ждут своего года — эти сцены откроются позже</div>`;
+    later.forEach(({ line, node }) => {
+      html += `<div class="destiny-card"><div class="destiny-line-title" style="color:#94a3b8; font-size:11px;">${line.icon} ${esc(node.title)}</div>
+        <div class="destiny-muted">${esc(line.title)} • с ${node.age || 0} лет</div></div>`;
     });
   }
 
@@ -2234,7 +2244,8 @@ function showYearSummary() {
   const box = $("year-summary-body");
   if (!box) return;
 
-  const twists = getAvailableStoryNodes();
+  const twists = (typeof pickYearStoryNodes === "function") ? pickYearStoryNodes(3) : getAvailableStoryNodes();
+  const waiting = (typeof countYearStoryWaiting === "function") ? countYearStoryWaiting(3) : 0;
   let html = "";
 
   if (twists.length) {
@@ -2250,6 +2261,9 @@ function showYearSummary() {
         ${node.effect ? `<button class="destiny-choice" style="margin-top:5px; background:#312e81;" onclick="chooseStoryNode('${line.id}','${node.id}',-1)">✨ Принять</button>` : ""}
       </div>`;
     });
+    if (waiting > 0) {
+      html += `<div class="year-waiting">Ещё ${waiting} ${waiting === 1 ? "сцена ждёт" : "сцен ждут"} своего года — мир не стоит на месте.</div>`;
+    }
   }
 
   const milestones = getAvailableStories();

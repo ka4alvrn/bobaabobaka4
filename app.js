@@ -533,7 +533,7 @@ function initCharacter(fName, sName, gender, race, regionKey, origin, trait, fam
       { id: "father", name: fatherName, gender: "male", race: race.name, age: startAge + 24, role: "Отец • Глава дома", cp: 650, relation: 85, status: "Семья", isFamily: true, isDead: false },
       { id: "mother", name: motherName, gender: "female", race: race.name, age: startAge + 22, role: "Мать • Хранительница", cp: 450, relation: 95, status: "Семья", isFamily: true, isDead: false }
     ],
-    spouse: null, children: []
+    spouse: null, children: [], socialAp: 3
   };
 
   selectedMapRegion = regionKey;
@@ -2652,6 +2652,259 @@ function renderSocialCounter() {
 // Подзаголовок «Искать знакомства» тоже стоит разговор
 function searchStrangerCost() { return 1; }
 
+// =========================================================================
+// ДЕТИ КАК ПЕРСОНАЖИ: характер, память, просьбы и итог воспитания
+// =========================================================================
+// У ребёнка есть характер (4 черты), воспоминание о том, как вы с ним
+// обошлись, и «нить» — просьба, которая приходит в свой возраст.
+// Что вы вложили, то и получите в наследнике: характер определяет
+// стартовые навыки, а память — отношение к вам на всю жизнь.
+
+const CHILD_TRAITS = [
+  { id: "stubborn", name: "Упрямый", icon: "🔥", desc: "Спорит со всем миром, включая вас. Из него выйдет либо воин, либо мученик.",
+    bonus: { swordGodExp: 40 }, flaw: "Учится только через спор — подарки его не смягчают." },
+  { id: "kind", name: "Добрый", icon: "🤍", desc: "Первый, кто кормит нищих, и последний, кто вспомнит о себе.",
+    bonus: { intellect: 15, reputation: 20 }, flaw: "Слишком легко прощает предательство." },
+  { id: "cruel", name: "Жестокий", icon: "🩸", desc: "Не плачет с трёх лет. Не спрашивает разрешения.",
+    bonus: { swordGodExp: 60, squadFame: 40 }, flaw: "Отношение падает само каждый год." },
+  { id: "dreamer", name: "Мечтатель", icon: "✨", desc: "Смотрит на облака и знает, что за ними есть земля.",
+    bonus: { magicExp: 50, maxMana: 20 }, flaw: "Плохо переносит суровые годы." },
+  { id: "tactician", name: "Считающий", icon: "♟", desc: "Считает всё: деньги, людей, ошибки отца. Особенно ошибки." ,
+    bonus: { intellect: 30, waterGodExp: 30 }, flaw: "Ему нужно объяснять «зачем», иначе он не станет стараться." },
+  { id: "wild", name: "Дикий", icon: "🐺", desc: "Вырос с зверями быстрее, чем с людьми.",
+    bonus: { northGodExp: 45, maxHp: 60 }, flaw: "С ним трудно говорить о правилах." }
+];
+
+function childTraitById(id) { return CHILD_TRAITS.find(t => t.id === id) || null; }
+
+// Характер выбирается при рождении — с намёком на родителей
+function rollChildTrait() {
+  const pool = CHILD_TRAITS.slice();
+  // У жестокого героя чаще жестокие дети — кровь не вода
+  if (player.relations.some(r => r.status === "Заклятый враг")) pool.push(CHILD_TRAITS.find(t => t.id === "cruel"));
+  if (player.intellect > 60) pool.push(CHILD_TRAITS.find(t => t.id === "tactician"));
+  if (player.swordGodExp > 200) pool.push(CHILD_TRAITS.find(t => t.id === "stubborn"));
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Просьбы: у каждой черты свой разговор в своём возрасте
+const CHILD_REQUESTS = {
+  stubborn: [
+    { age: 6, text: "«Не буду учиться, пока ты меня не победишь!»", title: "Упрямство",
+      choices: [
+        { text: "Спорить и победить", cost: 1, effect: "rel+12, sword", result: "Вы выиграли спор — и он впервые вас зауважал." },
+        { text: "Разрешить ему решать самому", cost: 0, effect: "rel+6, intellect", result: "Он выбрал сам — и впервые задумался, чего хочет." }
+      ] },
+    { age: 14, text: "«Я не стану графом. Я уйду в наёмники.»", title: "Уход",
+      choices: [
+        { text: "Отпустить с миром", cost: 0, effect: "rel+15, fame", result: "Он ушёл с вашим благословением — и вы не пожалели." },
+        { text: "Запретить и запереть", cost: 0, effect: "rel-20", result: "Он смирился. Он не забыл." }
+      ] }
+  ],
+  kind: [
+    { age: 7, text: "«Можно я отдам свой плащ соседской девочке? Она мёрзнет.»", title: "Жалость",
+      choices: [
+        { text: "Дать плащ и денег сверху", cost: 1, effect: "rel+14, coins-20", result: "Он вернулся с сияющими глазами. Вы помните этот взгляд." },
+        { text: "Объяснить, что сначала — семья", cost: 0, effect: "rel-5, intellect", result: "Он кивнул. Он всё равно отдал плащ." }
+      ] },
+    { age: 15, text: "«Я хочу уйти в лекари. Не в мечники.»", title: "Выбор пути",
+      choices: [
+        { text: "Поддержать и оплатить учёбу", cost: 1, effect: "rel+18, coins-80, intellect", result: "Вы оплатили ему дорогу. Он стал тем, кем хотел." },
+        { text: "Настоять на службе роду", cost: 0, effect: "rel-18", result: "Он пошёл в стражу. Он больше не пишет." }
+      ] }
+  ],
+  cruel: [
+    { age: 8, text: "«Он смеялся надо мной. Я его ударил. Восемь раз.»", title: "Драка",
+      choices: [
+        { text: "Наказать по-настоящему", cost: 0, effect: "rel-12, hp+5", result: "Он не заплакал. Он запомнил, кто его наказал." },
+        { text: "Похвалить, что постоял за себя", cost: 0, effect: "rel+10, sword", result: "Он стал злее — но к вам ближе." }
+      ] },
+    { age: 16, text: "«Отец, я выгнал слуг. Я снял комнаты с них за прошлый год.»", title: "Жестокость",
+      choices: [
+        { text: "Вернуть и извиниться перед людьми", cost: 1, effect: "rel-15, reputation", result: "Люди вернулись. Ребёнок — нет." },
+        { text: "Молча одобрить", cost: 0, effect: "rel+12, coins-30", result: "Он понял, что так можно. Теперь это его правда." }
+      ] }
+  ],
+  dreamer: [
+    { age: 7, text: "«Я видел сон про летающий остров. Он правда есть?»", title: "Сон",
+      choices: [
+        { text: "Рассказать о Хаос Брейкере", cost: 1, effect: "rel+12, magic", result: "Он слушал всю ночь. Теперь он знает, куда расти." },
+        { text: "Молчать, чтобы не вбивать в голову вздор", cost: 0, effect: "rel-4", result: "Он перестал вам рассказывать сны." }
+      ] },
+    { age: 15, text: "«Я не хочу корону. Я хочу увидеть, что за горизонтом.»", title: "Горизонт",
+      choices: [
+        { text: "Дать коня и деньги на путь", cost: 1, effect: "rel+16, coins-60, magic", result: "Он обещал вернуться. Вы верите ему." },
+        { text: "Сказать, что мир не для мечтателей", cost: 0, effect: "rel-14", result: "Он остался. Он смотрит на север каждый вечер." }
+      ] }
+  ],
+  tactician: [
+    { age: 9, text: "«Почему наш род теряет золото? Я посчитал — три года подряд.»", title: "Счёт",
+      choices: [
+        { text: "Объяснить и показать книги", cost: 1, effect: "rel+13, intellect", result: "Он нашёл ошибку в ваших подсчётах. Вы смеялись." },
+        { text: "Сказать: это не его дело", cost: 0, effect: "rel-8", result: "Он больше не спрашивает. Он просто изучает вас." }
+      ] },
+    { age: 17, text: "«Дай мне управление. Я подниму род за пять лет.»", title: "Власть",
+      choices: [
+        { text: "Отдать ему дела", cost: 1, effect: "rel+20, coins-40, intellect", result: "Он поднял род. Вы стали вторым." },
+        { text: "Оставить всё себе", cost: 0, effect: "rel-15", result: "Он ждёт. Он умеет ждать." }
+      ] }
+  ],
+  wild: [
+    { age: 8, text: "«Стая зовёт меня каждую ночь. У них нет стен.»", title: "Стая",
+      choices: [
+        { text: "Пойти с ним к стае", cost: 1, effect: "rel+15, north", result: "Волки приняли и вас. Вы поняли часть своих детей." },
+        { text: "Запретить и запереть двери", cost: 0, effect: "rel-12", result: "Он рычал во сне. Потом перестал рычать вообще." }
+      ] },
+    { age: 14, text: "«Я хочу уйти к Дорудиа. Там меня поймут.»", title: "Кровь",
+      choices: [
+        { text: "Отпустить с подарком", cost: 1, effect: "rel+16, coins-50, fame", result: "Он ушёл в лес. Он присылает шкуры раз в год." },
+        { text: "Сказать: ты человек, а не зверь", cost: 0, effect: "rel-16", result: "Он согласился. Он больше не охотится." }
+      ] }
+  ]
+};
+
+// Инициализация ребёнка при рождении и для старых сейвов
+function initChildTraits() {
+  if (!player?.children) return;
+  player.children.forEach((c, i) => {
+    if (!c.traitId) {
+      const roll = rollChildTrait() || CHILD_TRAITS[0];
+      c.traitId = roll.id;
+    }
+    if (typeof c.memory !== "number") c.memory = 0;      // добрые и злые поступки
+    if (typeof c.requestDone !== "number") c.requestDone = 0;
+    if (!Array.isArray(c.askedAges)) c.askedAges = [];
+  });
+}
+
+function childAge(c) {
+  return Math.max(0, worldState.currentWorldYear - (c.birthYear || worldState.currentWorldYear - 1));
+}
+
+// Раз в год: дети растут, характер сказывается, приходят просьбы
+function advanceChildrenYear() {
+  if (!player?.children) return;
+  initChildTraits();
+  player.children.forEach(c => {
+    if (c.isDead) return;
+    const age = childAge(c);
+    const trait = childTraitById(c.traitId);
+    if (!trait) return;
+
+    // Дело жестокого: отношение тает само
+    if (trait.id === "cruel" && age < 18) c.relation = Math.max(0, (c.relation || 70) - 2);
+
+    // Ребёнок с хорошей памятью находит тёплые слова каждый год
+    if ((c.memory || 0) > 20 && age < 18) c.relation = Math.min(100, (c.relation || 70) + 1);
+
+    // Просьба приходит в свой возраст — и только один раз
+    const reqs = CHILD_REQUESTS[trait.id] || [];
+    const due = reqs.find(r => r.age === age && !c.askedAges.includes(r.age));
+    if (due) {
+      c.askedAges.push(due.age);
+      queueYearExtra(`${trait.icon} ${c.name}`, due.text, "👶");
+      // Сразу покажем окно: это не то, что можно отложить
+      if (!yearFlowActive && !storyQueue.length) setTimeout(() => showChildRequest(c.id, due.age), 50);
+    }
+  });
+}
+
+// Окно просьбы ребёнка — настоящее решение, а не текст
+function showChildRequest(childId, reqAge) {
+  const c = player.children.find(x => x.id === childId);
+  if (!c) return;
+  const trait = childTraitById(c.traitId);
+  const req = (CHILD_REQUESTS[trait?.id] || []).find(r => r.age === reqAge);
+  if (!req) return;
+
+  const html = `<div style="text-align:left;">
+    <div style="font-size:12px; color:#94a3b8;">${trait.icon} ${esc(trait.name)} • ${childAge(c)} лет</div>
+    <div style="margin:8px 0; line-height:1.55;">${esc(req.text)}</div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${req.choices.map((ch, i) => `<button onclick="resolveChildRequest('${childId}', ${reqAge}, ${i})" style="background:${ch.cost ? "#7c2d12" : "#1e3a5f"}; text-align:left; padding:9px;">
+        ${esc(ch.text)}${ch.cost ? " (1👥)" : ""}
+      </button>`).join("")}
+    </div>
+  </div>`;
+  showActionModal(`${trait.icon} ${req.title}`, html, "👶");
+}
+
+function resolveChildRequest(childId, reqAge, choiceIdx) {
+  const c = player.children.find(x => x.id === childId);
+  if (!c) return;
+  const trait = childTraitById(c.traitId);
+  const req = (CHILD_REQUESTS[trait?.id] || []).find(r => r.age === reqAge);
+  if (!req) return;
+  const ch = req.choices[choiceIdx];
+  if (!ch) return;
+  if (ch.cost) { if (!spendSocialAp(ch.cost)) return; }
+
+  const eff = ch.effect || "";
+  const relM = eff.match(/rel([+-]\d+)/);
+  if (relM) c.relation = Math.max(0, Math.min(100, (c.relation || 70) + parseInt(relM[1])));
+  // Добрый поступок остаётся в памяти ребёнка, обида — тоже
+  if (relM && relM[1].startsWith("+")) c.memory = (c.memory || 0) + 10;
+  if (relM && relM[1].startsWith("-")) c.memory = (c.memory || 0) - 15;
+  if (eff.includes("sword")) { c.growthSword = (c.growthSword || 0) + 25; c.cp = (c.cp || 450) + 120; }
+  if (eff.includes("magic")) { c.growthMagic = (c.growthMagic || 0) + 25; c.cp = (c.cp || 450) + 100; }
+  if (eff.includes("north")) { c.growthNorth = (c.growthNorth || 0) + 25; c.cp = (c.cp || 450) + 120; }
+  if (eff.includes("intellect")) { c.growthInt = (c.growthInt || 0) + 12; c.cp = (c.cp || 450) + 80; }
+  if (eff.includes("fame")) { player.squadFame += 25; }
+  if (eff.includes("reputation")) { player.reputation = (player.reputation || 0) + 20; }
+  const coinM = eff.match(/coins-(\d+)/);
+  if (coinM) player.coins = Math.max(0, player.coins - parseInt(coinM[1]));
+
+  c.requestDone = (c.requestDone || 0) + 1;
+  const msg = `<div style="text-align:left; line-height:1.55;">${esc(ch.result)}</div>
+    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">${esc(c.name)}: отношение ${c.relation}%, память ${(c.memory || 0) > 20 ? "добрая" : (c.memory || 0) < -10 ? "тяжёлая" : "ровная"}.</div>`;
+  log(`👶 ${esc(c.name)}: ${esc(ch.result)}`);
+  showActionModal(`${trait.icon} ${esc(c.name)}`, msg, "👶");
+  playSound("click");
+  updateUI(); renderRelations(); renderSocialCounter();
+}
+
+// Карточка ребёнка в списке связей: характер, память, что из него выйдет
+function childTraitBadge(npc) {
+  if (!npc.isChild) return "";
+  const trait = childTraitById(npc.traitId);
+  if (!trait) return "";
+  const mem = npc.memory || 0;
+  const mood = mem > 20 ? "💚 помнит добро" : mem < -10 ? "🖤 помнит обиду" : "🤍 ровно";
+  return `<span class="child-trait-badge" title="${esc(trait.desc)}">${trait.icon} ${esc(trait.name)}</span><span class="child-mem-badge">${mood}</span>`;
+}
+
+// Итог воспитания — то, что наследник получит при переходе
+function childInheritanceSummary(c) {
+  const trait = childTraitById(c.traitId);
+  if (!trait) return { text: "", bonus: {} };
+  const rel = c.relation || 70, mem = c.memory || 0;
+  const bonus = {};
+  // Характер даёт основу, отношение и память — поправку
+  const scale = (rel / 70) * (mem > 20 ? 1.15 : mem < -10 ? 0.85 : 1);
+  Object.entries(trait.bonus).forEach(([k, v]) => { bonus[k] = Math.round(v * scale); });
+  const moodWord = rel >= 85 ? "любит вас и продолжит ваше дело" :
+                   rel >= 60 ? "уважает вас, но пойдёт своим путём" :
+                   rel >= 35 ? "помнит вас редко и неохотно" :
+                   "не простил вас и не станет продолжать";
+  return {
+    text: `${trait.icon} ${trait.name}: ${moodWord}.`,
+    bonus
+  };
+}
+
+// Годы детства ребёнка: маленький отчёт для окна года
+function childYearNote(c, age) {
+  const trait = childTraitById(c.traitId);
+  if (!trait) return null;
+  if (age === 3) return { title: `${c.name} — три года`, text: `Стало ясно: растёт ${trait.name.toLowerCase()} ребёнок. ${trait.desc}`, icon: trait.icon };
+  if (age === 10) return { title: `${c.name} — десять лет`, text: `${trait.desc} Отношение к вам: ${c.relation}%.`, icon: trait.icon };
+  if (age === 18) {
+    const inf = childInheritanceSummary(c);
+    return { title: `${c.name} вырос`, text: `${inf.text} Наследство навыков: ${Object.entries(inf.bonus).map(([k, v]) => `${v} ${({swordGodExp:"меча",magicExp:"магии",northGodExp:"северного стиля",intellect:"знаний",maxMana:"маны",maxHp:"HP",reputation:"репутации",squadFame:"славы",waterGodExp:"воды"})[k] || k}`).join(", ")}.`, icon: "🎓" };
+  }
+  return null;
+}
+
 function renderRelations() {
   renderSocialCounter();
   const cont = $("relations-list"); if (!cont) return;
@@ -2677,7 +2930,7 @@ function renderRelations() {
         if (npc.status === "Супруг/Супруга") actHtml += `<button class="action-married npc-action-full" ${player.pregnancy ? "disabled" : ""} onclick="npcInteract('${npc.id}','child')">${player.pregnancy ? "⏳ Ожидание малыша" : "👶 Зачать ребенка"}</button>`;
       }
     }
-    const badges = `${npc.isCanon ? '<span class="badge-canon">Канон ⭐</span> ' : ""}${npc.isChild ? '<span style="color:#fbbf24;">(Наследник)</span> ' : ""}${npc.isLost ? '<span class="badge-mythic">Пропал ⚡</span> ' : ""}${inSquad ? '<span class="badge-rare">Отряд 🛡️</span>' : ""}`;
+    const badges = `${npc.isCanon ? '<span class="badge-canon">Канон ⭐</span> ' : ""}${npc.isChild ? '<span style="color:#fbbf24;">(Наследник)</span> ' : ""}${childTraitBadge(npc)}${npc.isLost ? '<span class="badge-mythic">Пропал ⚡</span> ' : ""}${inSquad ? '<span class="badge-rare">Отряд 🛡️</span>' : ""}`;
     return `<div class="relation-card"><div class="rel-header" onclick="${npc.isDead ? "" : `toggleNpcActions('${npc.id}')`}" style="cursor:${npc.isDead ? "default" : "pointer"};">
       <div><div class="rel-name">${esc(npc.name)} ${badges}</div><div class="rel-role">${npc.role || npc.race} • ${npc.age} л. • БМ ${(npc.cp || 400).toLocaleString()}</div></div>
       <div style="text-align:right;"><div style="font-size:12px; font-weight:700;"><span class="${cls}">${npc.status}</span> ${npc.isDead ? "" : `(${npc.relation}%)`}</div></div></div>
@@ -3122,6 +3375,13 @@ function ageUp() {
   applyGreyratAllianceYearly();
   // Живой мир: состояния регионов меняются, вестник пишет новости года
   advanceWorldStates();
+  // Дети: растут, показывают характер, просят
+  advanceChildrenYear();
+  (player.children || []).forEach(c => {
+    if (c.isDead) return;
+    const note = childYearNote(c, childAge(c));
+    if (note) queueYearExtra(note.title, note.text, note.icon);
+  });
 
   if (player.pregnancy) {
     const isM = Math.random() > 0.5, list = SYLLABLES[isM ? "male" : "female"];
@@ -3130,16 +3390,18 @@ function ageUp() {
       if (player.race.includes("Эльф") || player.pregnancy.partnerRace.includes("Эльф")) childRace = "Эльф / Полуэльф";
       else if (player.race === "Демон" || player.pregnancy.partnerRace === "Демон") childRace = "Демон";
     }
+    const trait = rollChildTrait();
     const child = {
       id: "child_" + Date.now(), name: `${list[Math.floor(Math.random() * list.length)]} ${player.surname}`,
       gender: isM ? "male" : "female", race: childRace, age: 0, birthYear: worldState.currentWorldYear,
       cp: 450, role: "Наследник рода",
-      relation: 100, status: "Семья", isFamily: true, isChild: true, isDead: false
+      relation: 100, status: "Семья", isFamily: true, isChild: true, isDead: false,
+      traitId: trait.id, memory: 0, requestDone: 0, askedAges: []
     };
     player.children.push(child); player.relations.push(child);
     if (!player.appointedHeirId) player.appointedHeirId = child.id;
     log(`🎉 Родился ребёнок — <b>${child.name}</b> (${childRace})!`); playSound("win"); player.pregnancy = null;
-    queueYearExtra("Пополнение в роду", `Родился(ась) <b>${esc(child.name)}</b> (${esc(childRace)}).`, "🎉");
+    queueYearExtra("Пополнение в роду", `Родился(ась) <b>${esc(child.name)}</b> (${esc(childRace)}). Уже видно: ${trait.icon} ${esc(trait.name.toLowerCase())} характер.`, "🎉");
   }
 
   if (worldState.currentWorldYear === CALAMITY_YEAR && !worldState.calamityOccurred) {
@@ -3284,7 +3546,8 @@ function handleDeath(reason) {
         const age = Math.max(1, worldState.currentWorldYear - (c.birthYear || worldState.currentWorldYear - 20));
         const app = player.appointedHeirId === c.id;
         return `<div class="shop-item"><div><b>${esc(c.name)}</b> ${app ? '<span class="badge-legendary">Завещание 👑</span>' : ""}
-          <div style="font-size:11px; color:var(--muted);">${c.gender === "male" ? "Сын" : "Дочь"} • ${c.race || player.race} • ${age} л.</div></div>
+          <div style="font-size:11px; color:var(--muted);">${c.gender === "male" ? "Сын" : "Дочь"} • ${c.race || player.race} • ${age} л.</div>
+          ${(() => { const inf = childInheritanceSummary(c); return inf.text ? `<div style="font-size:10.5px; color:#cbd5e1; margin-top:3px; line-height:1.4;">${esc(inf.text)}</div>` : ""; })()}</div>
           <button style="background:#10b981;" onclick="continueAsHeir('${c.id}', ${age})">Играть 👑</button></div>`;
       }).join("");
     } else {
@@ -3324,6 +3587,24 @@ function continueAsHeir(childId, realAge) {
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   const heirFirstName = String(child.name).replace(/<[^>]*>/g, "").replace(/[<>]/g, "").trim().split(" ")[0] || "Наследник";
   initCharacter(heirFirstName, prev.surname, child.gender, raceObj, prev.currentRegionKey, originMock, prev.trait, prev.familyStatus, realAge, familyRels);
+
+  // Характер и воспитание переходят в наследника — это его стартовый капитал
+  const inherit = childInheritanceSummary(child);
+  if (inherit.bonus) {
+    Object.entries(inherit.bonus).forEach(([k, v]) => {
+      if (typeof player[k] === "number") player[k] = Math.max(0, player[k] + v);
+    });
+  }
+  if (typeof ensureSocialAp === "function") ensureSocialAp();
+  player.upbringing = {
+    from: prev.name,
+    trait: childTraitById(child.traitId)?.name || "неизвестный",
+    relationToParent: child.relation || 0,
+    memory: child.memory || 0,
+    summary: inherit.text
+  };
+  log(`👶 Воспитание сказалось: ${esc(inherit.text)}`);
+  if (typeof queueYearExtra === "function" && yearExtras) queueYearExtra("Что вам передали", inherit.text || "Ровное детство без крайностей.", "🎓");
 
   player.estates = [...prev.estates];
   player.familySeat = prev.familySeat;
@@ -3462,6 +3743,8 @@ function normalizeLoadedData(data) {
   }
   // Запас разговоров: в старых сейвах его нет — выдаём полный на этот год
   if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
+  // Дети из старых сейвов получают характер задним числом
+  if (typeof initChildTraits === "function") initChildTraits();
   // Объект экипировки мог частично потеряться
   if (typeof player.equipment !== "object" || player.equipment === null) {
     player.equipment = { weapon: null, armor: null, accessory: null };

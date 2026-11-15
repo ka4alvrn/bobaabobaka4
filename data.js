@@ -291,17 +291,35 @@ const CARAVAN_ROUTES = [
   { id: "caravan_begaritt", name: "🏜️ Золотой Караван Бегаритта", cost: 700, reward: 1450, risk: 0.50, desc: "Сквозь пустыню (+750🪙)!" }
 ];
 
+// Испытания Хаос Брейкера. reqLine — какая сюжетная линия должна быть начата,
+// чтобы испытание открылось: путь в крепость идёт через историю, а не через БМ.
 const PERUGIUS_TRIALS = [
-  { rank: 1, name: "Испытание Первого Духа (Алхор)", reqCp: 5000, rewardText: "Признание рыцарей небес (+80 Знаний)" },
-  { rank: 2, name: "Поединок с Золотым Рыцарем Сильфидом", reqCp: 14000, rewardText: "Благословение Дракона (+300 макс. HP, +2,500 БМ)" },
-  { rank: 3, name: "Аудиенция у Перугиуса", reqCp: 32000, rewardText: "Драконье Имя и Фактор Лапласа (+1,000🪙)" }
+  { rank: 1, name: "Испытание Первого Духа (Алхор)", reqCp: 5000, line: "pg_spirit",
+    reqText: "Начать путь: «🐉 Первый Дух Алхор»",
+    rewardText: "Признание рыцарей небес (+80 Знаний, +40 макс. маны)" },
+  { rank: 2, name: "Поединок с Золотым Рыцарем Сильфидом", reqCp: 14000, line: "pg_sylph",
+    reqText: "Начать путь: «⚔️ Золотой Рыцарь Сильфид»",
+    rewardText: "Благословение Дракона (+300 макс. HP, +2,500 БМ)" },
+  { rank: 3, name: "Аудиенция у Перугиуса", reqCp: 32000, line: "pg_master",
+    reqText: "Начать путь: «👑 Аудиенция у Перугиуса»",
+    rewardText: "Драконье Имя и Фактор Лапласа (+1,000🪙, +2 к отношениям Сил)" }
 ];
 
+// Ветви Грейрат: у каждой свой характер, свой союз и своя цена.
+// allyCp — сколько мощи даёт союз, trait — что даёт ветвь, если встать за неё.
 const GREYRAT_BRANCHES = [
-  { id: "boreas", name: "Северная Ветвь: Бореас Грейрат", region: "Роа", leader: "Саурос Бореас Грейрат", desc: "Яростные мечники и крепости." },
-  { id: "notos", name: "Южная Ветвь: Нотос Грейрат", region: "Милис/Асура", leader: "Амарант Нотос Грейрат", desc: "Богатство и магия воды." },
-  { id: "zephyrus", name: "Восточная Ветвь: Зефирос Грейрат", region: "Арс", leader: "Филипп Зефирос Грейрат", desc: "Шпионаж и тайные договоры." },
-  { id: "euros", name: "Западная Ветвь: Эурос Грейрат", region: "Западные порты", leader: "Гарольд Эурос Грейрат", desc: "Торговый флот и верфи." }
+  { id: "boreas", name: "Северная Ветвь: Бореас Грейрат", region: "Роа", leader: "Саурос Бореас Грейрат",
+    desc: "Яростные мечники и крепости. Не прощают трусости и уважают тех, кто выстоял.",
+    gift: "sword", giftText: "+25 к опыту Бога Меча", allyCp: 400, line: "grd_boreas" },
+  { id: "notos", name: "Южная Ветвь: Нотос Грейрат", region: "Милис/Асура", leader: "Амарант Нотос Грейрат",
+    desc: "Богатство и магия воды. Платит вперёд и помнит каждую монету.",
+    gift: "water", giftText: "+25 к опыту Бога Воды", allyCp: 250, line: "grd_notos" },
+  { id: "zephyrus", name: "Восточная Ветвь: Зефирос Грейрат", region: "Арс", leader: "Филипп Зефирос Грейрат",
+    desc: "Шпионаж и тайные договоры. Их союз невидим — и поэтому дороже.",
+    gift: "intellect", giftText: "+15 Знаний", allyCp: 200, line: null },
+  { id: "euros", name: "Западная Ветвь: Эурос Грейрат", region: "Западные порты", leader: "Гарольд Эурос Грейрат",
+    desc: "Торговый флот и верфи. Деньги, которые сами себя считают.",
+    gift: "coins", giftText: "+150🪙 каждый год", allyCp: 150, line: null }
 ];
 
 const FIRST_WAR_TABLETS = [
@@ -313,30 +331,30 @@ const FIRST_WAR_TABLETS = [
 ];
 
 const REGIONS = {
-  asura: { name: "🏰 Королевство Асура", travelCost: 25, mapX: 165, mapY: 108, color: "#fbbf24", desc: "Сердце мира, столица Арс и плодородные земли Фитоа.", origins: [
+  asura: { mapLabel: "Асура", name: "🏰 Королевство Асура", travelCost: 25, mapX: 165, mapY: 108, color: "#fbbf24", desc: "Сердце мира, столица Арс и плодородные земли Фитоа.", origins: [
     { id: "boreas", name: "Дом Бореас Грейрат", coins: 110, manaBonus: 15, int: 5, swordGod: 12, log: "Вы открыли глаза в крепости Роа ветви Бореас." },
     { id: "notos", name: "Дом Нотос Грейрат", coins: 95, manaBonus: 18, int: 6, waterGod: 12, log: "Мраморные залы юга Асуры." },
     { id: "knight_buena", name: "Рыцари деревни Буэна", coins: 25, manaBonus: 8, swordGod: 10, int: 3, log: "Уютный дом у пшеничных полей." },
     { id: "slums_ars", name: "Трущобы столицы Арс", coins: 4, manaBonus: 5, northGod: 14, int: 2, log: "Суровые переулки столицы." }
   ]},
-  ranoa: { name: "❄️ Королевства Раноа", travelCost: 45, mapX: 168, mapY: 42, color: "#38bdf8", desc: "Северные земли, Шария и Святая Земля Меча.", origins: [
+  ranoa: { mapLabel: "Раноа", name: "❄️ Королевства Раноа", travelCost: 45, mapX: 168, mapY: 42, color: "#38bdf8", desc: "Северные земли, Шария и Святая Земля Меча.", origins: [
     { id: "academy_prof", name: "Семья Профессора", coins: 75, manaBonus: 30, int: 12, log: "Вы выросли среди фолиантов Шарии." },
     { id: "magic_guild", name: "Цех Артефакторов", coins: 45, manaBonus: 20, int: 8, log: "Мастерская кристаллов маны." },
     { id: "winter_hunter", name: "Охотники ледников", coins: 12, manaBonus: 8, northGod: 14, int: 3, log: "Ледяной ветер Севера." }
   ]},
-  demon: { name: "🌋 Демонический Континент", travelCost: 75, mapX: 288, mapY: 66, color: "#ef4444", desc: "Багровые пустоши, монстры и Город Ветров.", origins: [
+  demon: { mapLabel: "Демон. Континент", name: "🌋 Демонический Континент", travelCost: 75, mapX: 288, mapY: 66, color: "#ef4444", desc: "Багровые пустоши, монстры и Город Ветров.", origins: [
     { id: "migurd_village", name: "Деревня Мигурд", coins: 10, manaBonus: 40, int: 8, log: "Сапфировые волосы и телепатия." },
     { id: "wind_port", name: "Контрабандисты Ветров", coins: 35, manaBonus: 12, northGod: 16, int: 5, log: "Шум портовых таверн." }
   ]},
-  great_forest: { name: "🌲 Великий Лес", travelCost: 40, mapX: 222, mapY: 145, color: "#10b981", desc: "Вековые кроны, родина клана Дорудиа.", origins: [
+  great_forest: { mapLabel: "Великий Лес", name: "🌲 Великий Лес", travelCost: 40, mapX: 222, mapY: 145, color: "#10b981", desc: "Вековые кроны, родина клана Дорудиа.", origins: [
     { id: "dorudia", name: "Клан Дорудиа", coins: 18, manaBonus: 12, swordGod: 20, int: 4, log: "Дом среди гигантских ветвей." },
     { id: "scout", name: "Лесные следопыты", coins: 8, manaBonus: 8, northGod: 18, int: 4, log: "Бесшумные прыжки по кронам." }
   ]},
-  milis: { name: "⛪ Святая Земля Милис", travelCost: 45, mapX: 168, mapY: 178, color: "#e2e8f0", desc: "Белокаменная столица у Священного Древа.", origins: [
+  milis: { mapLabel: "Милис", name: "⛪ Святая Земля Милис", travelCost: 45, mapX: 168, mapY: 178, color: "#e2e8f0", desc: "Белокаменная столица у Священного Древа.", origins: [
     { id: "temple_knight", name: "Рыцари Храма", coins: 60, manaBonus: 15, waterGod: 18, int: 5, log: "Белый плащ Святого Милиса." },
     { id: "merchant", name: "Торговый дом Милиса", coins: 80, manaBonus: 5, int: 8, log: "Шелка, специи и караваны." }
   ]},
-  begaritt: { name: "🏜️ Континент Бегаритт", travelCost: 90, mapX: 62, mapY: 162, color: "#f59e0b", desc: "Раскалённая пустыня и смертоносные лабиринты.", origins: [
+  begaritt: { mapLabel: "Бегаритт", name: "🏜️ Континент Бегаритт", travelCost: 90, mapX: 62, mapY: 162, color: "#f59e0b", desc: "Раскалённая пустыня и смертоносные лабиринты.", origins: [
     { id: "dungeon_raider", name: "Искатели Лабиринтов", coins: 55, manaBonus: 18, swordGod: 15, int: 6, log: "Жизнь у входа в лабиринт." },
     { id: "desert_nomad", name: "Кочевники Барханов", coins: 15, manaBonus: 8, northGod: 20, int: 4, log: "Сквозь бури и пески." }
   ]}

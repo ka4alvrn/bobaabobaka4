@@ -69,13 +69,14 @@ function grantBirthYearBonus() {
 function syncTelegramBackButton() {
   const bb = tg?.BackButton;
   if (!bb) return;
-  const modals = ["destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modals = ["story-modal", "destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   const anyOpen = modals.some(id => $(id) && $(id).style.display && $(id).style.display !== "none");
   try { if (anyOpen) bb.show(); else bb.hide(); } catch (e) { /* Telegram может быть недоступен — не критично */ }
 }
 
 function handleTelegramBack() {
   const closers = [
+    ["story-modal", closeStoryModal],
     ["destiny-modal", closeDestinyWindow],
     ["year-summary-modal", closeYearSummary],
     ["portrait-modal", closePortraitModal],
@@ -101,7 +102,7 @@ function handleTelegramBack() {
 
 if (tg?.BackButton) {
   try { tg.BackButton.onClick(handleTelegramBack); } catch (e) {}
-  const modalIds = ["destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
+  const modalIds = ["story-modal", "destiny-modal", "year-summary-modal", "event-modal", "battle-modal", "dungeon-modal", "action-modal", "confirm-modal", "portrait-modal", "save-modal", "birth-modal"];
   try {
     const observer = new MutationObserver(() => syncTelegramBackButton());
     modalIds.forEach(id => { const el = $(id); if (el) observer.observe(el, { attributes: true, attributeFilter: ["style"] }); });
@@ -532,7 +533,7 @@ function initCharacter(fName, sName, gender, race, regionKey, origin, trait, fam
       { id: "father", name: fatherName, gender: "male", race: race.name, age: startAge + 24, role: "Отец • Глава дома", cp: 650, relation: 85, status: "Семья", isFamily: true, isDead: false },
       { id: "mother", name: motherName, gender: "female", race: race.name, age: startAge + 22, role: "Мать • Хранительница", cp: 450, relation: 95, status: "Семья", isFamily: true, isDead: false }
     ],
-    spouse: null, children: []
+    spouse: null, children: [], socialAp: 3
   };
 
   selectedMapRegion = regionKey;
@@ -710,84 +711,391 @@ function jumpToWorldMap() {
 }
 
 // =========================================================================
+// ЖИВОЙ МИР: у регионов есть состояния, они меняются и дают последствия
+// =========================================================================
+// Идея: мир не декорация. Каждый регион раз в несколько лет получает
+// состояние (голод, чума, война, ярмарка, репрессии, спокойствие).
+// Состояния меняют цены, доход, заказы и открывают особые сюжеты.
+// Игрок может вмешаться: прислать хлеб, выкупить пленных, наняться.
+// Помог — регион это помнит. Ушёл — тоже помнит.
+
+const WORLD_STATES = [
+  {
+    id: "calm", name: "Спокойствие", icon: "🌤", years: [1, 2], weight: 30,
+    desc: "Торговля идёт, поля зреют, стража спит у ворот.",
+    color: "#94a3b8",
+    effect: { travel: 1, income: 1, prices: 1 }
+  },
+  {
+    id: "famine", name: "Голод", icon: "🌾", years: [2, 4], weight: 20,
+    desc: "Третий месяц без дождя. Амбары пусты, цены растут, у ворот стоят чужие.",
+    color: "#f59e0b",
+    effect: { travel: 1.2, income: 0.7, prices: 1.5 },
+    help: {
+      cost: 120, label: "🌾 Прислать хлеб", good: "Сытый регион помнит добро: +40 репутации, а на рынке цены вернулись в норму.",
+      bad: "Хлеба не хватило на всех. Голод останется ещё год."
+    }
+  },
+  {
+    id: "plague", name: "Чума", icon: "🦠", years: [1, 3], weight: 14,
+    desc: "По улицам возят дым. Ворота закрыты, лекари спят у постелей.",
+    color: "#a855f7",
+    effect: { travel: 2, income: 0.5, prices: 1.8 },
+    help: {
+      cost: 90, label: "🧪 Дать зелья и лекарей", good: "Вы спасли квартал: +40 репутации, +20 к ремеслу, а регион заговорил о вас.",
+      bad: "Лекарей не хватило. Морва продолжится без вас."
+    }
+  },
+  {
+    id: "war", name: "Война", icon: "⚔️", years: [2, 5], weight: 16,
+    desc: "Мобилизация, реквизиции, шёпот в тавернах. Дороги держат отряды.",
+    color: "#ef4444",
+    effect: { travel: 1.5, income: 0.8, prices: 1.6 },
+    help: {
+      cost: 0, label: "🛡️ Наняться в отряд", good: "Из боя вы вышли живым и с именем: +60 славы, +25 к мечу, +200🪙.",
+      bad: "Отряд потерян. Вы унесли ноги, но и только."
+    }
+  },
+  {
+    id: "fair", name: "Ярмарка", icon: "🎪", years: [1, 2], weight: 20,
+    desc: "Столичный базар грохочет на тридцать миль. Всё продаётся и всё покупается.",
+    color: "#eab308",
+    effect: { travel: 0.8, income: 1.3, prices: 0.75 },
+    help: {
+      cost: 50, label: "🎪 Снять лавку", good: "Товар с переплатой: +350🪙 и знакомство с торговым домом.",
+      bad: "Лавка простояла пустой — ярмарка прошла мимо."
+    }
+  },
+  {
+    id: "purge", name: "Репрессии", icon: "🔒", years: [1, 3], weight: 12,
+    desc: "Корона ищет заговор. Стучат ночью, допрашивают днём, если согласны. Донос — почётная профессия.",
+    color: "#db2777",
+    effect: { travel: 1.3, income: 0.9, prices: 1.3 },
+    help: {
+      cost: 150, label: "💰 Выкупить невиновных", good: "Двадцать человек вышли из ямы: +50 репутации, +30 влияния, а доносчики затихли.",
+      bad: "Денег хватило на двоих из двадцати."
+    }
+  }
+];
+
+const WORLD_STATE_BY_ID = {};
+WORLD_STATES.forEach(s => WORLD_STATE_BY_ID[s.id] = s);
+
+// Создание состояния мира для старого сейва и новой игры
+function ensureWorldState() {
+  if (!worldState.regionStates || typeof worldState.regionStates !== "object") worldState.regionStates = {};
+  if (!worldState.regionOpinion || typeof worldState.regionOpinion !== "object") worldState.regionOpinion = {};
+  Object.keys(REGIONS).forEach(k => {
+    if (!worldState.regionStates[k]) worldState.regionStates[k] = { id: "calm", yearsLeft: 1 };
+    if (typeof worldState.regionOpinion[k] !== "number") worldState.regionOpinion[k] = 0;
+  });
+  if (!Array.isArray(worldState.worldNews)) worldState.worldNews = [];
+}
+
+function currentRegionState(key) {
+  ensureWorldState();
+  const st = worldState.regionStates[key] || { id: "calm", yearsLeft: 1 };
+  return { ...st, def: WORLD_STATE_BY_ID[st.id] || WORLD_STATE_BY_ID.calm };
+}
+
+function regionOpinion(key) { ensureWorldState(); return worldState.regionOpinion[key] || 0; }
+
+// Раз в год: старые состояния истекают, иногда рождаются новые
+function advanceWorldStates() {
+  ensureWorldState();
+  const news = [];
+  Object.keys(REGIONS).forEach(k => {
+    const st = worldState.regionStates[k];
+    if (st.id !== "calm") {
+      st.yearsLeft--;
+      if (st.yearsLeft <= 0) {
+        const old = WORLD_STATE_BY_ID[st.id];
+        worldState.regionStates[k] = { id: "calm", yearsLeft: 1 };
+        news.push({ region: k, text: `${old.icon} <b>${regionShortName(k)}</b>: ${old.name.toLowerCase()} ${({famine:"закончился",plague:"закончилась",war:"закончилась",fair:"закончилась",purge:"закончились"})[old.id] || "закончилась"}. Земля выдохнула.` });
+      }
+      return;
+    }
+    // Спокойный регион может впасть в состояние: 35% на регион в год
+    if (Math.random() < 0.35) {
+      const pool = WORLD_STATES.filter(s => s.id !== "calm");
+      const total = pool.reduce((a, s) => a + s.weight, 0);
+      let roll = Math.random() * total, picked = pool[0];
+      for (const s of pool) { roll -= s.weight; if (roll <= 0) { picked = s; break; } }
+      const len = picked.years[0] + Math.floor(Math.random() * (picked.years[1] - picked.years[0] + 1));
+      worldState.regionStates[k] = { id: picked.id, yearsLeft: len };
+      news.push({ region: k, text: `${picked.icon} <b>${regionShortName(k)}</b> — ${picked.name.toLowerCase()}. ${picked.desc}` });
+    }
+  });
+  // Вестник: не больше трёх новостей в год, иначе окно года превратится в газету
+  worldState.worldNews = news.slice(0, 3);
+  if (news.length) {
+    const list = worldState.worldNews.map(n => `${n.text}`).join("<br>");
+    queueYearExtra("Вестник мира", list, "📰");
+    worldState.worldNews.forEach(n => worldState.chronicles.push({ year: worldState.currentWorldYear, text: n.text }));
+  }
+}
+
+function regionShortName(k) {
+  const r = REGIONS[k];
+  if (!r) return k;
+  return r.mapLabel || r.name.replace(/^[^\s]+\s/, "");
+}
+
+// Множители состояния — используются ценами и доходом
+function worldPriceMult(key) {
+  const st = currentRegionState(key);
+  return st.def.effect?.prices || 1;
+}
+function worldTravelMult(key) {
+  const st = currentRegionState(key);
+  return st.def.effect?.travel || 1;
+}
+
+// Вмешательство игрока: помочь региону или пройти мимо
+function helpRegion(key) {
+  const st = currentRegionState(key);
+  if (st.id === "calm") return showActionModal("Живой мир", "В этом регионе сейчас спокойно — помогать некому.", "🌤");
+  const h = st.def.help;
+  if (!h) return;
+  if (player.coins < h.cost) return showActionModal("Живой мир", `Нужно ${h.cost}🪙.`, h.icon || "🪙");
+  if (h.cost) player.coins -= h.cost;
+
+  // Война — проверка силой, остальные — деньгами и волей
+  let ok = true;
+  if (st.id === "war") {
+    ok = calcCombatPower(player) >= 2500 || Math.random() < 0.5;
+    if (ok) { player.swordGodExp += 25; player.squadFame += 60; player.coins += 200; }
+    else { player.hp = Math.max(10, player.hp - 40); }
+  } else {
+    player.asuraInfluence = (player.asuraInfluence || 0) + 20;
+  }
+
+  if (ok) {
+    ensureWorldState();
+    worldState.regionStates[key] = { id: "calm", yearsLeft: 1 };
+    worldState.regionOpinion[key] = regionOpinion(key) + 40;
+    worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} помог ${regionShortName(key)}: ${h.label.replace(/^[^\s]+\s/, "")}.` });
+    queueYearExtra("Живой мир", `${REGIONS[key].name}: ${h.good}`, "🌍");
+    log(`🌍 ${REGIONS[key].name}: ${h.good}`);
+    playSound("win");
+    showActionModal(`${st.def.icon} ${st.def.name} — ${regionShortName(key)}`, `<div style="text-align:left; line-height:1.55;">${h.good}</div>`, "🌍");
+  } else {
+    queueYearExtra("Живой мир", `${REGIONS[key].name}: ${h.bad}`, "🌍");
+    log(`🌍 ${REGIONS[key].name}: ${h.bad}`);
+    showActionModal(`${st.def.icon} ${st.def.name} — ${regionShortName(key)}`, `<div style="text-align:left; line-height:1.55;">${h.bad}</div>`, "🌍");
+  }
+
+  const wasInYear = yearFlowActive || yearReportOpen;
+  updateUI(); renderTravelTab();
+  finishYearIfActive(wasInYear, "Живой мир", `${regionShortName(key)}: ${ok ? h.good : h.bad}`, "🌍");
+}
+
+// Блок «что происходит в мире» на вкладке карты
+function renderWorldNews() {
+  const box = $("world-news-box");
+  if (!box) return;
+  ensureWorldState();
+  const rows = Object.keys(REGIONS).map(k => {
+    const st = currentRegionState(k);
+    const op = regionOpinion(k);
+    const isHere = player.currentRegionKey === k;
+    const price = Math.round(worldPriceMult(k) * 100);
+    const travel = Math.round(worldTravelMult(k) * 100);
+    return `<div class="world-state-row" style="border-left-color:${st.def.color};">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+        <div>
+          <b style="font-size:12px; ${isHere ? "color:#fde68a;" : ""}">${esc(regionShortName(k))}${isHere ? " 📍" : ""}</b>
+          <span style="font-size:11px; color:${st.def.color}; margin-left:5px;">${st.def.icon} ${esc(st.def.name)}</span>
+          <span style="font-size:10px; color:var(--muted); margin-left:4px;">${st.id === "calm" ? "" : `ещё ${st.yearsLeft} г.`}</span>
+        </div>
+        <div style="font-size:10px; color:${op >= 20 ? "#34d399" : op <= -20 ? "#f87171" : "#94a3b8"}; white-space:nowrap;">
+          ${op > 0 ? "+" : ""}${op} мнение
+        </div>
+      </div>
+      ${st.id !== "calm" ? `<div style="font-size:10.5px; color:#cbd5e1; margin-top:3px; line-height:1.4;">${esc(st.def.desc)}</div>
+        <div style="font-size:10px; color:#94a3b8; margin-top:3px;">Цены ×${(price / 100).toFixed(2)} • Дорога ×${(travel / 100).toFixed(2)}</div>
+        <button style="width:100%; margin-top:5px; font-size:11px; background:${st.def.color}; color:#0b0c10; padding:5px;" onclick="helpRegion('${k}')">${esc(st.def.help?.label || "Вмешаться")}${st.def.help?.cost ? ` (${st.def.help.cost}🪙)` : ""}</button>` : ""}
+    </div>`;
+  }).join("");
+
+  box.innerHTML = `<div class="card" style="margin-bottom:0; background:#0e1622; border-color:rgba(56,189,248,0.25);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <b style="font-size:12.5px; color:#7dd3fc;">🌍 Что сейчас в мире</b>
+      <span style="font-size:10px; color:var(--muted);">состояния меняются каждый год</span>
+    </div>
+    <div style="margin-top:7px;">${rows}</div>
+  </div>`;
+}
+
+// =========================================================================
 // ИНТЕРАКТИВНАЯ КАРТА МИРА И СЕТЬ ТЕЛЕПОРТОВ
 // =========================================================================
 function renderTravelTab() {
   const mapBox = $("world-map-box"), cardBox = $("map-region-card"), tpBox = $("teleport-network-box");
   if (!mapBox) return;
+  ensureWorldState();
+  renderWorldNews();
 
-  const isTpComplete = (worldState.teleportNodes?.length || 0) >= 6;
+  const tp = worldState.teleportNodes || [];
+  const hasHub = tp.length > 0;
+  const isTpComplete = tp.length >= 6;
+
+  // --- Дороги между регионами ---
   const routesSvg = MAP_ROUTES.map(([a, b]) => {
     const ra = REGIONS[a], rb = REGIONS[b];
-    const hasTp = worldState.teleportNodes?.includes(a) && worldState.teleportNodes?.includes(b);
-    return `<line x1="${ra.mapX}" y1="${ra.mapY}" x2="${rb.mapX}" y2="${rb.mapY}" stroke="${hasTp ? "#38bdf8" : "rgba(251,191,36,0.35)"}" stroke-width="${hasTp ? 2 : 1.3}" stroke-dasharray="${hasTp ? "none" : "4 3"}"/>`;
+    const bothBuilt = tp.includes(a) && tp.includes(b);
+    const oneBuilt = tp.includes(a) || tp.includes(b);
+    const col = bothBuilt ? "#22d3ee" : "rgba(148,163,184,0.35)";
+    const w = bothBuilt ? 2.2 : 1.4;
+    const dash = bothBuilt ? "none" : "5 4";
+    const glow = bothBuilt ? `<line x1="${ra.mapX}" y1="${ra.mapY}" x2="${rb.mapX}" y2="${rb.mapY}" stroke="#22d3ee" stroke-width="6" opacity="0.18"/>` : "";
+    return `${glow}<line x1="${ra.mapX}" y1="${ra.mapY}" x2="${rb.mapX}" y2="${rb.mapY}" stroke="${col}" stroke-width="${w}" stroke-dasharray="${dash}" stroke-linecap="round"/>`;
   }).join("");
 
+  // Ближайшая точка прибытия: если кругов нет — обычный путь; если есть — от ближайшего круга
+  // --- Точки регионов ---
   const nodesSvg = Object.entries(REGIONS).map(([k, r]) => {
     const isHere = player.currentRegionKey === k, isSel = selectedMapRegion === k;
-    const hasLost = player.relations.some(x => x.isLost);
-    const hasPower = worldState.sevenPowers.some(p => p.region === k && player.discoveredSevenPowers.includes(p.rank) && player.currentPowersSeat !== p.rank);
-    const hasTab = FIRST_WAR_TABLETS.some(t => t.regionKey === k && !player.tabletsDeciphered.includes(t.id));
-    const hasTp = worldState.teleportNodes?.includes(k);
+    const hasPower = worldState.sevenPowers?.some(p => p.region === k && (player.discoveredSevenPowers || []).includes(p.rank) && player.currentPowersSeat !== p.rank);
+    const hasTab = (typeof FIRST_WAR_TABLETS !== "undefined" ? FIRST_WAR_TABLETS : []).some(t => t.regionKey === k && !(player.tabletsDeciphered || []).includes(t.id));
+    const built = tp.includes(k);
+    const shortName = r.mapLabel || r.name.replace(/^[^\s]+\s/, "");
 
-    let markerIcon = "";
-    if (hasPower) markerIcon += "🏆";
-    if (hasTab) markerIcon += "📜";
-    if (hasLost && !isHere) markerIcon += "⚡";
-
+    const icon = hasPower ? "🏆" : hasTab ? "📜" : built ? "🌀" : "";
     return `<g class="map-node ${isHere ? "active" : ""} ${isSel ? "selected" : ""}" onclick="selectMapRegion('${k}')">
-      ${isHere ? `<circle cx="${r.mapX}" cy="${r.mapY}" r="12" fill="none" stroke="#fbbf24" stroke-width="2" class="map-pin-pulse"/>` : ""}
-      <circle class="map-pin-circle" cx="${r.mapX}" cy="${r.mapY}" r="${isHere ? 9 : 7.5}" fill="${r.color}" stroke="${isSel ? "#fbbf24" : "#0b0c10"}" stroke-width="2"/>
-      ${hasTp ? `<circle cx="${r.mapX}" cy="${r.mapY}" r="3" fill="#38bdf8"/>` : ""}
-      <text x="${r.mapX}" y="${r.mapY + 18}" text-anchor="middle" fill="#e5e7eb" font-size="8.5" font-weight="700">${r.name.replace(/^[^\s]+\s/, "")}</text>
-      ${markerIcon ? `<text x="${r.mapX + 10}" y="${r.mapY - 6}" font-size="9">${markerIcon}</text>` : ""}
+      <circle cx="${r.mapX}" cy="${r.mapY}" r="17" fill="${r.color}" opacity="0.10"/>
+      ${isHere ? `<circle cx="${r.mapX}" cy="${r.mapY}" r="15" fill="none" stroke="#fde68a" stroke-width="1.8" class="map-pin-pulse"/>` : ""}
+      <circle class="map-pin-circle" cx="${r.mapX}" cy="${r.mapY}" r="${isHere ? 9.5 : 7.5}" fill="${r.color}"
+        stroke="${isSel ? "#fde68a" : isHere ? "#f59e0b" : "rgba(0,0,0,0.7)"}" stroke-width="${isSel ? 3 : 2}"/>
+      <circle cx="${r.mapX - 2}" cy="${r.mapY - 2}" r="2.6" fill="rgba(255,255,255,0.55)"/>
+      <text x="${r.mapX}" y="${r.mapY + 22}" text-anchor="middle" fill="#e2e8f0" font-size="9.5" font-weight="700"
+        style="paint-order:stroke; stroke:#080c14; stroke-width:3px; stroke-linejoin:round;">${esc(shortName)}</text>
+      ${icon ? `<text x="${r.mapX + 11}" y="${r.mapY - 9}" font-size="11" style="paint-order:stroke; stroke:#080c14; stroke-width:3px;">${icon}</text>` : ""}
     </g>`;
   }).join("");
 
-  mapBox.innerHTML = `<svg class="world-map-svg" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg">
-    <rect width="360" height="220" fill="#0b1322"/>
-    <!-- Континенты Шестиликого Мира -->
-    <path d="M120,18 L215,16 L228,62 L210,128 L175,148 L125,130 L118,65 Z" fill="#1e293b" stroke="#334155" stroke-width="1.2"/>
-    <path d="M135,18 L210,18 L215,58 L130,62 Z" fill="#1e3a5f" opacity="0.65"/>
-    <path d="M192,126 L252,122 L256,162 L205,168 Z" fill="#143628" stroke="#1e4d3a" stroke-width="1"/>
-    <path d="M135,154 L205,156 L195,202 L140,198 Z" fill="#283044" stroke="#475569" stroke-width="1"/>
-    <path d="M250,28 L338,24 L344,104 L268,112 L244,75 Z" fill="#3b1920" stroke="#7f1d1d" stroke-width="1.2"/>
-    <path d="M20,118 L104,122 L110,198 L24,195 Z" fill="#3b2b13" stroke="#92400e" stroke-width="1.2"/>
+  mapBox.innerHTML = `<svg class="world-map-svg" viewBox="0 0 380 230" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="mg-sea" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0d1a2e"/><stop offset="100%" stop-color="#060b14"/>
+      </linearGradient>
+      <radialGradient id="mg-glow"><stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+      <filter id="mg-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    </defs>
+
+    <rect width="380" height="230" fill="url(#mg-sea)"/>
+    <!-- сетка меридианов -->
+    <g stroke="rgba(125,211,252,0.07)" stroke-width="0.5">
+      ${[30,60,90,120,150,180,210,240,270,300,330,360].map(x=>`<line x1="${x}" y1="0" x2="${x}" y2="230"/>`).join("")}
+      ${[30,60,90,120,150,180,210].map(y=>`<line x1="0" y1="${y}" x2="380" y2="${y}"/>`).join("")}
+    </g>
+    <!-- береговое свечение -->
+    <ellipse cx="180" cy="110" rx="150" ry="95" fill="url(#mg-glow)" opacity="0.5"/>
+
+    <!-- ===== РАНОА: северный континент со снегами ===== -->
+    <path d="M118,34 L150,20 L205,16 L248,30 L256,56 L240,78 L206,84 L168,76 L134,66 Z"
+      fill="#1b3550" stroke="#3b6d94" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M120,36 L186,22 L236,34 L246,52 L212,60 L172,56 L136,50 Z" fill="#2a5a7d" opacity="0.55"/>
+    <path d="M150,20 L205,16 L248,30 L240,38 L196,28 L158,30 Z" fill="#e2f2ff" opacity="0.75" filter="url(#mg-soft)"/>
+    <path d="M196,28 L240,38 L236,48 L198,40 Z" fill="#e2f2ff" opacity="0.45" filter="url(#mg-soft)"/>
+
+    <!-- ===== СВЯТАЯ ЗЕМЛЯ МИЛИС: узкий южный берег ===== -->
+    <path d="M152,196 L206,190 L262,176 L268,190 L214,206 L156,210 Z"
+      fill="#332e40" stroke="#7c7290" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M160,198 L210,193 L256,181 L258,186 L208,199 L164,204 Z" fill="#cbd5e1" opacity="0.18"/>
+
+    <!-- ===== ВЕЛИКИЙ ЛЕС: зелёный остров между ===== -->
+    <path d="M212,118 L250,112 L272,130 L266,158 L236,168 L210,152 L204,132 Z"
+      fill="#143d2a" stroke="#2f8f5b" stroke-width="1.4" stroke-linejoin="round"/>
+    <g fill="#1e6b45" opacity="0.75">
+      <path d="M222,136 l5,-9 l5,9 z"/><path d="M236,130 l5,-9 l5,9 z"/><path d="M232,148 l5,-9 l5,9 z"/><path d="M248,140 l5,-9 l5,9 z"/>
+    </g>
+
+    <!-- ===== БЕГАРИТТ: западная пустыня ===== -->
+    <path d="M18,104 L92,100 L112,132 L104,190 L40,198 L16,158 Z"
+      fill="#3b2d15" stroke="#a17326" stroke-width="1.4" stroke-linejoin="round"/>
+    <g fill="#5c4519" opacity="0.75">
+      <path d="M30,150 q14,-10 28,0 q-14,9 -28,0 z"/>
+      <path d="M56,120 q12,-9 24,0 q-12,8 -24,0 z"/>
+      <path d="M34,175 q10,-7 20,0 q-10,7 -20,0 z"/>
+    </g>
+
+    <!-- ===== ДЕМОНИЧЕСКИЙ КОНТИНЕНТ: восток, багровый ===== -->
+    <path d="M268,24 L338,20 L362,54 L354,104 L318,128 L282,110 L264,72 Z"
+      fill="#3d1a22" stroke="#a3323f" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M284,38 L336,32 L350,60 L340,92 L312,104 L292,86 Z" fill="#5c2028" opacity="0.6"/>
+    <g fill="#7f1d1d" opacity="0.8">
+      <path d="M300,72 l6,-12 l6,12 z"/><path d="M318,60 l6,-12 l6,12 z"/>
+    </g>
+    <circle cx="326" cy="88" r="3" fill="#f97316" opacity="0.85"/>
+
+    <!-- ===== АСУРА: центр, плодородные земли ===== -->
+    <path d="M126,86 L178,80 L210,96 L216,120 L196,146 L152,152 L126,132 L118,106 Z"
+      fill="#243b1c" stroke="#6d9b45" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M132,92 L176,86 L202,100 L206,118 L190,138 L156,144 L134,128 Z" fill="#33532a" opacity="0.6"/>
+    <g stroke="#8fbc6a" stroke-width="0.7" opacity="0.5">
+      <path d="M140,110 q16,-14 32,0"/><path d="M150,126 q14,-12 28,0"/>
+    </g>
+
+    <!-- подписи морей -->
+    <text x="196" y="222" text-anchor="middle" fill="rgba(125,211,252,0.45)" font-size="7" letter-spacing="2.5" font-weight="600">ВЕЛИКИЙ ОКЕАН</text>
+    <text x="112" y="46" text-anchor="middle" fill="rgba(125,211,252,0.30)" font-size="6" letter-spacing="2">СЕВЕРНОЕ МОРЕ</text>
+
     ${routesSvg}
     ${nodesSvg}
   </svg>`;
 
   const sel = REGIONS[selectedMapRegion] || REGIONS.asura;
   const here = player.currentRegionKey === selectedMapRegion;
-  const cost = isTpComplete ? 0 : sel.travelCost;
+  const standAtHub = tp.includes(player.currentRegionKey);
+  const canFast = hasHub && !here && standAtHub;
+  const fastCost = Math.max(3, Math.round(sel.travelCost * 0.15));
+  const cost = isTpComplete ? 0 : canFast ? fastCost : sel.travelCost;
+  const instant = isTpComplete || canFast;
   const canGo = !here && player.age >= 8 && player.coins >= cost;
+
   if (cardBox) {
-    cardBox.innerHTML = `<div class="card" style="border-color:${sel.color}; margin-bottom:0;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <b style="font-size:14px;">${sel.name}</b>
-        <span class="badge-rare">${here ? "Вы здесь 📍" : isTpComplete ? "⚡ Мгновенный Телепорт (0🪙)" : `${cost}🪙 • 1 год пути`}</span>
+    cardBox.innerHTML = `<div class="card" style="border-color:${sel.color}; margin-bottom:0; position:relative; overflow:hidden;">
+      <div style="position:absolute; inset:0; background:radial-gradient(circle at 90% 10%, ${sel.color}22 0%, transparent 60%); pointer-events:none;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <b style="font-size:14.5px;">${sel.name}</b>
+        <span class="badge-rare" style="white-space:nowrap;">${here ? "Вы здесь 📍" : isTpComplete ? "⚡ бесплатно • мгновенно" : canFast ? `🌀 ${fastCost}🪙 • мгновенно` : `${sel.travelCost}🪙 • 1 год пути`}</span>
       </div>
-      <div style="font-size:11px; color:var(--muted); margin:5px 0;">${sel.desc}</div>
-      <button ${canGo ? "" : "disabled"} style="width:100%; background:${here ? "#059669" : "#312e81"};" onclick="travelToRegion('${selectedMapRegion}')">
-        ${here ? "✓ Текущее местоположение" : player.age < 8 ? "Путешествия с 8 лет" : isTpComplete ? "⚡ Перенестись Телепортом" : `⛵ Отправиться в путь (${cost}🪙)`}
+      <div style="font-size:11px; color:var(--muted); margin:6px 0 8px; line-height:1.5;">${sel.desc}</div>
+      ${!here ? `<div style="font-size:10.5px; color:${instant ? "#67e8f9" : "#94a3b8"}; margin-bottom:7px; line-height:1.45;">
+        ${isTpComplete
+          ? `⚡ Сеть завершена: вы переноситесь в <b>${esc(sel.name.replace(/^[^\s]+\s/, ""))}</b> мгновенно и бесплатно.`
+          : canFast
+            ? `🌀 Вы стоите у круга. Переход в <b>${esc(sel.name.replace(/^[^\s]+\s/, ""))}</b> займёт день вместо года.`
+            : `🌀 Быстрый переход работает из региона с построенным кругом. Кругов: ${tp.length}/6 — постройте круг здесь, и путь перестанет отнимать годы.`}
+      </div>` : ""}
+      <button ${canGo ? "" : "disabled"} style="width:100%; background:${here ? "#059669" : instant ? "linear-gradient(90deg,#0891b2,#0e7490)" : "#312e81"};" onclick="travelToRegion('${selectedMapRegion}')">
+        ${here ? "✓ Текущее местоположение" : player.age < 8 ? "Путешествия с 8 лет" : isTpComplete ? "⚡ Перенестись мгновенно (бесплатно)" : canFast ? `🌀 Быстрый переход (${fastCost}🪙)` : `⛵ Отправиться в путь (${sel.travelCost}🪙)`}
       </button>
     </div>`;
   }
 
   if (tpBox) {
-    const builtHere = worldState.teleportNodes?.includes(player.currentRegionKey);
-    const count = worldState.teleportNodes?.length || 0;
-    tpBox.innerHTML = `<div class="card" style="background:#10192b; border-color:#38bdf8;">
+    const builtHere = tp.includes(player.currentRegionKey);
+    const count = tp.length;
+    tpBox.innerHTML = `<div class="card" style="background:#10192b; border-color:#0891b2;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <b style="color:#38bdf8; font-size:12.5px;">🌀 Проект Династии: Сеть Телепортов</b>
+        <b style="color:#22d3ee; font-size:12.5px;">🌀 Сеть Телепортов</b>
         <span class="badge-rare">${count}/6 кругов</span>
       </div>
-      <div style="font-size:11px; color:var(--muted); margin:4px 0;">
-        ${isTpComplete ? "🌟 Сеть завершена! Все переходы между континентами бесплатны и мгновенны!" : "Воздвигните рунный круг в каждом из 6 регионов через поколения — перелёты станут бесплатными и займут 0 лет."}
+      <div style="font-size:11px; color:var(--muted); margin:5px 0; line-height:1.5;">
+        ${isTpComplete
+          ? "🌟 <b style='color:#67e8f9;'>Сеть завершена!</b> Все шесть кругов держат друг друга — переходы мгновенны и бесплатны."
+          : count > 0
+            ? `🌀 <b style='color:#67e8f9;'>Быстрый переход работает.</b> Встаньте в регионе с кругом — и сможете прыгать к любому другому кругу за ${Math.round(15)}% цены пути, без потери года. За все шесть кругов — бесплатно.`
+            : "Постройте первый круг — и между построенными регионами появится быстрый переход без потери года. Шесть кругов дают бесплатные мгновенные перелёты."}
       </div>
-      ${!isTpComplete ? `<button ${builtHere ? "disabled" : ""} style="width:100%; background:#0284c7; font-size:11px;" onclick="buildTeleportNode()">
-        ${builtHere ? "✓ Круг в этом регионе возведён" : "🌀 Возвести круг здесь (180🪙, нужно 40+ Знаний)"}
-      </button>` : ""}
+      <div style="display:flex; gap:4px; margin:7px 0;">
+        ${Object.keys(REGIONS).map(k => `<div title="${esc(REGIONS[k].name)}" style="flex:1; height:5px; border-radius:3px; background:${tp.includes(k) ? "#22d3ee" : "rgba(148,163,184,0.22)"}; box-shadow:${tp.includes(k) ? "0 0 6px #22d3ee" : "none"};"></div>`).join("")}
+      </div>
+      <button ${builtHere ? "disabled" : ""} style="width:100%; background:${builtHere ? "#0f766e" : "#0284c7"}; font-size:11px;" onclick="buildTeleportNode()">
+        ${builtHere ? "✓ Круг в этом регионе возведён" : "🌀 Возвести круг здесь (180🪙, 40+ Знаний)"}
+      </button>
     </div>`;
   }
 }
@@ -807,15 +1115,32 @@ function buildTeleportNode() {
 
 function travelToRegion(destKey) {
   const dest = REGIONS[destKey];
-  const isTp = (worldState.teleportNodes?.length || 0) >= 6;
-  const cost = isTp ? 0 : dest.travelCost;
-  if (player.age < 8 || !dest || player.coins < cost) return showActionModal("Путь", `Нужно ${cost}🪙 и возраст 8+!`, "🚢");
-  player.coins -= cost; player.currentRegionKey = destKey; selectedMapRegion = destKey;
-  if (isTp) {
-    log(`⚡ Мгновенный перенос в <b>${dest.name}</b>!`); playSound("magic");
+  if (!dest) return;
+  if (player.age < 8) return showActionModal("Путь", "Путешествия доступны с 8 лет!", "🚢");
+
+  const tp = worldState.teleportNodes || [];
+  const isComplete = tp.length >= 6;
+  // Быстрый переход: круг работает как выход. Стоите у круга — прыжок в любой
+  // регион стоит 15% пути и не съедает год. Нет круга под ногами — идёте обычным путём.
+  const fast = !isComplete && tp.length > 0 && tp.includes(player.currentRegionKey);
+  const cost = isComplete ? 0 : fast ? Math.max(3, Math.round(dest.travelCost * 0.15)) : dest.travelCost;
+  if (player.coins < cost) return showActionModal("Путь", `Нужно ${cost}🪙!`, "🚢");
+
+  player.coins -= cost;
+  player.currentRegionKey = destKey;
+  selectedMapRegion = destKey;
+
+  if (isComplete || fast) {
+    // Мгновенно: год не тратится
+    log(isComplete
+      ? `⚡ Мгновенный перенос в <b>${esc(dest.name)}</b> через завершённую сеть кругов.`
+      : `🌀 Быстрый переход в <b>${esc(dest.name)}</b> (${cost}🪙). Дорога заняла день, а не год.`);
+    playSound("magic");
+    queueYearExtra?.("Быстрый переход", `Вы перенеслись в ${esc(dest.name)} через круг телепортации.`, "🌀");
     updateUI(); renderTravelTab();
   } else {
-    log(`🚢 Вы прибыли в <b>${dest.name}</b>.`); playSound("calamity");
+    log(`🚢 Вы прибыли в <b>${esc(dest.name)}</b>.`);
+    playSound("calamity");
     ageUp(); renderTravelTab();
   }
 }
@@ -925,13 +1250,15 @@ function renderDestinyYearTab() {
 // --- вкладка «Линии судьбы»: сюжетные цепочки ---
 function renderDestinyLinesTab() {
   const nodes = getAvailableStoryNodes();
+  const thisYear = (typeof pickYearStoryNodes === "function") ? pickYearStoryNodes(3) : nodes;
+  const later = nodes.filter(n => !thisYear.some(t => t.node.id === n.node.id));
   let html = "";
 
   if (!nodes.length) {
     html += `<div class="destiny-card"><div class="destiny-muted">Сейчас новых завязок нет — живите, и судьба догонит.</div></div>`;
   } else {
-    html += `<div class="destiny-muted" style="margin-bottom:6px;">Доступно сейчас: ${nodes.length}</div>`;
-    nodes.forEach(({ line, node }) => {
+    html += `<div class="destiny-muted" style="margin-bottom:6px;">В этом году выпало: ${thisYear.length} • ждут своего года: ${later.length}</div>`;
+    thisYear.forEach(({ line, node }) => {
       html += `<div class="destiny-card story">
         <div class="destiny-line-title">${line.icon} ${esc(node.title)}</div>
         <div class="destiny-muted" style="margin-bottom:5px;">Линия: ${esc(line.title)}</div>
@@ -944,6 +1271,14 @@ function renderDestinyLinesTab() {
         }).join("")}
         ${node.effect ? `<button class="destiny-choice" style="background:#312e81;" onclick="chooseStoryNode('${line.id}','${node.id}',-1)">✨ Принять</button>` : ""}
       </div>`;
+    });
+  }
+
+  if (later.length) {
+    html += `<div class="destiny-muted" style="margin:10px 0 6px;">⏳ Ждут своего года — эти сцены откроются позже</div>`;
+    later.forEach(({ line, node }) => {
+      html += `<div class="destiny-card"><div class="destiny-line-title" style="color:#94a3b8; font-size:11px;">${line.icon} ${esc(node.title)}</div>
+        <div class="destiny-muted">${esc(line.title)} • с ${node.age || 0} лет</div></div>`;
     });
   }
 
@@ -1015,6 +1350,36 @@ function renderDestinyPendingTab() {
 }
 
 // --- выбор в сюжетной сцене ---
+// Применить решение по сцене и вернуть текст результата — без открытия окон.
+// Используется очередью сцен: она сама решает, куда показать итог.
+function chooseStoryNodeResult(lineId, nodeId, choiceIdx) {
+  const line = STORY_LINES.find(l => l.id === lineId);
+  const node = line?.nodes.find(n => n.id === nodeId);
+  if (!line || !node) return null;
+  ensureStoryState();
+  if (player.story.done.includes(node.id)) return null;
+
+  if (choiceIdx < 0 || !node.choices) {
+    const res = node.effect ? node.effect(player, worldState) : "Судьба сделала шаг.";
+    player.story.done.push(node.id);
+    log(`📜 <b>${esc(node.title)}</b>: ${res}`);
+    playSound("win");
+    return res;
+  }
+
+  const ch = node.choices[choiceIdx];
+  if (!ch) return null;
+  if (ch.cost && player.coins < ch.cost) return null;
+
+  const res = ch.effect ? ch.effect(player, worldState) : "Решение принято.";
+  player.story.done.push(node.id);
+  Object.keys(ch.flags || {}).forEach(f => { if (ch.flags[f]) setStoryFlag(f); else delete player.story.flags[f]; });
+  if (ch.consequence) scheduleStoryConsequence(ch.consequence.years, ch.consequence.text, ch.consequence.effect);
+  log(`📜 <b>${esc(node.title)}</b>: ${res}`);
+  playSound("win");
+  return res;
+}
+
 function chooseStoryNode(lineId, nodeId, choiceIdx) {
   const line = STORY_LINES.find(l => l.id === lineId);
   const node = line?.nodes.find(n => n.id === nodeId);
@@ -1029,9 +1394,10 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
     log(`📜 <b>${esc(node.title)}</b>: ${res}`);
     playSound("win");
     updateUI();
-    if (yearFlowActive) {
+    if (yearFlowActive || yearReportOpen) {
       queueYearExtra(node.title, res, "📜");
       finalizeYear();
+      if (isStoryModalOpen()) { advanceStoryScene(); return; }
       showYearSummary();
     } else {
       showActionModal(node.title, res, "📜");
@@ -1057,9 +1423,10 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
 
   log(`📜 <b>${esc(node.title)}</b>: ${res}`);
   playSound("win");
-  if (yearFlowActive) {
+  if (yearFlowActive || yearReportOpen) {
     queueYearExtra(node.title, res, "📜");
     finalizeYear();
+    if (isStoryModalOpen()) { advanceStoryScene(); return; }
     showYearSummary();
     return;
   }
@@ -1081,7 +1448,7 @@ function performStoryActivity(storyId) {
   player.storyCompleted.push(st.id);
   const res = st.action(player, worldState);
   log(res); playSound(st.id === "s1_calamity" ? "calamity" : "win");
-  const wasInYear = yearFlowActive;
+  const wasInYear = yearFlowActive || yearReportOpen;
   updateUI();
   // Если веха выпала посреди года (например, Катаклизм), год обязан закончиться
   // окном итогов — иначе игрок застревает без возможности прожить следующий год
@@ -1106,7 +1473,7 @@ function finishYearIfActive(wasActive, title, text, icon) {
   finalizeYear();
   playSound("year");
   updateUI();
-  showYearSummary();
+  startStorySequence(typeof pickYearStoryNodes === "function" ? pickYearStoryNodes(3) : getAvailableStoryNodes());
   return true;
 }
 
@@ -1989,36 +2356,204 @@ function renderDynastyTree() {
 function renderChaosBreaker() {
   const cont = $("perugius-container"); if (!cont) return;
   const myCp = calcCombatPower(player);
-  cont.innerHTML = PERUGIUS_TRIALS.map(t => {
+  ensureStoryState();
+  const done0 = (player.perugiusTrials || []).length;
+
+  let html = `<div class="card" style="background:#191428; border-color:#a855f7;">
+    <b style="color:#e9d5ff;">🏰 Хаос Брейкер</b>
+    <div style="font-size:11px; color:var(--muted); margin-top:3px;">
+      Испытаний пройдено: <b>${done0}/3</b> • Путь открывается сюжетом, а не одной силой.
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+      Каждое испытание — это встреча с тем, кто помнит больше вас. Пропустите историю — не пройдёте.
+    </div>
+  </div>`;
+
+  PERUGIUS_TRIALS.forEach(t => {
     const done = player.perugiusTrials.includes(t.rank);
-    return `<div class="card"><b>#${t.rank} ${t.name}</b><div style="font-size:11px; color:var(--muted); margin:4px 0;">${t.rewardText} (${t.reqCp.toLocaleString()} БМ)</div>
-      <button ${done || myCp < t.reqCp ? "disabled" : ""} style="width:100%; background:${done ? "#059669" : "#eab308"}; color:${done ? "#fff" : "#000"} !important;" onclick="attemptPerugiusTrial(${t.rank})">${done ? "✓ Пройдено" : myCp < t.reqCp ? "Недостаточно БМ" : "Пройти испытание"}</button></div>`;
-  }).join("");
+    // Открыто, если начата сюжетная линия этого испытания
+    const lineStarted = !t.line || (STORY_LINES.find(l => l.id === t.line)?.nodes || [])
+      .some(n => player.story.done.includes(n.id));
+    const cpOk = myCp >= t.reqCp;
+    const canGo = !done && lineStarted && cpOk;
+    const reason = done ? "" : !lineStarted ? t.reqText : !cpOk ? `Нужно ${t.reqCp.toLocaleString()} БМ (у вас ${fmtNum(myCp)})` : "";
+    html += `<div class="card" style="${done ? "border-color:#059669; opacity:0.85;" : lineStarted ? "border-color:#a855f7;" : "opacity:0.6;"}">
+      <b>#${t.rank} ${t.name}</b>
+      <div style="font-size:11px; color:var(--muted); margin:4px 0;">${t.rewardText}</div>
+      ${reason ? `<div style="font-size:10px; color:#fbbf24; margin-bottom:5px;">${esc(reason)}</div>` : ""}
+      <button ${canGo ? "" : "disabled"} style="width:100%; background:${done ? "#059669" : canGo ? "#eab308" : "#374151"}; color:${done || !canGo ? "#fff" : "#000"} !important;" onclick="attemptPerugiusTrial(${t.rank})">${done ? "✓ Пройдено" : canGo ? "Пройти испытание" : "Закрыто"}</button>
+    </div>`;
+  });
+
+  // Что дал путь целиком
+  if (done0 === 3) {
+    html += `<div class="card" style="border-color:#eab308; background:rgba(234,179,8,0.08);">
+      <b style="color:#fde68a;">🐉 Путь Хаос Брейкера пройден</b>
+      <div style="font-size:11px; color:#e5e7eb; margin-top:4px; line-height:1.5;">
+        Двенадцать духов знают ваше имя. Перугиус называет вас не «человеком», а «тем, кто поднялся».
+        В вашем роду с этого дня говорят: «У нас есть крыло».
+      </div>
+    </div>`;
+  }
+  cont.innerHTML = html;
 }
 function attemptPerugiusTrial(rank) {
+  const t = PERUGIUS_TRIALS.find(x => x.rank === rank);
+  if (!t || player.perugiusTrials.includes(rank)) return;
+  const myCp = calcCombatPower(player);
+  if (myCp < t.reqCp) return showActionModal("Слабость", `Нужно ${t.reqCp.toLocaleString()} БМ.`, "🐉");
+
   player.perugiusTrials.push(rank);
-  if (rank === 1) player.intellect += 80;
-  if (rank === 2) { player.maxHp += 300; player.hp += 300; }
-  if (rank === 3) { player.coins += 1000; player.trait = TRAITS.find(t => t.id === "laplace_factor") || player.trait; }
-  log(`🐉 Пройдено испытание #${rank} Перугиуса!`); playSound("win"); updateUI(); renderChaosBreaker();
+  const wasInYear = yearFlowActive || yearReportOpen;
+  let lines = [];
+
+  if (rank === 1) {
+    player.intellect += 80; player.maxMana += 40; player.mana = player.maxMana;
+    lines.push("Духи признали вас. Они не кланяются — они просто перестают проверять каждый ваш шаг.");
+  }
+  if (rank === 2) {
+    player.maxHp += 300; player.hp = Math.min(player.maxHp, player.hp + 300);
+    lines.push("Золотой Рыцарь отдаёт вам свой старый плащ. «Носи. Он видел больше, чем ты.»");
+  }
+  if (rank === 3) {
+    player.coins += 1000;
+    player.trait = TRAITS.find(x => x.id === "laplace_factor") || player.trait;
+    if (typeof changePowerAttitude === "function") { changePowerAttitude(2, 10); changePowerAttitude(1, 5); }
+    lines.push("Перугиус даёт вам Драконье Имя. С этого дня Семь Сил отвечают на ваши письма.");
+  }
+
+  // Последствия в мир, а не только в цифры
+  worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} прошёл испытание Хаос Брейкера #${rank}.` });
+  if (player.perugiusTrials.length === 3) {
+    lines.push("Весь Хаос Брейкер знает ваш род. Отныне в крепости есть ваше окно.");
+    queueYearExtra("Хаос Брейкер", "Путь пройден до конца: двенадцать духов знают ваш род по имени.", "🐉");
+  }
+
+  log(`🐉 Испытание #${rank} пройдено: ${t.name}.`);
+  showActionModal(`🐉 ${t.name}`, `<div style="text-align:left; line-height:1.55;">${lines.join("<br><br>")}</div>`, "🐉");
+  playSound("win"); updateUI(); renderChaosBreaker();
+  finishYearIfActive(wasInYear, t.name, lines.join(" "), "🐉");
 }
 
 function renderGreyratBranches() {
   const cont = $("greyrat-branches-container"); if (!cont) return;
-  cont.innerHTML = GREYRAT_BRANCHES.map(b => {
-    const allied = player.greyratAllies.includes(b.id);
-    return `<div class="card"><b>${b.name}</b> <span class="badge-mythic">${allied ? "Союз ✓" : b.region}</span>
-      <div style="font-size:11px; color:var(--muted); margin:4px 0;">${b.leader} • ${b.desc}</div>
-      <button ${allied ? "disabled" : ""} style="width:100%; background:${allied ? "#059669" : "#b91c1c"};" onclick="negotiateGreyratBranch('${b.id}')">${allied ? "Пакт заключён" : "Заключить союз (⚡ 1 сила)"}</button></div>`;
-  }).join("");
+  ensureStoryState();
+  const allied = player.greyratAllies || [];
+  const total = GREYRAT_BRANCHES.length;
+
+  let html = `<div class="card" style="background:#191428; border-color:#b91c1c;">
+    <b style="color:#fecaca;">🩸 Война Четырёх Ветвей</b>
+    <div style="font-size:11px; color:var(--muted); margin-top:3px;">
+      Союзов: <b>${allied.length}/${total}</b> • Каждая ветвь даёт своё — и требует своего.
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-top:4px; line-height:1.5;">
+      Союз с одной ветвью — это вражда с другой. Ветви не разговаривают друг с другом сорок лет,
+      и любое ваше решение кто-то запомнит.
+    </div>
+  </div>`;
+
+  GREYRAT_BRANCHES.forEach(b => {
+    const isAlly = allied.includes(b.id);
+    const started = b.line ? (STORY_LINES.find(l => l.id === b.line)?.nodes || []).some(n => player.story.done.includes(n.id)) : true;
+    const rival = isAlly && allied.length > 1 ? true : false;
+    html += `<div class="card" style="${isAlly ? "border-color:#059669;" : started ? "border-color:#b91c1c;" : "opacity:0.65;"}">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+        <b>${esc(b.name)}</b>
+        <span class="badge-mythic" style="font-size:9px;">${isAlly ? "Союз ✓" : esc(b.region)}</span>
+      </div>
+      <div style="font-size:11px; color:var(--muted); margin:4px 0;">${esc(b.leader)}</div>
+      <div style="font-size:11px; color:#e5e7eb; margin-bottom:5px; line-height:1.45;">${esc(b.desc)}</div>
+      <div style="font-size:10px; color:#fbbf24; margin-bottom:6px;">Даёт: ${esc(b.giftText)} • Союз +${fmtNum(b.allyCp)} БМ</div>
+      ${!isAlly && !started ? `<div style="font-size:10px; color:#94a3b8; margin-bottom:5px;">Сначала нужно начать их историю — иначе вам не поверят.</div>` : ""}
+      <button ${isAlly || !started ? "disabled" : ""} style="width:100%; background:${isAlly ? "#059669" : started ? "#b91c1c" : "#374151"};" onclick="negotiateGreyratBranch('${b.id}')">${isAlly ? "Пакт заключён" : "Заключить союз (⚡ 1 сила)"}</button>
+    </div>`;
+  });
+
+  if (allied.length === total) {
+    html += `<div class="card" style="border-color:#eab308; background:rgba(234,179,8,0.08);">
+      <b style="color:#fde68a;">🩸 Все четыре ветви под одним именем</b>
+      <div style="font-size:11px; color:#e5e7eb; margin-top:4px; line-height:1.5;">
+        Впервые за двести лет Грейрат — это не четыре дома, а один род.
+        В Асуре шепчутся, что вы сделали то, чего не смог ни один король.
+      </div>
+    </div>`;
+  } else if (allied.length >= 2) {
+    html += `<div class="card" style="border-color:#f59e0b;">
+      <b style="color:#fcd34d;">⚠️ Вы держите две ветви сразу</b>
+      <div style="font-size:11px; color:#e5e7eb; margin-top:4px; line-height:1.5;">
+        Обе знают о второй. Пока это союз, но каждая уже считает, что вы должны выбрать.
+      </div>
+    </div>`;
+  }
+  cont.innerHTML = html;
 }
+
 function negotiateGreyratBranch(id) {
+  const b = GREYRAT_BRANCHES.find(x => x.id === id);
+  if (!b) return;
+  if ((player.greyratAllies || []).includes(id)) return;
   if (player.ap < 1) return showActionModal("Усталость", "Нужно ⚡ 1 сила!", "💤");
+
+  // Порог входа: ветвь смотрит не на золото, а на дела
+  const myCp = calcCombatPower(player);
+  const ok = player.asuraInfluence >= 30 || player.swordGodExp >= 80 || myCp > 3500;
+  if (!ok) return showActionModal("Отказ", "Нужно 30+ влияния, 80+ опыта Меча или 3 500+ БМ.", "📜");
+
   player.ap -= 1;
-  if (player.asuraInfluence >= 30 || player.swordGodExp >= 80 || calcCombatPower(player) > 3500) {
-    player.greyratAllies.push(id); player.asuraInfluence += 25; log(`🩸 Заключён союз с ветвью Грейрат (+25 влияния)!`); playSound("win");
-  } else showActionModal("Отказ", "Нужно 30+ влияния или 3,500+ БМ.", "📜");
-  updateUI(); renderGreyratBranches();
+  player.greyratAllies = player.greyratAllies || [];
+  player.greyratAllies.push(id);
+  player.asuraInfluence += 25;
+
+  // Подарок ветви — свой у каждой
+  let giftText = "";
+  if (b.gift === "sword") { player.swordGodExp += 25; giftText = "+25 к опыту Меча"; }
+  if (b.gift === "water") { player.waterGodExp += 25; giftText = "+25 к опыту Воды"; }
+  if (b.gift === "intellect") { player.intellect += 15; giftText = "+15 Знаний"; }
+  if (b.gift === "coins") { player.coins += 150; giftText = "+150🪙 сразу (и столько же каждый год)"; }
+
+  const wasInYear = yearFlowActive || yearReportOpen;
+  log(`🩸 Союз с ветвью ${esc(b.name)} (+25 влияния, ${giftText}).`);
+  queueYearExtra("Союз с ветвью Грейрат", `${esc(b.name)}: ${giftText} и +25 влияния.`, "🩸");
+  worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} заключил союз с ветвью Грейрат: ${b.name}.` });
+
+  // Последствие: остальные ветви это заметили
+  let extra = "";
+  const others = GREYRAT_BRANCHES.filter(x => x.id !== id && !(player.greyratAllies || []).includes(x.id));
+  if (others.length === 1) extra = "Осталась одна ветвь — та, что никогда не проигрывала переговоров.";
+  else if (others.length) extra = `Остальные ветви уже знают: ${others.map(o => o.name.split(":")[0]).join(", ")}.`;
+
+  showActionModal(`🩸 ${b.name}`, `<div style="text-align:left; line-height:1.55;">
+    <div style="color:#fca5a5;">${esc(b.leader)} принимает вас в дом.</div>
+    <div style="margin-top:6px;">${giftText} • +25 влияния в Асуре</div>
+    ${extra ? `<div style="margin-top:8px; color:#94a3b8; font-size:11px;">${esc(extra)}</div>` : ""}
+  </div>`, "🩸");
+
+  playSound("win"); updateUI(); renderGreyratBranches();
+  finishYearIfActive(wasInYear, `Союз с ${b.name}`, `${b.giftText}, +25 влияния`, "🩸");
+}
+
+// Ежегодный доход от союзов с ветвями — чтобы союз чувствовался в дневнике года
+function applyGreyratAllianceYearly() {
+  if (!player || !(player.greyratAllies || []).length) return;
+  let coins = 0, exp = 0, int = 0;
+  player.greyratAllies.forEach(id => {
+    const b = GREYRAT_BRANCHES.find(x => x.id === id);
+    if (!b) return;
+    if (b.gift === "coins") coins += 150;
+    if (b.gift === "sword") exp += 8;
+    if (b.gift === "water") exp += 8;
+    if (b.gift === "intellect") int += 4;
+  });
+  if (coins) player.coins += coins;
+  if (exp) { player.swordGodExp += exp; player.waterGodExp += exp; }
+  if (int) player.intellect += int;
+  if (coins || exp || int) {
+    const parts = [];
+    if (coins) parts.push(`+${coins}🪙`);
+    if (exp) parts.push(`+${exp} опыта`);
+    if (int) parts.push(`+${int} Знаний`);
+    queueYearExtra("Союзы Грейрат", `Ветви прислали своё: ${parts.join(", ")}.`, "🩸");
+  }
 }
 
 function renderTablets() {
@@ -2057,7 +2592,321 @@ function learnLanguage(k) {
 // =========================================================================
 function toggleNpcActions(id) { currentOpenedNpcId = currentOpenedNpcId === id ? null : id; renderRelations(); }
 
+// =========================================================================
+// СОЦИАЛЬНЫЕ ДЕЙСТВИЯ: отдельный запас на общение, не из общих сил
+// =========================================================================
+// Почему отдельно: общие силы — про труд и тренировки (12 в год).
+// Общение — про людей. Если тратить общие силы, игрок никогда не выберет
+// разговор вместо тренировки. Поэтому у общения свой счётчик.
+//
+// Сколько давать: у героя 19 разных дел на 12 сил, то есть каждый год
+// он выбирает, чем заняться. На людей логично оставлять примерно четверть
+// времени: 3 действия в год во взрослой жизни, 2 в юности, 4 в старости
+// (когда дел меньше, а разговоров больше). Свадьба и ребёнок бесплатны.
+const SOCIAL_AP_BY_AGE = (age) => age <= 3 ? 2 : age <= 9 ? 2 : age <= 15 ? 3 : age <= 59 ? 3 : 4;
+
+function getMaxSocialAp() { return SOCIAL_AP_BY_AGE(player?.age || 20); }
+
+function ensureSocialAp() {
+  if (!player) return;
+  if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
+  const max = getMaxSocialAp();
+  if (player.socialAp > max) player.socialAp = max;   // повзрослел — запас подрезается
+}
+
+function spendSocialAp(n) {
+  ensureSocialAp();
+  if (player.socialAp < n) {
+    showActionModal("Не о чем говорить", `Осталось ${player.socialAp} из ${getMaxSocialAp()} разговоров. Следующие — после «Прожить 1 год».`, "👥");
+    return false;
+  }
+  player.socialAp -= n;
+  return true;
+}
+
+// Сколько бесплатных «человеческих» действий стоит у каждого варианта
+const SOCIAL_COST = { talk: 1, gift: 1, drink: 1, spar: 1, pocket: 1, story: 1, loan: 1, insult: 1, play: 1, cuddle: 1, confess: 1, marry: 0, child: 0, found: 1 };
+
+// Блок-счётчик под заголовком вкладки «Связи»
+function renderSocialCounter() {
+  const box = $("social-counter");
+  if (!box) return;
+  if (!player) { box.innerHTML = ""; return; }
+  ensureSocialAp();
+  const cur = player.socialAp, max = getMaxSocialAp();
+  const pct = max ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0;
+  box.innerHTML = `<div class="card social-counter-card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <b style="font-size:12.5px; color:#fbcfe8;">👥 Разговоры на этот год</b>
+      <span style="font-size:12px; font-weight:800; color:${cur ? "#f9a8d4" : "#94a3b8"};">${cur} из ${max}</span>
+    </div>
+    <div class="social-ap-track"><div class="social-ap-fill" style="width:${pct}%;"></div></div>
+    <div style="font-size:10.5px; color:var(--muted); margin-top:5px; line-height:1.45;">
+      ${cur > 0
+        ? "Беседа, подарок, таверна, спарринг, признание — каждое стоит один разговор. Свадьба и ребёнок — бесплатно. Восстанавливаются после «Прожить 1 год»."
+        : "Разговоры на этот год закончились. Люди подождут до следующего года — как и вы."}
+    </div>
+  </div>`;
+}
+
+// Подзаголовок «Искать знакомства» тоже стоит разговор
+function searchStrangerCost() { return 1; }
+
+// =========================================================================
+// ДЕТИ КАК ПЕРСОНАЖИ: характер, память, просьбы и итог воспитания
+// =========================================================================
+// У ребёнка есть характер (4 черты), воспоминание о том, как вы с ним
+// обошлись, и «нить» — просьба, которая приходит в свой возраст.
+// Что вы вложили, то и получите в наследнике: характер определяет
+// стартовые навыки, а память — отношение к вам на всю жизнь.
+
+const CHILD_TRAITS = [
+  { id: "stubborn", name: "Упрямый", icon: "🔥", desc: "Спорит со всем миром, включая вас. Из него выйдет либо воин, либо мученик.",
+    bonus: { swordGodExp: 40 }, flaw: "Учится только через спор — подарки его не смягчают." },
+  { id: "kind", name: "Добрый", icon: "🤍", desc: "Первый, кто кормит нищих, и последний, кто вспомнит о себе.",
+    bonus: { intellect: 15, reputation: 20 }, flaw: "Слишком легко прощает предательство." },
+  { id: "cruel", name: "Жестокий", icon: "🩸", desc: "Не плачет с трёх лет. Не спрашивает разрешения.",
+    bonus: { swordGodExp: 60, squadFame: 40 }, flaw: "Отношение падает само каждый год." },
+  { id: "dreamer", name: "Мечтатель", icon: "✨", desc: "Смотрит на облака и знает, что за ними есть земля.",
+    bonus: { magicExp: 50, maxMana: 20 }, flaw: "Плохо переносит суровые годы." },
+  { id: "tactician", name: "Считающий", icon: "♟", desc: "Считает всё: деньги, людей, ошибки отца. Особенно ошибки." ,
+    bonus: { intellect: 30, waterGodExp: 30 }, flaw: "Ему нужно объяснять «зачем», иначе он не станет стараться." },
+  { id: "wild", name: "Дикий", icon: "🐺", desc: "Вырос с зверями быстрее, чем с людьми.",
+    bonus: { northGodExp: 45, maxHp: 60 }, flaw: "С ним трудно говорить о правилах." }
+];
+
+function childTraitById(id) { return CHILD_TRAITS.find(t => t.id === id) || null; }
+
+// Характер выбирается при рождении — с намёком на родителей
+function rollChildTrait() {
+  const pool = CHILD_TRAITS.slice();
+  // У жестокого героя чаще жестокие дети — кровь не вода
+  if (player.relations.some(r => r.status === "Заклятый враг")) pool.push(CHILD_TRAITS.find(t => t.id === "cruel"));
+  if (player.intellect > 60) pool.push(CHILD_TRAITS.find(t => t.id === "tactician"));
+  if (player.swordGodExp > 200) pool.push(CHILD_TRAITS.find(t => t.id === "stubborn"));
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Просьбы: у каждой черты свой разговор в своём возрасте
+const CHILD_REQUESTS = {
+  stubborn: [
+    { age: 6, text: "«Не буду учиться, пока ты меня не победишь!»", title: "Упрямство",
+      choices: [
+        { text: "Спорить и победить", cost: 1, effect: "rel+12, sword", result: "Вы выиграли спор — и он впервые вас зауважал." },
+        { text: "Разрешить ему решать самому", cost: 0, effect: "rel+6, intellect", result: "Он выбрал сам — и впервые задумался, чего хочет." }
+      ] },
+    { age: 14, text: "«Я не стану графом. Я уйду в наёмники.»", title: "Уход",
+      choices: [
+        { text: "Отпустить с миром", cost: 0, effect: "rel+15, fame", result: "Он ушёл с вашим благословением — и вы не пожалели." },
+        { text: "Запретить и запереть", cost: 0, effect: "rel-20", result: "Он смирился. Он не забыл." }
+      ] }
+  ],
+  kind: [
+    { age: 7, text: "«Можно я отдам свой плащ соседской девочке? Она мёрзнет.»", title: "Жалость",
+      choices: [
+        { text: "Дать плащ и денег сверху", cost: 1, effect: "rel+14, coins-20", result: "Он вернулся с сияющими глазами. Вы помните этот взгляд." },
+        { text: "Объяснить, что сначала — семья", cost: 0, effect: "rel-5, intellect", result: "Он кивнул. Он всё равно отдал плащ." }
+      ] },
+    { age: 15, text: "«Я хочу уйти в лекари. Не в мечники.»", title: "Выбор пути",
+      choices: [
+        { text: "Поддержать и оплатить учёбу", cost: 1, effect: "rel+18, coins-80, intellect", result: "Вы оплатили ему дорогу. Он стал тем, кем хотел." },
+        { text: "Настоять на службе роду", cost: 0, effect: "rel-18", result: "Он пошёл в стражу. Он больше не пишет." }
+      ] }
+  ],
+  cruel: [
+    { age: 8, text: "«Он смеялся надо мной. Я его ударил. Восемь раз.»", title: "Драка",
+      choices: [
+        { text: "Наказать по-настоящему", cost: 0, effect: "rel-12, hp+5", result: "Он не заплакал. Он запомнил, кто его наказал." },
+        { text: "Похвалить, что постоял за себя", cost: 0, effect: "rel+10, sword", result: "Он стал злее — но к вам ближе." }
+      ] },
+    { age: 16, text: "«Отец, я выгнал слуг. Я снял комнаты с них за прошлый год.»", title: "Жестокость",
+      choices: [
+        { text: "Вернуть и извиниться перед людьми", cost: 1, effect: "rel-15, reputation", result: "Люди вернулись. Ребёнок — нет." },
+        { text: "Молча одобрить", cost: 0, effect: "rel+12, coins-30", result: "Он понял, что так можно. Теперь это его правда." }
+      ] }
+  ],
+  dreamer: [
+    { age: 7, text: "«Я видел сон про летающий остров. Он правда есть?»", title: "Сон",
+      choices: [
+        { text: "Рассказать о Хаос Брейкере", cost: 1, effect: "rel+12, magic", result: "Он слушал всю ночь. Теперь он знает, куда расти." },
+        { text: "Молчать, чтобы не вбивать в голову вздор", cost: 0, effect: "rel-4", result: "Он перестал вам рассказывать сны." }
+      ] },
+    { age: 15, text: "«Я не хочу корону. Я хочу увидеть, что за горизонтом.»", title: "Горизонт",
+      choices: [
+        { text: "Дать коня и деньги на путь", cost: 1, effect: "rel+16, coins-60, magic", result: "Он обещал вернуться. Вы верите ему." },
+        { text: "Сказать, что мир не для мечтателей", cost: 0, effect: "rel-14", result: "Он остался. Он смотрит на север каждый вечер." }
+      ] }
+  ],
+  tactician: [
+    { age: 9, text: "«Почему наш род теряет золото? Я посчитал — три года подряд.»", title: "Счёт",
+      choices: [
+        { text: "Объяснить и показать книги", cost: 1, effect: "rel+13, intellect", result: "Он нашёл ошибку в ваших подсчётах. Вы смеялись." },
+        { text: "Сказать: это не его дело", cost: 0, effect: "rel-8", result: "Он больше не спрашивает. Он просто изучает вас." }
+      ] },
+    { age: 17, text: "«Дай мне управление. Я подниму род за пять лет.»", title: "Власть",
+      choices: [
+        { text: "Отдать ему дела", cost: 1, effect: "rel+20, coins-40, intellect", result: "Он поднял род. Вы стали вторым." },
+        { text: "Оставить всё себе", cost: 0, effect: "rel-15", result: "Он ждёт. Он умеет ждать." }
+      ] }
+  ],
+  wild: [
+    { age: 8, text: "«Стая зовёт меня каждую ночь. У них нет стен.»", title: "Стая",
+      choices: [
+        { text: "Пойти с ним к стае", cost: 1, effect: "rel+15, north", result: "Волки приняли и вас. Вы поняли часть своих детей." },
+        { text: "Запретить и запереть двери", cost: 0, effect: "rel-12", result: "Он рычал во сне. Потом перестал рычать вообще." }
+      ] },
+    { age: 14, text: "«Я хочу уйти к Дорудиа. Там меня поймут.»", title: "Кровь",
+      choices: [
+        { text: "Отпустить с подарком", cost: 1, effect: "rel+16, coins-50, fame", result: "Он ушёл в лес. Он присылает шкуры раз в год." },
+        { text: "Сказать: ты человек, а не зверь", cost: 0, effect: "rel-16", result: "Он согласился. Он больше не охотится." }
+      ] }
+  ]
+};
+
+// Инициализация ребёнка при рождении и для старых сейвов
+function initChildTraits() {
+  if (!player?.children) return;
+  player.children.forEach((c, i) => {
+    if (!c.traitId) {
+      const roll = rollChildTrait() || CHILD_TRAITS[0];
+      c.traitId = roll.id;
+    }
+    if (typeof c.memory !== "number") c.memory = 0;      // добрые и злые поступки
+    if (typeof c.requestDone !== "number") c.requestDone = 0;
+    if (!Array.isArray(c.askedAges)) c.askedAges = [];
+  });
+}
+
+function childAge(c) {
+  return Math.max(0, worldState.currentWorldYear - (c.birthYear || worldState.currentWorldYear - 1));
+}
+
+// Раз в год: дети растут, характер сказывается, приходят просьбы
+function advanceChildrenYear() {
+  if (!player?.children) return;
+  initChildTraits();
+  player.children.forEach(c => {
+    if (c.isDead) return;
+    const age = childAge(c);
+    const trait = childTraitById(c.traitId);
+    if (!trait) return;
+
+    // Дело жестокого: отношение тает само
+    if (trait.id === "cruel" && age < 18) c.relation = Math.max(0, (c.relation || 70) - 2);
+
+    // Ребёнок с хорошей памятью находит тёплые слова каждый год
+    if ((c.memory || 0) > 20 && age < 18) c.relation = Math.min(100, (c.relation || 70) + 1);
+
+    // Просьба приходит в свой возраст — и только один раз
+    const reqs = CHILD_REQUESTS[trait.id] || [];
+    const due = reqs.find(r => r.age === age && !c.askedAges.includes(r.age));
+    if (due) {
+      c.askedAges.push(due.age);
+      queueYearExtra(`${trait.icon} ${c.name}`, due.text, "👶");
+      // Сразу покажем окно: это не то, что можно отложить
+      if (!yearFlowActive && !storyQueue.length) setTimeout(() => showChildRequest(c.id, due.age), 50);
+    }
+  });
+}
+
+// Окно просьбы ребёнка — настоящее решение, а не текст
+function showChildRequest(childId, reqAge) {
+  const c = player.children.find(x => x.id === childId);
+  if (!c) return;
+  const trait = childTraitById(c.traitId);
+  const req = (CHILD_REQUESTS[trait?.id] || []).find(r => r.age === reqAge);
+  if (!req) return;
+
+  const html = `<div style="text-align:left;">
+    <div style="font-size:12px; color:#94a3b8;">${trait.icon} ${esc(trait.name)} • ${childAge(c)} лет</div>
+    <div style="margin:8px 0; line-height:1.55;">${esc(req.text)}</div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${req.choices.map((ch, i) => `<button onclick="resolveChildRequest('${childId}', ${reqAge}, ${i})" style="background:${ch.cost ? "#7c2d12" : "#1e3a5f"}; text-align:left; padding:9px;">
+        ${esc(ch.text)}${ch.cost ? " (1👥)" : ""}
+      </button>`).join("")}
+    </div>
+  </div>`;
+  showActionModal(`${trait.icon} ${req.title}`, html, "👶");
+}
+
+function resolveChildRequest(childId, reqAge, choiceIdx) {
+  const c = player.children.find(x => x.id === childId);
+  if (!c) return;
+  const trait = childTraitById(c.traitId);
+  const req = (CHILD_REQUESTS[trait?.id] || []).find(r => r.age === reqAge);
+  if (!req) return;
+  const ch = req.choices[choiceIdx];
+  if (!ch) return;
+  if (ch.cost) { if (!spendSocialAp(ch.cost)) return; }
+
+  const eff = ch.effect || "";
+  const relM = eff.match(/rel([+-]\d+)/);
+  if (relM) c.relation = Math.max(0, Math.min(100, (c.relation || 70) + parseInt(relM[1])));
+  // Добрый поступок остаётся в памяти ребёнка, обида — тоже
+  if (relM && relM[1].startsWith("+")) c.memory = (c.memory || 0) + 10;
+  if (relM && relM[1].startsWith("-")) c.memory = (c.memory || 0) - 15;
+  if (eff.includes("sword")) { c.growthSword = (c.growthSword || 0) + 25; c.cp = (c.cp || 450) + 120; }
+  if (eff.includes("magic")) { c.growthMagic = (c.growthMagic || 0) + 25; c.cp = (c.cp || 450) + 100; }
+  if (eff.includes("north")) { c.growthNorth = (c.growthNorth || 0) + 25; c.cp = (c.cp || 450) + 120; }
+  if (eff.includes("intellect")) { c.growthInt = (c.growthInt || 0) + 12; c.cp = (c.cp || 450) + 80; }
+  if (eff.includes("fame")) { player.squadFame += 25; }
+  if (eff.includes("reputation")) { player.reputation = (player.reputation || 0) + 20; }
+  const coinM = eff.match(/coins-(\d+)/);
+  if (coinM) player.coins = Math.max(0, player.coins - parseInt(coinM[1]));
+
+  c.requestDone = (c.requestDone || 0) + 1;
+  const msg = `<div style="text-align:left; line-height:1.55;">${esc(ch.result)}</div>
+    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">${esc(c.name)}: отношение ${c.relation}%, память ${(c.memory || 0) > 20 ? "добрая" : (c.memory || 0) < -10 ? "тяжёлая" : "ровная"}.</div>`;
+  log(`👶 ${esc(c.name)}: ${esc(ch.result)}`);
+  showActionModal(`${trait.icon} ${esc(c.name)}`, msg, "👶");
+  playSound("click");
+  updateUI(); renderRelations(); renderSocialCounter();
+}
+
+// Карточка ребёнка в списке связей: характер, память, что из него выйдет
+function childTraitBadge(npc) {
+  if (!npc.isChild) return "";
+  const trait = childTraitById(npc.traitId);
+  if (!trait) return "";
+  const mem = npc.memory || 0;
+  const mood = mem > 20 ? "💚 помнит добро" : mem < -10 ? "🖤 помнит обиду" : "🤍 ровно";
+  return `<span class="child-trait-badge" title="${esc(trait.desc)}">${trait.icon} ${esc(trait.name)}</span><span class="child-mem-badge">${mood}</span>`;
+}
+
+// Итог воспитания — то, что наследник получит при переходе
+function childInheritanceSummary(c) {
+  const trait = childTraitById(c.traitId);
+  if (!trait) return { text: "", bonus: {} };
+  const rel = c.relation || 70, mem = c.memory || 0;
+  const bonus = {};
+  // Характер даёт основу, отношение и память — поправку
+  const scale = (rel / 70) * (mem > 20 ? 1.15 : mem < -10 ? 0.85 : 1);
+  Object.entries(trait.bonus).forEach(([k, v]) => { bonus[k] = Math.round(v * scale); });
+  const moodWord = rel >= 85 ? "любит вас и продолжит ваше дело" :
+                   rel >= 60 ? "уважает вас, но пойдёт своим путём" :
+                   rel >= 35 ? "помнит вас редко и неохотно" :
+                   "не простил вас и не станет продолжать";
+  return {
+    text: `${trait.icon} ${trait.name}: ${moodWord}.`,
+    bonus
+  };
+}
+
+// Годы детства ребёнка: маленький отчёт для окна года
+function childYearNote(c, age) {
+  const trait = childTraitById(c.traitId);
+  if (!trait) return null;
+  if (age === 3) return { title: `${c.name} — три года`, text: `Стало ясно: растёт ${trait.name.toLowerCase()} ребёнок. ${trait.desc}`, icon: trait.icon };
+  if (age === 10) return { title: `${c.name} — десять лет`, text: `${trait.desc} Отношение к вам: ${c.relation}%.`, icon: trait.icon };
+  if (age === 18) {
+    const inf = childInheritanceSummary(c);
+    return { title: `${c.name} вырос`, text: `${inf.text} Наследство навыков: ${Object.entries(inf.bonus).map(([k, v]) => `${v} ${({swordGodExp:"меча",magicExp:"магии",northGodExp:"северного стиля",intellect:"знаний",maxMana:"маны",maxHp:"HP",reputation:"репутации",squadFame:"славы",waterGodExp:"воды"})[k] || k}`).join(", ")}.`, icon: "🎓" };
+  }
+  return null;
+}
+
 function renderRelations() {
+  renderSocialCounter();
   const cont = $("relations-list"); if (!cont) return;
   if (!player.relations.length) { cont.innerHTML = `<div style="color:var(--muted); text-align:center;">Знакомых пока нет.</div>`; return; }
   cont.innerHTML = player.relations.map(npc => {
@@ -2067,13 +2916,13 @@ function renderRelations() {
     const hasCanonQ = npc.isCanon && npc.relation >= 80 && CANON_QUESTS[npc.id] && !player.canonQuestsDone?.includes(npc.id);
     let actHtml = "";
     if (open) {
-      if (npc.isLost) actHtml = `<button class="npc-action-full" style="background:#b45309;" onclick="searchLostFamily('${npc.id}')">🔍 Искать пропавшего (⚡ 1 сила)</button>`;
-      else if (player.age < 4) actHtml = `<button onclick="npcInteract('${npc.id}','play')">👶 Поиграть</button><button onclick="npcInteract('${npc.id}','cuddle')">🍼 На ручки</button>`;
-      else if (player.age < 10) actHtml = `<button onclick="npcInteract('${npc.id}','story')">📖 Сказка</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙)</button><button onclick="npcInteract('${npc.id}','spar')">🪵 Урок меча</button><button onclick="npcInteract('${npc.id}','pocket')">🪙 На сладости</button>`;
+      if (npc.isLost) actHtml = `<button class="npc-action-full" style="background:#b45309;" onclick="searchLostFamily('${npc.id}')">🔍 Искать пропавшего (👥 1 разговор)</button>`;
+      else if (player.age < 4) actHtml = `<button onclick="npcInteract('${npc.id}','play')">👶 Поиграть (1👥)</button><button onclick="npcInteract('${npc.id}','cuddle')">🍼 На ручки (1👥)</button>`;
+      else if (player.age < 10) actHtml = `<button onclick="npcInteract('${npc.id}','story')">📖 Сказка (1👥)</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙 • 1👥)</button><button onclick="npcInteract('${npc.id}','spar')">🪵 Урок меча (1👥)</button><button onclick="npcInteract('${npc.id}','pocket')">🪙 На сладости (1👥)</button>`;
       else {
-        actHtml = `<button onclick="npcInteract('${npc.id}','talk')">💬 Беседа</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙)</button>
-          <button onclick="npcInteract('${npc.id}','drink')">🍻 Таверна (6🪙)</button><button onclick="npcInteract('${npc.id}','spar')">⚔️ Спарринг</button>
-          <button onclick="npcInteract('${npc.id}','loan')">🪙 Занять</button><button class="action-danger" onclick="npcInteract('${npc.id}','insult')">🤬 Оскорбить</button>`;
+        actHtml = `<button onclick="npcInteract('${npc.id}','talk')">💬 Беседа (1👥)</button><button onclick="npcInteract('${npc.id}','gift')">🎁 Подарок (8🪙 • 1👥)</button>
+          <button onclick="npcInteract('${npc.id}','drink')">🍻 Таверна (6🪙 • 1👥)</button><button onclick="npcInteract('${npc.id}','spar')">⚔️ Спарринг (1👥)</button>
+          <button onclick="npcInteract('${npc.id}','loan')">🪙 Занять (1👥)</button><button class="action-danger" onclick="npcInteract('${npc.id}','insult')">🤬 Оскорбить (1👥)</button>`;
         if (hasCanonQ) actHtml += `<button class="npc-action-full" style="background:#b45309;" onclick="doCanonQuest('${npc.id}')">⭐ Квест: ${CANON_QUESTS[npc.id].title}</button>`;
         if (player.age >= 16 && !inSquad && !npc.isChild) actHtml += `<button class="npc-action-full" style="background:#312e81;" onclick="addToSquad('${npc.id}')">🛡️ В боевой отряд</button>`;
         if (player.age >= 14 && !npc.isFamily && !npc.isChild && npc.status !== "Пара" && npc.status !== "Супруг/Супруга") actHtml += `<button class="action-love npc-action-full" onclick="npcInteract('${npc.id}','confess')">❤️ Признаться в чувствах</button>`;
@@ -2081,7 +2930,7 @@ function renderRelations() {
         if (npc.status === "Супруг/Супруга") actHtml += `<button class="action-married npc-action-full" ${player.pregnancy ? "disabled" : ""} onclick="npcInteract('${npc.id}','child')">${player.pregnancy ? "⏳ Ожидание малыша" : "👶 Зачать ребенка"}</button>`;
       }
     }
-    const badges = `${npc.isCanon ? '<span class="badge-canon">Канон ⭐</span> ' : ""}${npc.isChild ? '<span style="color:#fbbf24;">(Наследник)</span> ' : ""}${npc.isLost ? '<span class="badge-mythic">Пропал ⚡</span> ' : ""}${inSquad ? '<span class="badge-rare">Отряд 🛡️</span>' : ""}`;
+    const badges = `${npc.isCanon ? '<span class="badge-canon">Канон ⭐</span> ' : ""}${npc.isChild ? '<span style="color:#fbbf24;">(Наследник)</span> ' : ""}${childTraitBadge(npc)}${npc.isLost ? '<span class="badge-mythic">Пропал ⚡</span> ' : ""}${inSquad ? '<span class="badge-rare">Отряд 🛡️</span>' : ""}`;
     return `<div class="relation-card"><div class="rel-header" onclick="${npc.isDead ? "" : `toggleNpcActions('${npc.id}')`}" style="cursor:${npc.isDead ? "default" : "pointer"};">
       <div><div class="rel-name">${esc(npc.name)} ${badges}</div><div class="rel-role">${npc.role || npc.race} • ${npc.age} л. • БМ ${(npc.cp || 400).toLocaleString()}</div></div>
       <div style="text-align:right;"><div style="font-size:12px; font-weight:700;"><span class="${cls}">${npc.status}</span> ${npc.isDead ? "" : `(${npc.relation}%)`}</div></div></div>
@@ -2103,6 +2952,12 @@ function doCanonQuest(id) {
 
 function npcInteract(id, act) {
   const npc = player.relations.find(r => r.id === id); if (!npc) return;
+  const cost = SOCIAL_COST[act] ?? 1;
+  if (cost > 0) {
+    if (act === "gift" && player.coins < 8) return showActionModal("Золото", "Нужно 8🪙!", "🪙");
+    if (act === "drink" && player.coins < 6) return showActionModal("Золото", "Нужно 6🪙!", "🍻");
+    if (!spendSocialAp(cost)) return;
+  }
   const beastBoost = (npc.race?.includes("Зверочеловек") && player.languages.includes("beast")) ? 1.25 : 1;
   const gainRel = (v) => { npc.relation = Math.min(100, npc.relation + Math.round(v * beastBoost)); };
   let msg = "";
@@ -2118,16 +2973,15 @@ function npcInteract(id, act) {
   else if (act === "confess") { if (npc.relation >= 75) { npc.status = "Пара"; msg = `💖 ${npc.name} ответил(а) взаимностью!`; playSound("win"); } else { npc.relation = Math.max(0, npc.relation - 10); msg = `💔 ${npc.name}: "Останемся друзьями..."`; } }
   else if (act === "marry") { if (npc.relation >= 88) { npc.status = "Супруг/Супруга"; player.spouse = npc; msg = `💍 Вы и ${npc.name} поженились!`; playSound("win"); } else msg = `Укрепите отношения до 88%+!`; }
   else if (act === "child") { player.pregnancy = { partnerName: npc.name, partnerRace: npc.race || "Человек" }; msg = `👶 Вы с ${npc.name} ждёте ребёнка!`; playSound("win"); }
-  log(msg); showActionModal("Отношения", msg, "👥"); updateUI(); renderRelations();
+  log(msg); showActionModal("Отношения", msg, "👥"); updateUI(); renderRelations(); renderSocialCounter();
 }
 
 function searchLostFamily(id) {
-  if (player.ap < 1) return showActionModal("Усталость", "Нужно ⚡ 1 сила!", "💤");
-  player.ap -= 1;
+  if (!spendSocialAp(1)) return;
   const npc = player.relations.find(r => r.id === id);
   if (npc && Math.random() < 0.6) { npc.isLost = false; log(`🎉 Вы нашли <b>${npc.name}</b>!`); playSound("win"); showActionModal("Воссоединение!", `Вы нашли <b>${npc.name}</b>!`, "🎉"); }
   else showActionModal("Поиски", "Пока следов нет, ищите дальше!", "🔍");
-  updateUI(); renderRelations();
+  updateUI(); renderRelations(); renderSocialCounter();
 }
 
 function trySpawnCanonNpc(isSearch = false) {
@@ -2143,6 +2997,8 @@ function trySpawnCanonNpc(isSearch = false) {
 }
 
 function meetStranger() {
+  if (!spendSocialAp(1)) return;
+  renderSocialCounter();
   const canon = trySpawnCanonNpc(true);
   if (canon) {
     const msg = `⭐ <b>КАНОНИЧЕСКАЯ ВСТРЕЧА!</b> Вы познакомились с <b>${canon.name}</b> (${canon.role})!`;
@@ -2196,13 +3052,22 @@ function takeYearSnapshot() {
     guildExp: player.guildExp, guildRank: player.guildRank,
     reputation: player.reputation,
     relations: (player.relations || []).filter(r => !r.isDead).length,
-    estateIncome: (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0)
+    estateIncome: (player.estates || []).reduce((sum, id) => sum + (ESTATES.find(e => e.id === id)?.income || 0), 0),
+    // Решения и сюжет — чтобы дневник показывал, что изменилось в истории, а не только в числе
+    flags: Object.keys(player.story?.flags || {}).length,
+    storyDone: (player.story?.done || []).length,
+    pending: (player.story?.pending || []).length,
+    allies: (player.greyratAllies || []).length,
+    trials: (player.perugiusTrials || []).length,
+    seat: player.currentPowersSeat || 0
   };
 }
 
 function buildYearSummary() {
   if (!player || !yearSnapshot) return null;
   const before = yearSnapshot, now = takeYearSnapshot();
+  // Сейв из старой версии мог сохранить снимок без новых полей
+  Object.keys(now).forEach(k => { if (typeof before[k] !== "number" && typeof now[k] === "number") before[k] = now[k]; });
   const diff = (now, before) => now - before;
   const lines = [];
   const coinDelta = diff(now.coins, before.coins);
@@ -2218,6 +3083,13 @@ function buildYearSummary() {
   if (relDelta) lines.push(`${relDelta > 0 ? "👥" : "🕯️"} Близких людей: ${relDelta > 0 ? "+" : ""}${relDelta}`);
   if (now.reputation !== before.reputation) lines.push(`⚖️ Репутация: ${now.reputation > before.reputation ? "+" : ""}${now.reputation - before.reputation}`);
   if (now.estateIncome) lines.push(`🏰 Имения приносят ${fmtNum(now.estateIncome)}🪙 в год`);
+  const flagDelta = now.flags - before.flags;
+  if (flagDelta > 0) lines.push(`📜 Принято решений: +${flagDelta} (всего ${now.flags} памятных)`);
+  if (now.seat !== before.seat) lines.push(now.seat ? `👑 Вы заняли трон #${now.seat} Семи Сил` : `👑 Трон Семи Сил потерян`);
+  const allyDelta = now.allies - before.allies;
+  if (allyDelta > 0) lines.push(`🩸 Новых союзов с ветвями Грейрат: +${allyDelta}`);
+  const trialDelta = now.trials - before.trials;
+  if (trialDelta > 0) lines.push(`🐉 Испытаний Хаос Брейкера пройдено: +${trialDelta}`);
   const verdict = now.hp / Math.max(1, now.maxHp) > 0.7 ? "Год сложился удачно."
     : now.hp / Math.max(1, now.maxHp) > 0.35 ? "Год был непростым, но вы держитесь."
     : "Вы на последнем издыхании — отдохните и подлечитесь!";
@@ -2228,26 +3100,168 @@ function buildYearSummary() {
 const takeYearSnapshotBeforeAgeUp = takeYearSnapshot;
 
 // Главное окно года: сюжетные повороты + эхо прошлого + дневник
+// =========================================================================
+// СЮЖЕТНЫЕ СЦЕНЫ ОТДЕЛЬНЫМИ ОКНАМИ: одна за другой, окно года — в конце
+// =========================================================================
+let storyQueue = [];        // [{ line, node }] — что показать в этом году
+let storyQueueDone = [];    // уже закрытые сцены (для итога в окне года)
+let storyQueueWaiting = 0;  // сколько ещё ждёт своего года
+
+function isStoryModalOpen() {
+  return $("story-modal") && $("story-modal").style.display === "flex";
+}
+
+// Открыть очередь сцен года. Если сцен нет — сразу окно итогов.
+function startStorySequence(nodes) {
+  storyQueue = (nodes || []).slice();
+  storyQueueDone = [];
+  storyQueueWaiting = (typeof countYearStoryWaiting === "function") ? countYearStoryWaiting(3) : 0;
+  if (!storyQueue.length) { showYearSummary(); return; }
+  renderStoryScene();
+}
+
+function renderStoryScene() {
+  const el = $("story-modal");
+  const box = $("story-choices");
+  if (!el || !box) { showYearSummary(); return; }
+
+  if (!storyQueue.length) {
+    el.style.display = "none";
+    showYearSummary();
+    return;
+  }
+
+  const { line, node } = storyQueue[0];
+  setText("story-icon", line.icon || "📜");
+  setText("story-line-name", line.title || "Линия судьбы");
+  setText("story-title", node.title);
+  setText("story-text", node.text);
+
+  const total = storyQueue.length + storyQueueDone.length;
+  const idx = storyQueueDone.length + 1;
+
+  let html = "";
+  (node.choices || []).forEach((ch, i) => {
+    const poor = ch.cost && player.coins < ch.cost;
+    const cost = ch.cost ? `<span class="story-cost">${poor ? "Не хватает" : "Цена"}: ${ch.cost}🪙 (у вас ${fmtNum(player.coins)})</span>` : "";
+    html += `<button class="story-choice" ${poor ? "disabled" : ""} data-story-choice="${i}">${esc(ch.text)}${cost}</button>`;
+  });
+  if (node.effect && !(node.choices || []).length) {
+    html += `<button class="story-choice" data-story-choice="-1" style="background:#312e81;">✨ Принять</button>`;
+  }
+  if (!node.choices && !node.effect) {
+    html += `<button class="story-choice" data-story-choice="-1" style="background:#312e81;">Продолжить</button>`;
+  }
+  box.innerHTML = html;
+  box.querySelectorAll("[data-story-choice]").forEach(btn => {
+    btn.onclick = () => resolveStoryScene(node, parseInt(btn.dataset.storyChoice, 10));
+  });
+
+  const foot = $("story-foot");
+  if (foot) {
+    foot.innerHTML = `<span class="story-counter">${idx} из ${total}${storyQueueWaiting ? ` • ещё ${storyQueueWaiting} ждут` : ""}</span>` +
+      `<button class="btn-secondary" onclick="deferStoryScene()">Позже</button>`;
+  }
+
+  el.style.display = "flex";
+  syncTelegramBackButton();
+}
+
+// Решение принято: применяем последствия и переходим к следующей сцене
+function resolveStoryScene(node, idx) {
+  const entry = storyQueue[0];
+  const line = entry ? entry.line : { id: "?" };
+  const lineId = line.id;
+
+  if (idx >= 0) {
+    const ch = node.choices ? node.choices[idx] : null;
+    if (ch && ch.cost && player.coins < ch.cost) return;
+  }
+
+  // Применяем выбор через общий движок (он же ставит флаги и отложенные последствия)
+  const before = { coins: player.coins, hp: player.hp };
+  let res = "";
+  try {
+    const r = chooseStoryNodeResult(lineId, node.id, idx);
+    res = r || "Решение принято.";
+  } catch (e) {
+    console.warn("[BitTensei] Сцена:", e);
+    res = "Сцена прошла стороной.";
+  }
+
+  storyQueue.shift();
+  storyQueueDone.push({ title: node.title, line: line.title, text: res, icon: line.icon || "📜" });
+  queueYearExtra(node.title, res, line.icon || "📜");
+
+  if (player.hp <= 0) { $("story-modal").style.display = "none"; handleDeath("Пал жертвой роковых событий года"); return; }
+
+  // Показываем итог выбора на секунду и идём дальше
+  const box = $("story-choices");
+  if (box) box.innerHTML = `<div class="story-result">${res}</div>`;
+  const foot = $("story-foot");
+  if (foot) foot.innerHTML = `<button class="btn-main" onclick="advanceStoryScene()">Дальше →</button>`;
+  playSound("click");
+  updateUI();
+}
+
+function advanceStoryScene() {
+  playSound("click");
+  if (storyQueue.length) renderStoryScene();
+  else { $("story-modal").style.display = "none"; showYearSummary(); }
+}
+
+// «Позже» — сцена остаётся непройденной, год не переносится
+function deferStoryScene() {
+  playSound("click");
+  $("story-modal").style.display = "none";
+  storyQueue = [];
+  showYearSummary();
+}
+
+// Закрытие окна сцены (кнопка «Назад» в Telegram или крестик).
+// Год не должен «залипать»: если он ещё идёт — завершаем его окном итогов.
+function closeStoryModal() {
+  if ($("story-modal")) $("story-modal").style.display = "none";
+  const wasInYear = yearFlowActive || storyQueue.length > 0 || storyQueueDone.length > 0;
+  storyQueue = [];
+  syncTelegramBackButton();
+  if (wasInYear) {
+    if (!yearFinalized) finalizeYear();
+    showYearSummary();
+  }
+}
+
 function showYearSummary() {
   yearFlowActive = false;
   yearSummary = buildYearSummary();
   const box = $("year-summary-body");
   if (!box) return;
 
-  const twists = getAvailableStoryNodes();
+  // Сюжетные сцены больше не выводятся здесь: они показываются
+  // отдельными окнами ДО окна года (startStorySequence). Здесь — только итог.
   let html = "";
 
-  if (twists.length) {
-    html += `<div class="year-section-title">📜 Повороты судьбы</div>`;
-    twists.forEach(({ line, node }) => {
+  if (storyQueueDone.length) {
+    html += `<div class="year-section-title">📜 Что решилось в этом году</div>`;
+    storyQueueDone.forEach(d => {
       html += `<div class="year-twist">
-        <div class="year-twist-title">${line.icon} ${esc(node.title)}</div>
-        <div class="year-twist-text">${esc(node.text)}</div>
-        ${(node.choices || []).map((ch, i) => {
-          const poor = ch.cost && player.coins < ch.cost;
-          return `<button class="destiny-choice" ${poor ? "disabled" : ""} style="margin-top:5px;${poor ? "opacity:0.45;" : ""}" onclick="chooseStoryNode('${line.id}','${node.id}',${i})">${esc(ch.text)}</button>`;
-        }).join("")}
-        ${node.effect ? `<button class="destiny-choice" style="margin-top:5px; background:#312e81;" onclick="chooseStoryNode('${line.id}','${node.id}',-1)">✨ Принять</button>` : ""}
+        <div class="year-twist-title">${d.icon} ${esc(d.title)}</div>
+        <div class="year-twist-text">${esc(d.text)}</div>
+      </div>`;
+    });
+    if (storyQueueWaiting > 0) {
+      html += `<div class="year-waiting">Ещё ${storyQueueWaiting} ${storyQueueWaiting === 1 ? "сцена ждёт" : "сцен ждут"} своего года — мир не стоит на месте.</div>`;
+    }
+  }
+
+  const milestones = getAvailableStories();
+  if (milestones.length) {
+    html += `<div class="year-section-title">🏛️ Вехи эпохи</div>`;
+    milestones.forEach(st => {
+      html += `<div class="year-twist" style="border-color:rgba(56,189,248,0.45); background:rgba(56,189,248,0.06);">
+        <div class="year-twist-title" style="color:#7dd3fc;">${esc(st.name)}</div>
+        <div class="year-twist-text">${esc(st.desc)}</div>
+        <button class="destiny-choice" style="margin-top:5px; background:#0e4a63;" onclick="performStoryActivity('${st.id}')">✨ Свершить</button>
       </div>`;
     });
   }
@@ -2272,7 +3286,6 @@ function showYearSummary() {
   if ($("year-summary-modal")) $("year-summary-modal").style.display = "flex";
   yearReportOpen = true;
   yearExtras = [];
-  yearSnapshot = takeYearSnapshot();
   syncTelegramBackButton();
 }
 
@@ -2295,11 +3308,13 @@ function ageUp() {
   if (yearFlowActive) return;              // защита от двойного клика
   yearFlowActive = true;
   yearFinalized = false;
+  yearReportOpen = false;                  // окно прошлого года больше не открыто
   yearExtras = [];
   yearSnapshot = takeYearSnapshot();       // точка отсчёта для дневника года
   player.age++; worldState.currentWorldYear++;
   saveGame(); // страховка: год уже прожит, даже если игрок закроет приложение посреди события
   player.maxAp = getMaxAP(player.age); player.ap = player.maxAp; player.mana = player.maxMana;
+  player.socialAp = getMaxSocialAp();   // новый год — новые разговоры
 
   const seatObj = ESTATES.find(e => e.id === player.familySeat);
   const regen = (seatObj ? seatObj.hpRegen : 5) + (player.trait.id === "miko_healing" ? 25 : 0);
@@ -2319,13 +3334,17 @@ function ageUp() {
   generateYearlyGuildQuests();
 
   if (player.estates.length) {
+    // Доход зависит от того, что творится в землях и как к вам там относятся
+    const stMult = currentRegionState(player.currentRegionKey).def.effect?.income || 1;
+    const opBonus = 1 + Math.min(0.5, Math.max(-0.4, regionOpinion(player.currentRegionKey) / 200));
     const inc = player.estates.reduce((s, id) => s + (ESTATES.find(e => e.id === id)?.income || 0), 0);
-    player.coins += inc;
+    const adjusted = Math.round(inc * stMult * opBonus);
+    player.coins += adjusted;
     // Содержание имущества: доход не бесплатный
-    const upkeep = Math.floor(inc * BALANCE.upkeepPercent);
+    const upkeep = Math.floor(adjusted * BALANCE.upkeepPercent);
     if (upkeep > 0 && player.coins >= upkeep) {
       player.coins -= upkeep;
-      log(`💰 Имения: +${inc}🪙 дохода, −${upkeep}🪙 содержания (итого +${inc - upkeep}🪙).`);
+      log(`💰 Имения: +${adjusted}🪙 дохода, −${upkeep}🪙 содержания (итого +${adjusted - upkeep}🪙).`);
     } else if (upkeep > 0) {
       player.coins = 0;
       player.hp = Math.max(1, player.hp - BALANCE.hp.starvationDamage);
@@ -2352,6 +3371,17 @@ function ageUp() {
 
   // Плоды трона на Монументе Семи Сил
   applySevenPowerSeatYearly();
+  // Союзы с ветвями Грейрат приносят своё каждый год
+  applyGreyratAllianceYearly();
+  // Живой мир: состояния регионов меняются, вестник пишет новости года
+  advanceWorldStates();
+  // Дети: растут, показывают характер, просят
+  advanceChildrenYear();
+  (player.children || []).forEach(c => {
+    if (c.isDead) return;
+    const note = childYearNote(c, childAge(c));
+    if (note) queueYearExtra(note.title, note.text, note.icon);
+  });
 
   if (player.pregnancy) {
     const isM = Math.random() > 0.5, list = SYLLABLES[isM ? "male" : "female"];
@@ -2360,16 +3390,18 @@ function ageUp() {
       if (player.race.includes("Эльф") || player.pregnancy.partnerRace.includes("Эльф")) childRace = "Эльф / Полуэльф";
       else if (player.race === "Демон" || player.pregnancy.partnerRace === "Демон") childRace = "Демон";
     }
+    const trait = rollChildTrait();
     const child = {
       id: "child_" + Date.now(), name: `${list[Math.floor(Math.random() * list.length)]} ${player.surname}`,
       gender: isM ? "male" : "female", race: childRace, age: 0, birthYear: worldState.currentWorldYear,
       cp: 450, role: "Наследник рода",
-      relation: 100, status: "Семья", isFamily: true, isChild: true, isDead: false
+      relation: 100, status: "Семья", isFamily: true, isChild: true, isDead: false,
+      traitId: trait.id, memory: 0, requestDone: 0, askedAges: []
     };
     player.children.push(child); player.relations.push(child);
     if (!player.appointedHeirId) player.appointedHeirId = child.id;
     log(`🎉 Родился ребёнок — <b>${child.name}</b> (${childRace})!`); playSound("win"); player.pregnancy = null;
-    queueYearExtra("Пополнение в роду", `Родился(ась) <b>${esc(child.name)}</b> (${esc(childRace)}).`, "🎉");
+    queueYearExtra("Пополнение в роду", `Родился(ась) <b>${esc(child.name)}</b> (${esc(childRace)}). Уже видно: ${trait.icon} ${esc(trait.name.toLowerCase())} характер.`, "🎉");
   }
 
   if (worldState.currentWorldYear === CALAMITY_YEAR && !worldState.calamityOccurred) {
@@ -2435,7 +3467,8 @@ function ageUp() {
   finalizeYear();
   playSound("year");
   updateUI();
-  showYearSummary();   // окно итогов года — всегда
+  // Сначала — сюжетные сцены отдельными окнами, окно года идёт последним
+  startStorySequence(typeof pickYearStoryNodes === "function" ? pickYearStoryNodes(3) : getAvailableStoryNodes());
 }
 
 // Небольшой рост за прожитый год
@@ -2472,7 +3505,11 @@ function triggerRandomEvent(ev) {
       if ($("event-modal")) $("event-modal").style.display = "none";
       log(`<b>[Выбор]</b> ${out}`); playSound("click");
       updateUI();
-      if (yearFlowActive) { finalizeYear(); showYearSummary(); }
+      if (yearFlowActive || yearReportOpen) {
+        queueYearExtra(ev.title, out, ev.icon || "⚡");
+        finalizeYear();
+        startStorySequence(typeof pickYearStoryNodes === "function" ? pickYearStoryNodes(3) : getAvailableStoryNodes());
+      }
       else showActionModal("Итог", out, ev.icon || "⚡");
       if (player.hp <= 0) handleDeath("Пал жертвой роковых событий года");
     };
@@ -2509,7 +3546,8 @@ function handleDeath(reason) {
         const age = Math.max(1, worldState.currentWorldYear - (c.birthYear || worldState.currentWorldYear - 20));
         const app = player.appointedHeirId === c.id;
         return `<div class="shop-item"><div><b>${esc(c.name)}</b> ${app ? '<span class="badge-legendary">Завещание 👑</span>' : ""}
-          <div style="font-size:11px; color:var(--muted);">${c.gender === "male" ? "Сын" : "Дочь"} • ${c.race || player.race} • ${age} л.</div></div>
+          <div style="font-size:11px; color:var(--muted);">${c.gender === "male" ? "Сын" : "Дочь"} • ${c.race || player.race} • ${age} л.</div>
+          ${(() => { const inf = childInheritanceSummary(c); return inf.text ? `<div style="font-size:10.5px; color:#cbd5e1; margin-top:3px; line-height:1.4;">${esc(inf.text)}</div>` : ""; })()}</div>
           <button style="background:#10b981;" onclick="continueAsHeir('${c.id}', ${age})">Играть 👑</button></div>`;
       }).join("");
     } else {
@@ -2549,6 +3587,24 @@ function continueAsHeir(childId, realAge) {
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   const heirFirstName = String(child.name).replace(/<[^>]*>/g, "").replace(/[<>]/g, "").trim().split(" ")[0] || "Наследник";
   initCharacter(heirFirstName, prev.surname, child.gender, raceObj, prev.currentRegionKey, originMock, prev.trait, prev.familyStatus, realAge, familyRels);
+
+  // Характер и воспитание переходят в наследника — это его стартовый капитал
+  const inherit = childInheritanceSummary(child);
+  if (inherit.bonus) {
+    Object.entries(inherit.bonus).forEach(([k, v]) => {
+      if (typeof player[k] === "number") player[k] = Math.max(0, player[k] + v);
+    });
+  }
+  if (typeof ensureSocialAp === "function") ensureSocialAp();
+  player.upbringing = {
+    from: prev.name,
+    trait: childTraitById(child.traitId)?.name || "неизвестный",
+    relationToParent: child.relation || 0,
+    memory: child.memory || 0,
+    summary: inherit.text
+  };
+  log(`👶 Воспитание сказалось: ${esc(inherit.text)}`);
+  if (typeof queueYearExtra === "function" && yearExtras) queueYearExtra("Что вам передали", inherit.text || "Ровное детство без крайностей.", "🎓");
 
   player.estates = [...prev.estates];
   player.familySeat = prev.familySeat;
@@ -2685,6 +3741,10 @@ function normalizeLoadedData(data) {
     if (Array.isArray(v)) player[k] = arr(player[k]);
     else if (player[k] == null || typeof player[k] !== "object") player[k] = v;
   }
+  // Запас разговоров: в старых сейвах его нет — выдаём полный на этот год
+  if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
+  // Дети из старых сейвов получают характер задним числом
+  if (typeof initChildTraits === "function") initChildTraits();
   // Объект экипировки мог частично потеряться
   if (typeof player.equipment !== "object" || player.equipment === null) {
     player.equipment = { weapon: null, armor: null, accessory: null };
@@ -2746,6 +3806,7 @@ function applyLoadedData(data) {
   selectedMapRegion = player.currentRegionKey || "asura";
   ensureStoryState();
   ensureSevenPowersLore();
+  ensureWorldState();
   if ($("creation-overlay")) $("creation-overlay").style.display = "none";
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   renderLogHistory();

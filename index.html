@@ -162,16 +162,34 @@
     </div>
   </div>
 
-  <!-- Дневник года: короткая сводка после прожитого года -->
+  <!-- Сюжетная сцена: показывается отдельным окном по центру, друг за другом -->
+  <div id="story-modal" style="display: none;">
+    <div class="story-sheet">
+      <div class="story-head">
+        <div class="story-icon" id="story-icon">📜</div>
+        <div class="story-line" id="story-line-name">Линия судьбы</div>
+        <div class="story-title" id="story-title">Сцена</div>
+      </div>
+      <div class="story-body">
+        <div class="story-text" id="story-text"></div>
+        <div class="story-choices" id="story-choices"></div>
+      </div>
+      <div class="story-foot" id="story-foot"></div>
+    </div>
+  </div>
+
+  <!-- Итоги года: отдельное окно по центру, блокирует игру за собой -->
   <div id="year-summary-modal" style="display: none;">
-    <div class="birth-sheet">
-      <div style="font-size:32px; margin-bottom:4px;">📖</div>
-      <div class="modal-title" style="color: var(--accent-light);">Дневник года</div>
-      <div class="modal-sub" id="year-summary-title">Год прожит</div>
-      <div class="birth-card" id="year-summary-body" style="font-size:12px; line-height:1.6; text-align:left; max-height:52vh; overflow-y:auto;"></div>
-      <div style="display:flex; gap:8px; margin-top:12px;">
-        <button class="btn-secondary" style="margin:0; flex:1;" onclick="closeYearSummary()">Продолжить</button>
-        <button class="btn-main" style="margin:0; flex:1;" onclick="closeYearSummaryAndNext()">⏳ Ещё год</button>
+    <div class="year-sheet">
+      <div class="year-head">
+        <div class="year-icon">📖</div>
+        <div class="year-title">Дневник года</div>
+        <div class="year-sub" id="year-summary-title">Год прожит</div>
+      </div>
+      <div class="year-body" id="year-summary-body"></div>
+      <div class="year-footer">
+        <button class="btn-secondary" onclick="closeYearSummary()">Продолжить</button>
+        <button class="btn-main" onclick="closeYearSummaryAndNext()">⏳ Ещё год</button>
       </div>
     </div>
   </div>
@@ -354,8 +372,6 @@
     <div class="log-box" id="logs"></div>
 
     <button class="btn-main" onclick="ageUp()">⏳ Прожить 1 год (Восстановить силы)</button>
-    <button class="btn-main" style="margin-top:6px; background:linear-gradient(135deg,#7c3aed,#a855f7);" onclick="openDestinyWindow()">📜 Судьба рода <span id="destiny-badge" class="badge-mythic pulse" style="display:none; font-size:10px; margin-left:4px;">новое</span></button>
-    <button class="btn-secondary" style="margin-top:6px;" onclick="showYearSummary()">📖 Дневник последнего года</button>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
       <button class="btn-secondary" style="margin-top:0;" onclick="askNewSoul()">🔄 Новая душа (время идёт)</button>
       <button class="btn-secondary" style="margin-top:0;" onclick="askFullWorldReset()">🌅 Сброс в 407 г.</button>
@@ -465,6 +481,7 @@
 
   <!-- ВКЛАДКА 5: МИР, КАРТА, ДИНАСТИЯ И ПОЛИТИКА -->
   <div id="tab-relations" class="tab-content">
+    <button class="btn-secondary" style="margin-top:0; margin-bottom:8px;" onclick="openDestinyWindow()">📜 Судьба рода <span id="destiny-badge" class="badge-mythic pulse" style="display:none; font-size:10px; margin-left:4px;">новое</span></button>
     <div class="sub-nav">
       <button class="sub-tab-btn active" onclick="setWorldSubTab('relations', this)">👥 Связи</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('travel', this)">🗺️ Карта Мира</button>
@@ -478,14 +495,16 @@
     </div>
 
     <div id="world-sub-relations">
+      <div id="social-counter" style="margin-bottom:8px;"></div>
       <div class="section-title">👥 Близкие, Канон и Поиск Пропавших</div>
-      <button class="btn-find" onclick="meetStranger()">🔍 Искать новые знакомства в городе</button>
+      <button class="btn-find" onclick="meetStranger()">🔍 Искать новые знакомства (1👥)</button>
       <div id="relations-list"></div>
     </div>
 
     <div id="world-sub-travel" style="display: none;">
       <div class="section-title">🗺️ Интерактивная Карта Шестиликого Мира</div>
       <div id="world-map-box" class="world-map-box"></div>
+      <div id="world-news-box" style="margin-top:10px;"></div>
       <div id="map-region-card" style="margin-top:10px;"></div>
       <div id="teleport-network-box" style="margin-top:10px;"></div>
     </div>

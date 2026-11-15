@@ -32,7 +32,6 @@ html, body {
 #creation-overlay, #death-overlay { z-index: 200; }
 #birth-modal { z-index: 250; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 #battle-modal, #dungeon-modal { z-index: 300; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
-#year-summary-modal { z-index: 345; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 #event-modal { z-index: 350; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 #portrait-modal, #action-modal, #confirm-modal, #save-modal { z-index: 400; justify-content: center; background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
 
@@ -336,4 +335,166 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .year-extra {
   background: rgba(56,189,248,0.07); border-left: 3px solid #38bdf8;
   border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; font-size: 11.5px; line-height: 1.5;
+}
+
+/* ============ ОКНО ИТОГОВ ГОДА: по центру, поверх всей игры ============ */
+#year-summary-modal {
+  position: fixed; inset: 0; z-index: 345;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  padding: 12px;
+}
+.year-sheet {
+  width: 100%; max-width: 460px; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #17131f, #0d0c12);
+  border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 18px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 0 32px rgba(124, 58, 237, 0.22);
+  overflow: hidden;
+}
+.year-head { text-align: center; padding: 14px 16px 10px; border-bottom: 1px solid rgba(168, 85, 247, 0.22); background: rgba(124, 58, 237, 0.08); }
+.year-icon { font-size: 30px; line-height: 1; margin-bottom: 4px; }
+.year-title { font-size: 18px; font-weight: 800; color: #e9d5ff; }
+.year-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.year-body { padding: 12px 14px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+.year-footer { display: flex; gap: 8px; padding: 10px 14px 14px; border-top: 1px solid rgba(168, 85, 247, 0.22); background: rgba(11, 12, 16, 0.6); }
+.year-footer button { margin: 0 !important; flex: 1; }
+.year-waiting {
+  font-size: 10.5px; color: #7c8a9e; font-style: italic;
+  text-align: center; margin: 2px 0 8px; padding: 4px 6px;
+  border-top: 1px dashed rgba(168,85,247,0.2); padding-top: 6px;
+}
+
+/* ============ ОКНО СЮЖЕТНОЙ СЦЕНЫ ============ */
+#story-modal {
+  position: fixed; inset: 0; z-index: 400;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  padding: 12px;
+}
+.story-sheet {
+  width: 100%; max-width: 470px; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #1d1726, #0d0c12);
+  border: 1px solid rgba(251, 191, 36, 0.5); border-radius: 18px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), 0 0 36px rgba(251, 191, 36, 0.18);
+  overflow: hidden;
+}
+.story-head {
+  text-align: center; padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(251, 191, 36, 0.28);
+  background: linear-gradient(180deg, rgba(251,191,36,0.10), transparent);
+}
+.story-icon { font-size: 30px; line-height: 1; margin-bottom: 4px; }
+.story-line { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: #a3a3a3; margin-bottom: 3px; }
+.story-title { font-size: 17px; font-weight: 800; color: #fde68a; line-height: 1.25; }
+.story-body { padding: 12px 14px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+.story-text { font-size: 12.5px; line-height: 1.6; color: #e5e7eb; margin-bottom: 12px; white-space: pre-line; }
+.story-choices { display: flex; flex-direction: column; gap: 7px; }
+.story-choice {
+  width: 100%; text-align: left; padding: 10px 11px; font-size: 12px; line-height: 1.4;
+  background: #241a35; border: 1px solid rgba(251, 191, 36, 0.35); color: #f5f3ff;
+  border-radius: 10px; cursor: pointer;
+}
+.story-choice:active { background: #3b2760; }
+.story-choice:disabled { opacity: 0.45; }
+.story-choice .story-cost { display: block; font-size: 10px; color: #fbbf24; margin-top: 2px; }
+.story-foot {
+  display: flex; gap: 8px; padding: 10px 14px 14px;
+  border-top: 1px solid rgba(251, 191, 36, 0.22); background: rgba(11, 12, 16, 0.6);
+}
+.story-foot button { margin: 0 !important; flex: 1; }
+.story-counter { font-size: 10px; color: #8b95a8; text-align: center; align-self: center; flex: 0 0 auto; padding: 0 6px; }
+.story-result {
+  background: rgba(52, 211, 153, 0.08); border-left: 3px solid #34d399;
+  border-radius: 8px; padding: 9px 10px; font-size: 12px; line-height: 1.55; color: #d1fae5; margin-bottom: 10px;
+}
+.story-flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.story-flag { font-size: 9.5px; padding: 2px 6px; border-radius: 5px; background: rgba(168,85,247,0.2); color: #ddd6fe; }
+
+/* ============================================================
+   КАРТА МИРА — новая
+   ============================================================ */
+.world-map-box {
+  background: radial-gradient(circle at 50% 40%, #0f1c30 0%, #070c15 100%);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 16px;
+  padding: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.7), 0 0 22px rgba(56, 189, 248, 0.07);
+}
+.world-map-svg { width: 100%; height: auto; display: block; border-radius: 12px; }
+.map-node { cursor: pointer; }
+.map-node .map-pin-circle { transition: r 0.18s ease, stroke 0.18s ease, filter 0.18s ease; }
+.map-node:hover .map-pin-circle { stroke: #fff !important; filter: drop-shadow(0 0 5px currentColor); }
+.map-node.selected .map-pin-circle { stroke: #fde68a !important; }
+.map-node.active text { fill: #fde68a; }
+.map-node text { pointer-events: none; }
+.map-pin-pulse { animation: mapPulse 2.1s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes mapPulse {
+  0%   { transform: scale(0.75); opacity: 0.85; }
+  70%  { transform: scale(1.75); opacity: 0; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+
+/* ============================================================
+   ЖИВОЙ МИР — состояния регионов
+   ============================================================ */
+.world-state-row {
+  border-left: 3px solid #475569;
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 0 8px 8px 0;
+  padding: 7px 9px;
+  margin-bottom: 6px;
+}
+.world-state-row:last-child { margin-bottom: 0; }
+.world-state-row button { border: none; border-radius: 6px; font-weight: 700; cursor: pointer; }
+
+/* ============================================================
+   СОЦИАЛЬНЫЕ ДЕЙСТВИЯ — свой запас разговоров
+   ============================================================ */
+.social-counter-card {
+  background: linear-gradient(135deg, rgba(190, 24, 93, 0.13), rgba(30, 27, 45, 0.9));
+  border: 1px solid rgba(244, 114, 182, 0.35);
+  margin-bottom: 0;
+  padding: 10px 12px;
+}
+.social-ap-track {
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.09);
+  margin-top: 7px;
+  overflow: hidden;
+}
+.social-ap-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f472b6, #fb7185);
+  box-shadow: 0 0 8px rgba(244, 114, 182, 0.55);
+  transition: width 0.3s ease;
+}
+
+/* ============================================================
+   ДЕТИ КАК ПЕРСОНАЖИ
+   ============================================================ */
+.child-trait-badge {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
+  margin-right: 4px;
+}
+.child-mem-badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
 }

@@ -2468,9 +2468,1360 @@ const STORY_LINES = [
       }
     ]
   },
+
+  // ===== ЭПИЛОГИ: у каждой большой истории есть финал =====
+  // ----- ЭПИЛОГ: 💰 Долг отца -----
+  {
+    id: "debt_epilogue", icon: "💰", title: "💰 Долг отца — чем это кончилось",
+    nodes: [
+      {
+        id: "dbt_fin_paid", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("debt_kill") || hasStoryFlag("debt_blood") || hasStoryFlag("debt_mended") || hasStoryFlag("debt_truth") || hasStoryFlag("debt_paid") || hasStoryFlag("debt_mines") || hasStoryFlag("debt_burned") || hasStoryFlag("underworld_ties")],
+        title: "Долг, который закрылся",
+        text: "Прошло двадцать четыре года. В дверь стучат — на пороге старик с вашей распиской в руке и снятым долгом на устах. «Ваш отец был плохим должником. Вы оказались хорошим человеком.» Он оставляет на столе кожаный мешочек и уходит.",
+        effect: (p) => { return "Старый долг закрыт окончательно. Вы платили за отца всю жизнь — и наконец это ваше, не его."; },
+        choices: [
+          {
+            text: "Принять и поблагодарить",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + 300);
+            p.reputation = Math.max(0, (p.reputation||0) + 20);
+            return '+300🪙 и +20 репутации. Мешочек оказался тяжелее, чем вы думали.';
+          },
+            flags: { debt_closed: true },
+          },
+        ]
+      },
+      {
+        id: "dbt_fin_mines", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("debt_kill") || hasStoryFlag("debt_blood") || hasStoryFlag("debt_mended") || hasStoryFlag("debt_truth") || hasStoryFlag("debt_paid") || hasStoryFlag("debt_mines") || hasStoryFlag("debt_burned") || hasStoryFlag("underworld_ties")],
+        title: "Соляные шахты",
+        text: "Вы работали на долг там, где не бывает солнца. Через десять лет вы знаете каждую жилу. Через двадцать — вас зовут управляющим, а долг переписали на спину того, кто пришёл после вас.",
+        effect: (p) => { return "Вы выкупили себя из шахт и стали в них главным. Долг не исчез — он просто сменил хозяина."; },
+        choices: [
+          {
+            text: "Остаться и переписать правила",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + 500);
+            return '+500🪙 ежегодно, но все в шахтах теперь знают вашу цену.';
+          },
+            flags: { debt_closed: true },
+            flags: { debt_mines_owner: true },
+          },
+        ]
+      },
+      {
+        id: "dbt_fin_blood", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("debt_kill") || hasStoryFlag("debt_blood") || hasStoryFlag("debt_mended") || hasStoryFlag("debt_truth") || hasStoryFlag("debt_paid") || hasStoryFlag("debt_mines") || hasStoryFlag("debt_burned") || hasStoryFlag("underworld_ties")],
+        title: "Кровь в счёт",
+        text: "Кровь закрыла счёт. Вы стояли над телом и думали, что долг — это не монеты. Через двадцать лет вы поняли: долг — это то, что твоё имя говорит людям за спиной.",
+        effect: (p) => { return "О вас говорят как о человеке, который не платит. Это остаётся с родом на два поколения."; },
+        choices: [
+          {
+            text: "Признать свою цену",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + -40);
+            return '-40 репутации навсегда, но ваши дети не будут сидеть в долговой яме.';
+          },
+            flags: { debt_closed: true },
+            flags: { debt_blood_mark: true },
+          },
+        ]
+      },
+      {
+        id: "dbt_fin_open", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("debt_kill") || hasStoryFlag("debt_blood") || hasStoryFlag("debt_mended") || hasStoryFlag("debt_truth") || hasStoryFlag("debt_paid") || hasStoryFlag("debt_mines") || hasStoryFlag("debt_burned") || hasStoryFlag("underworld_ties")],
+        title: "Долг без конца",
+        text: "Долг не закрылся. Вы умираете, зная, что он перейдёт к сыну, и что он будет платить по вашей ошибке. Это самое честное наследство, которое вы можете ему оставить.",
+        effect: (p) => { return "Долг перешёл к следующему поколению. Он не ваш — он рода."; },
+        choices: [
+          {
+            text: "Оставить всё как есть",
+            effect: (p) => {
+            return 'Следующее поколение начнёт с того, что будет платить за вас.';
+          },
+            flags: { debt_closed: false },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🕯️ Пропавшая сестра -----
+  {
+    id: "sister_epilogue", icon: "🕯️", title: "🕯️ Пропавшая сестра — чем это кончилось",
+    nodes: [
+      {
+        id: "sis_fin_found", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sis_vengeance") || hasStoryFlag("sis_peace") || hasStoryFlag("sis_family") || hasStoryFlag("sis_refused") || hasStoryFlag("sis_camp_joined") || hasStoryFlag("sis_delayed")],
+        title: "Та, что вернулась",
+        text: "Она вернулась через двадцать лет — с шрамом на шее и чужим говором. Села напротив и сказала: «Я помню тебя маленьким. Ты боялся грозы.» Тридцать лет вы искали — и оказалось, что она помнила всё это время.",
+        effect: (p) => { return "Сестра вернулась. Это самое близкое к счастью, что бывает в этом роде."; },
+        choices: [
+          {
+            text: "Обнять и не спрашивать",
+            effect: (p) => {
+            if (typeof changePowerAttitude === 'function') changePowerAttitude(1, Math.max(1,30));
+            return '+30 к отношениям всей семьи, +50 HP навсегда.';
+          },
+            flags: { sis_returned: true },
+          },
+        ]
+      },
+      {
+        id: "sis_fin_grave", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sis_vengeance") || hasStoryFlag("sis_peace") || hasStoryFlag("sis_family") || hasStoryFlag("sis_refused") || hasStoryFlag("sis_camp_joined") || hasStoryFlag("sis_delayed")],
+        title: "Могила без имени",
+        text: "Вы нашли её на кладбище у чужого храма. На табличке — номер, а не имя. Вы выправили табличку и написали своё. Умирают все, но имена — тоже.",
+        effect: (p) => { return "Вы вернули ей имя. Оно теперь ваше."; },
+        choices: [
+          {
+            text: "Записать имя в род",
+            effect: (p) => {
+            p.intellect += 15;
+            return '+15 Знаний, род получил ещё одного предка в хрониках.';
+          },
+            flags: { sis_named: true },
+          },
+        ]
+      },
+      {
+        id: "sis_fin_stranger", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sis_vengeance") || hasStoryFlag("sis_peace") || hasStoryFlag("sis_family") || hasStoryFlag("sis_refused") || hasStoryFlag("sis_camp_joined") || hasStoryFlag("sis_delayed")],
+        title: "Она не вспомнила",
+        text: "Вы нашли её — живой, с детьми, с другим именем. Она выслушала и сказала: «Вы ошиблись. У меня нет брата.» И закрыла дверь.",
+        effect: (p) => { return "Сестра нашлась, но ваша семья для неё не существует."; },
+        choices: [
+          {
+            text: "Уйти молча",
+            effect: (p) => {
+            p.maxHp = Math.max(10, p.maxHp + -20); p.hp = Math.min(p.maxHp, p.hp + Math.max(0,-20));
+            return '-20 HP, но вы узнали, что она жива. Это тоже ответ.';
+          },
+            flags: { sis_alive: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: ⛪ Еретик Милиса -----
+  {
+    id: "heresy_epilogue", icon: "⛪", title: "⛪ Еретик Милиса — чем это кончилось",
+    nodes: [
+      {
+        id: "her_fin_saint", age: 36, weight: 14,
+        fromAny: [(p) => hasStoryFlag("her_denied") || hasStoryFlag("her_defended") || hasStoryFlag("her_bribed") || hasStoryFlag("her_saint") || hasStoryFlag("her_moneyman") || hasStoryFlag("her_closed") || hasStoryFlag("her_scholar") || hasStoryFlag("her_academy") || hasStoryFlag("her_burned") || hasStoryFlag("her_sold")],
+        title: "Святой, которого не судили",
+        text: "Через пятнадцать лет Милис канонизировал то, за что вас хотели сжечь. Площадь назвали вашим именем, а книгу старика переписали в трёх экземплярах. Один лежит в храме. Его читают.",
+        effect: (p) => { return "Вы стали святым при жизни — что означает, что вас опять переврали."; },
+        choices: [
+          {
+            text: "Принять это спокойно",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + 200);
+            p.reputation = Math.max(0, (p.reputation||0) + 40);
+            return '+40 репутации, +200🪙 подношениями, новая линия наследия.';
+          },
+            flags: { her_saint_mem: true },
+          },
+        ]
+      },
+      {
+        id: "her_fin_burned", age: 36, weight: 14,
+        fromAny: [(p) => hasStoryFlag("her_denied") || hasStoryFlag("her_defended") || hasStoryFlag("her_bribed") || hasStoryFlag("her_saint") || hasStoryFlag("her_moneyman") || hasStoryFlag("her_closed") || hasStoryFlag("her_scholar") || hasStoryFlag("her_academy") || hasStoryFlag("her_burned") || hasStoryFlag("her_sold")],
+        title: "Книга в огне",
+        text: "Книгу сожгли. Вас — нет, но вы видели, как горят ваши слова, и молчали, потому что говорить было нельзя. Через двадцать лет кто-то переписал её по памяти. Память злее и добрее бумаги.",
+        effect: (p) => { return "Книга вернулась из памяти людей. Её нельзя сжечь дважды."; },
+        choices: [
+          {
+            text: "Промолчать и помнить",
+            effect: (p) => {
+            p.intellect += 25;
+            return '+25 Знаний, но -30 репутации в Милисе навсегда.';
+          },
+            flags: { her_book_memory: true },
+          },
+        ]
+      },
+      {
+        id: "her_fin_quiet", age: 36, weight: 14,
+        fromAny: [(p) => hasStoryFlag("her_denied") || hasStoryFlag("her_defended") || hasStoryFlag("her_bribed") || hasStoryFlag("her_saint") || hasStoryFlag("her_moneyman") || hasStoryFlag("her_closed") || hasStoryFlag("her_scholar") || hasStoryFlag("her_academy") || hasStoryFlag("her_burned") || hasStoryFlag("her_sold")],
+        title: "Еретик, который устал",
+        text: "Ни славы, ни казни. Вы дожили до седин, зная, что правы, и ни разу никого не убедили. Это тоже положение — не всякий его выдержит.",
+        effect: (p) => { return "Вы прожили жизнь в споре с упрямым миром."; },
+        choices: [
+          {
+            text: "Жить дальше",
+            effect: (p) => {
+            return 'Ровный год. Внуки будут спрашивать, о чём вы спорили.';
+          },
+            flags: { her_quiet: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🌀 Печать Лапласа -----
+  {
+    id: "laplace_epilogue", icon: "🌀", title: "🌀 Печать Лапласа — чем это кончилось",
+    nodes: [
+      {
+        id: "lap_fin_price", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("lap_deep") || hasStoryFlag("lap_stopped") || hasStoryFlag("lap_nameless") || hasStoryFlag("lap_fought") || hasStoryFlag("lap_truth") || hasStoryFlag("lap_strong") || hasStoryFlag("lap_asked") || hasStoryFlag("lap_refused")],
+        title: "Счёт, который пришёл",
+        text: "Он пришёл не за душой — за лицом. Потом за именем. Потом за тем, как вас помнят. Каждая сделка имеет свою цену, и вы узнали её только к сороковому году жизни.",
+        effect: (p) => { return "Вы знаете цену всего. Это делает вас осторожным и очень одиноким."; },
+        choices: [
+          {
+            text: "Заплатить последнюю цену",
+            effect: (p) => {
+            p.intellect += 60;
+            return '+60 Знаний, но -50 HP и род больше не помнит вашего лица на портретах.';
+          },
+            flags: { lap_paid_all: true },
+          },
+        ]
+      },
+      {
+        id: "lap_fin_free", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("lap_deep") || hasStoryFlag("lap_stopped") || hasStoryFlag("lap_nameless") || hasStoryFlag("lap_fought") || hasStoryFlag("lap_truth") || hasStoryFlag("lap_strong") || hasStoryFlag("lap_asked") || hasStoryFlag("lap_refused")],
+        title: "Тот, кто отказался дважды",
+        text: "Дважды вам предлагали всё за частичку себя. Дважды вы отказались. В сорок лет вы понимаете: это и есть магия — не брать то, что дают слишком легко.",
+        effect: (p) => { return "Вы откупились от Лапласа, ничего не отдав. Он этого не забудет."; },
+        choices: [
+          {
+            text: "Продолжать отказываться",
+            effect: (p) => {
+            if (typeof changePowerAttitude === 'function') changePowerAttitude(1, Math.max(1,2));
+            return '+2 к отношениям Семи Сил, +40 Знаний.';
+          },
+            flags: { lap_resisted: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🍞 Хлебный бунт -----
+  {
+    id: "bread_epilogue", icon: "🍞", title: "🍞 Хлебный бунт — чем это кончилось",
+    nodes: [
+      {
+        id: "brd_fin_ruler", age: 28, weight: 14,
+        fromAny: [(p) => hasStoryFlag("bread_leader") || hasStoryFlag("bread_logistics") || hasStoryFlag("bread_declined") || hasStoryFlag("bread_ruler") || hasStoryFlag("bread_council") || hasStoryFlag("bread_free") || hasStoryFlag("bread_riot") || hasStoryFlag("bread_bought")],
+        title: "Кто кормит — тот и правит",
+        text: "Вам предложили не титул, а ответственность: склады, раздача, учёт. Двадцать лет вы считаете зерно. О вас говорят не как о герое, а как о человеке, у которого всегда есть хлеб.",
+        effect: (p) => { return "Вы стали тем, кто кормит. Это скучнее меча — и важнее."; },
+        choices: [
+          {
+            text: "Принять",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + 200);
+            p.reputation = Math.max(0, (p.reputation||0) + 25);
+            return '+налог: +200🪙/год, +25 репутации, но -5 свободных сил в праздники.';
+          },
+            flags: { brd_feeder: true },
+          },
+        ]
+      },
+      {
+        id: "brd_fin_fire", age: 28, weight: 14,
+        fromAny: [(p) => hasStoryFlag("bread_leader") || hasStoryFlag("bread_logistics") || hasStoryFlag("bread_declined") || hasStoryFlag("bread_ruler") || hasStoryFlag("bread_council") || hasStoryFlag("bread_free") || hasStoryFlag("bread_riot") || hasStoryFlag("bread_bought")],
+        title: "Площадь, которая не успокоилась",
+        text: "Бунт не кончился с вашим решением — он кончился с вашим отъездом. Через год вы вернулись и не узнали города: другие лица, другие правила, хлеб есть — но не для тех, кто выходил на площадь.",
+        effect: (p) => { return "Порядок вернулся, а вы — не совсем."; },
+        choices: [
+          {
+            text: "Принять порядок",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + 100);
+            p.reputation = Math.max(0, (p.reputation||0) + -20);
+            return '+100🪙, но -20 репутации у простых людей.';
+          },
+            flags: { brd_order_taken: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 👁️ Тень Хитогами в роду -----
+  {
+    id: "shadow_epilogue", icon: "👁️", title: "👁️ Тень Хитогами в роду — чем это кончилось",
+    nodes: [
+      {
+        id: "shd_fin_cut", age: 48, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sh_defended") || hasStoryFlag("sh_gave_child") || hasStoryFlag("sh_martyr") || hasStoryFlag("sh_banned") || hasStoryFlag("sh_bargain") || hasStoryFlag("sh_saved_child") || hasStoryFlag("sh_seeking")],
+        title: "Род без голоса",
+        text: "Вы отсекли её. Сожгли всё, что ребёнок нарисовал, выкинули имя из книг и запретили произносить. Через двадцать лет ваши внуки увидели одинаковый сон — все трое в одну ночь.",
+        effect: (p) => { return "Тень ушла из вашей жизни, но осталась в крови."; },
+        choices: [
+          {
+            text: "Проверить внуков",
+            effect: (p) => {
+            p.intellect += 40;
+            return '+40 Знаний, новая сюжетная линия «Тень вернулась» на следующем поколении.';
+          },
+            flags: { shd_cut: true },
+            flags: { shd_next_gen: true },
+          },
+        ]
+      },
+      {
+        id: "shd_fin_sold", age: 48, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sh_defended") || hasStoryFlag("sh_gave_child") || hasStoryFlag("sh_martyr") || hasStoryFlag("sh_banned") || hasStoryFlag("sh_bargain") || hasStoryFlag("sh_saved_child") || hasStoryFlag("sh_seeking")],
+        title: "Сделка с тенью",
+        text: "Вы договорились. Род получил тридцать лет тишины в обмен на одно имя, которое никто не должен называть. Тишина держится — пока держат имена.",
+        effect: (p) => { return "Вы заключили сделку, которую не поймут потомки."; },
+        choices: [
+          {
+            text: "Держать слово",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 30);
+            return '+30 репутации у Семи Сил, -20 HP, флаг «сделка с тенью».';
+          },
+            flags: { shd_sold: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🔨 Кузнец, который перестал ковать -----
+  {
+    id: "smith_epilogue", icon: "🔨", title: "🔨 Кузнец, который перестал ковать — чем это кончилось",
+    nodes: [
+      {
+        id: "sm_fin_last", age: 32, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sm_2_return") || hasStoryFlag("sm_3_blade") || hasStoryFlag("sm_4_legacy") || hasStoryFlag("sm_1")],
+        title: "Последний клинок",
+        text: "Он выковал его за ночь — себе. На утро его нашли у горна. Клинок лежит у стены и ждёт того, кто поймёт, зачем он сделан.",
+        effect: (p) => { return "В вашем роду появился клинок без имени."; },
+        choices: [
+          {
+            text: "Взять клинок себе",
+            effect: (p) => {
+            p.swordGodExp += 15;
+            return '+2 500 БМ оружия, +15 к мечу, флаг «клинок кузнеца».';
+          },
+            flags: { sm_blade_taken: true },
+          },
+        ]
+      },
+      {
+        id: "sm_fin_shop", age: 32, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sm_2_return") || hasStoryFlag("sm_3_blade") || hasStoryFlag("sm_4_legacy") || hasStoryFlag("sm_1")],
+        title: "Кузница, которая горит",
+        text: "Огонь не вернулся в его руки — вернулся в ваши. Вы стоите у горна, и молот в ваших руках кажется тяжелее, чем должен быть.",
+        effect: (p) => { return "Кузнец передал вам молот. Кузнецом стали вы."; },
+        choices: [
+          {
+            text: "Принять молот",
+            effect: (p) => {
+            p.swordGodExp += 30;
+            return '+30 к мечу, -1 год жизни (жизнь у горна коротка), флаг «кузнец рода».';
+          },
+            flags: { sm_hammer: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🧭 Дорога Восьми Ветров -----
+  {
+    id: "road_epilogue", icon: "🧭", title: "🧭 Дорога Восьми Ветров — чем это кончилось",
+    nodes: [
+      {
+        id: "rd_fin_end", age: 36, weight: 14,
+        fromAny: [(p) => hasStoryFlag("rd_5_reported") || hasStoryFlag("rd_4_stone") || hasStoryFlag("rd_3_fork") || hasStoryFlag("rd_2_night")],
+        title: "Восьмой ветер",
+        text: "Вы нашли место, где дорога кончается. Там нет города и нет могилы — только камень, на котором написано: «Здесь прошёл тот, кто не вернулся, и это было его собственное решение.»",
+        effect: (p) => { return "Вы узнали, что конец дороги — это выбор, а не место."; },
+        choices: [
+          {
+            text: "Остаться на день",
+            effect: (p) => {
+            p.intellect += 15;
+            return '+15 Знаний, +20 HP устойчивости, флаг «восьмой ветер».';
+          },
+            flags: { rd_eighth: true },
+          },
+        ]
+      },
+      {
+        id: "rd_fin_other", age: 36, weight: 14,
+        fromAny: [(p) => hasStoryFlag("rd_5_reported") || hasStoryFlag("rd_4_stone") || hasStoryFlag("rd_3_fork") || hasStoryFlag("rd_2_night")],
+        title: "Тот, кто сжёг повозку",
+        text: "Вы нашли его. Он стар, ему всё равно, и он рассказывает всю ночь. К утру вы жалеете его больше, чем ненавидите. Ненависть не выдерживает близких разговоров.",
+        effect: (p) => { return "Огонь больше не твой. Ты его отдал обратно."; },
+        choices: [
+          {
+            text: "Оставить его жить",
+            effect: (p) => {
+            p.maxHp = Math.max(10, p.maxHp + -10); p.hp = Math.min(p.maxHp, p.hp + Math.max(0,-10));
+            return '-10 HP, но флаг «огня больше нет»: страх сгорел.';
+          },
+            flags: { rd_fire_gone: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: ⚖️ Суд над героем -----
+  {
+    id: "trial_epilogue", icon: "⚖️", title: "⚖️ Суд над героем — чем это кончилось",
+    nodes: [
+      {
+        id: "trl_fin_banned", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("tr_2_court") || hasStoryFlag("tr_3_after") || hasStoryFlag("tr_4_anger")],
+        title: "Тень, которая осталась",
+        text: "Вас оправдали, но в приговоре есть строка, которой не было в обвинении: «Оставьте его имя в бумагах — и только там.» Вы выиграли дело и потеряли площадь.",
+        effect: (p) => { return "Вы оправданы и запрещены одновременно."; },
+        choices: [
+          {
+            text: "Жить в бумагах",
+            effect: (p) => {
+            p.intellect += 40;
+            return '-30 к публичной репутации, +40 Знаний: законы — ваши друзья.';
+          },
+            flags: { trl_banned: true },
+          },
+        ]
+      },
+      {
+        id: "trl_fin_law", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("tr_2_court") || hasStoryFlag("tr_3_after") || hasStoryFlag("tr_4_anger")],
+        title: "Закон, который вас защитил",
+        text: "Через двадцать лет ваш процесс изучают в Академии как первый случай, когда корона проиграла своему подданному по букве закона. Вы изменили не приговор — процедуру.",
+        effect: (p) => { return "Ваше дело стало прецедентом. Дети рода будут проще выигрывать суды."; },
+        choices: [
+          {
+            text: "Позволить это записать",
+            effect: (p) => {
+            p.asuraInfluence = (p.asuraInfluence||0) + 35;
+            return '+35 влияния в Асуре, флаг «прецедент рода».';
+          },
+            flags: { trl_precedent: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🦠 Чума в порту -----
+  {
+    id: "plague_epilogue", icon: "🦠", title: "🦠 Чума в порту — чем это кончилось",
+    nodes: [
+      {
+        id: "plg_fin_wall", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pl_2_ward") || hasStoryFlag("pl_3_after") || hasStoryFlag("pl_4_closed")],
+        title: "Стена и сорок тысяч",
+        text: "Вы закрыли ворота. Порт выжил. Сорок тысяч в кварталах за стеной — не считали, а если считали, то не вслух. Это было решение, и оно было вашим.",
+        effect: (p) => { return "Вы спасли регион ценой квартала. Регион это помнит по-разному."; },
+        choices: [
+          {
+            text: "Нести это",
+            effect: (p) => {
+            p.maxHp = Math.max(10, p.maxHp + -15); p.hp = Math.min(p.maxHp, p.hp + Math.max(0,-15));
+            return '+40 к мнению региона, -15 HP навсегда, флаг «стена».';
+          },
+            flags: { plg_wall: true },
+          },
+        ]
+      },
+      {
+        id: "plg_fin_cured", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pl_2_ward") || hasStoryFlag("pl_3_after") || hasStoryFlag("pl_4_closed")],
+        title: "Тот, кто разгадал",
+        text: "Вы нашли закономерность: болели те, кто пил из городского водопровода. Врачи назвали это чудом, вы — водопроводом.",
+        effect: (p) => { return "Вы остановили чуму знанием. Академия прислала вам письмо."; },
+        choices: [
+          {
+            text: "Ответить Академии",
+            effect: (p) => {
+            p.intellect += 40;
+            return '+40 Знаний, +25 репутации, флаг «академический род».';
+          },
+            flags: { plg_cured: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🪦 Братская могила -----
+  {
+    id: "grave_epilogue", icon: "🪦", title: "🪦 Братская могила — чем это кончилось",
+    nodes: [
+      {
+        id: "grv_fin_named", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("gv_2_own") || hasStoryFlag("gv_3_price") || hasStoryFlag("gv_4_stone")],
+        title: "Последнее имя",
+        text: "Вы поставили плиту. На ней двести семьдесят три имени, и вы лично проверили каждое. Ушло три года. Никто не заплатил вам за это, никто не назвал благородным.",
+        effect: (p) => { return "Вы вернули людям имена. Ваш род теперь — та семья, которая помнит."; },
+        choices: [
+          {
+            text: "Читать вслух каждый год",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 30);
+            return '+30 репутации, -1👥 каждый год на поминовение, флаг «хранитель имён».';
+          },
+            flags: { grv_names: true },
+          },
+        ]
+      },
+      {
+        id: "grv_fin_own", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("gv_2_own") || hasStoryFlag("gv_3_price") || hasStoryFlag("gv_4_stone")],
+        title: "Род был там",
+        text: "Среди мёртвых нашёлся ваш. Вы искали войну, а нашли родословную. С этого дня все ваши решения о войне стали короче и тише.",
+        effect: (p) => { return "Вы узнали, откуда ваш род. Это меняет то, куда он идёт."; },
+        choices: [
+          {
+            text: "Записать в хронику",
+            effect: (p) => {
+            p.intellect += 15;
+            return '+15 Знаний, +20 HP решимости, флаг «род помнит войну».';
+          },
+            flags: { grv_kin: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🏚️ Дом, который помнит -----
+  {
+    id: "house_epilogue", icon: "🏚️", title: "🏚️ Дом, который помнит — чем это кончилось",
+    nodes: [
+      {
+        id: "hs_fin_grandson", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("hs_2_letters") || hasStoryFlag("hs_3_grandson")],
+        title: "Внук на той половице",
+        text: "Он вырос и пришёл сам. Встал на ту половицу — и она скрипнула в третий раз за сто лет. «Значит, это правда», — сказал он, и вы поняли, что дом был прав.",
+        effect: (p) => { return "Дом передал ему то, что не смогли передать вы."; },
+        choices: [
+          {
+            text: "Рассказать всё",
+            effect: (p) => {
+            p.intellect += 20;
+            return '+20 Знаний, флаг «дом помнит» переходит по наследству.';
+          },
+            flags: { hs_passed: true },
+          },
+        ]
+      },
+      {
+        id: "hs_fin_sold", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("hs_2_letters") || hasStoryFlag("hs_3_grandson")],
+        title: "Дом у чужих",
+        text: "Вы продали его и уехали. Через год новые хозяева написали письмо: «У вас тут кто-то ходит по ночам». Вы не ответили.",
+        effect: (p) => { return "Дом остался, а вы — нет. Иногда это лучший выход."; },
+        choices: [
+          {
+            text: "Не отвечать",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + 400);
+            return '+400🪙, флаг «дом продан»: сюжет закроется у потомков.';
+          },
+            flags: { hs_sold: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🕊️ Любовь на границе -----
+  {
+    id: "border_epilogue", icon: "🕊️", title: "🕊️ Любовь на границе — чем это кончилось",
+    nodes: [
+      {
+        id: "bdr_fin_peace", age: 42, weight: 14,
+        fromAny: [(p) => hasStoryFlag("bd_2_choice") || hasStoryFlag("bd_3_after") || hasStoryFlag("bd_4_letter")],
+        title: "Мир длиной в жизнь",
+        text: "Войны не было. Не потому что договорились — потому что два человека двадцать лет писали друг другу письма через мост, и обе стороны привыкли ждать этих писем.",
+        effect: (p) => { return "Вы остановили войну перепиской. Такого не бывает — но случилось."; },
+        choices: [
+          {
+            text: "Оставить письма в архиве",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 30);
+            return '+30 репутации у всех регионов, флаг «мир через мост».';
+          },
+            flags: { bdr_peace: true },
+          },
+        ]
+      },
+      {
+        id: "bdr_fin_lost", age: 42, weight: 14,
+        fromAny: [(p) => hasStoryFlag("bd_2_choice") || hasStoryFlag("bd_3_after") || hasStoryFlag("bd_4_letter")],
+        title: "Письмо, которое не дошло",
+        text: "Он погиб на третий год. Письмо пришло через месяц и лежало в сумке у убитого. Вы прочли его и поняли, что война была не нужна никому, кроме тех, кто её начал.",
+        effect: (p) => { return "Вы потеряли человека и узнали цену границы."; },
+        choices: [
+          {
+            text: "Похоронить у моста",
+            effect: (p) => {
+            p.maxHp = Math.max(10, p.maxHp + -25); p.hp = Math.min(p.maxHp, p.hp + Math.max(0,-25));
+            return '-25 HP, +25 влияния: обе стороны признали ваше право на могилу.';
+          },
+            flags: { bdr_grave: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🗺️ Слепой картограф -----
+  {
+    id: "carto_epilogue", icon: "🗺️", title: "🗺️ Слепой картограф — чем это кончилось",
+    nodes: [
+      {
+        id: "crt_fin_true", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("cr_2_bought") || hasStoryFlag("cr_3_future")],
+        title: "Карта, которая сбылась",
+        text: "Через двадцать лет вы поняли: он рисовал не то, что видел, а то, что будет. Ваш род строился по его карте, сам того не зная.",
+        effect: (p) => { return "Вы жили по чужой карте — и она оказалась верной."; },
+        choices: [
+          {
+            text: "Найти его могилу",
+            effect: (p) => {
+            p.intellect += 20;
+            return '+20 Знаний, флаг «карта сбылась»: новые сюжеты в поздних поколениях.';
+          },
+            flags: { crt_true: true },
+          },
+        ]
+      },
+      {
+        id: "crt_fin_burned", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("cr_2_bought") || hasStoryFlag("cr_3_future")],
+        title: "Карта, которой нет",
+        text: "Её сожгли люди, которым она не нравилась. Вы запомнили её наизусть и двадцать лет рисовали по памяти, а потом поняли, что рисуете уже своё.",
+        effect: (p) => { return "Вы стали картографом. Это наследство будет жить дольше мечей."; },
+        choices: [
+          {
+            text: "Передать карту роду",
+            effect: (p) => {
+            p.intellect += 30;
+            return '+30 Знаний, путешествия дешевле навсегда (флаг «карты рода»).';
+          },
+            flags: { crt_maps: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🩸 Кровный долг Грейрат -----
+  {
+    id: "gr_debt_epilogue", icon: "🩸", title: "🩸 Кровный долг Грейрат — чем это кончилось",
+    nodes: [
+      {
+        id: "grd_fin_united", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("grd_boreas") || hasStoryFlag("grd_notos") || hasStoryFlag("grd_hall") || hasStoryFlag("grd_refused_hall") || hasStoryFlag("grd_all") || hasStoryFlag("grd_side_b") || hasStoryFlag("grd_side_n") || hasStoryFlag("grd_peace") || hasStoryFlag("grd_head") || hasStoryFlag("grd_split") || hasStoryFlag("grd_named") || hasStoryFlag("grd_new_branch") || hasStoryFlag("grd_redirect") || hasStoryFlag("grd_militia")],
+        title: "Один род",
+        text: "Через двадцать лет на совете в Роа сидели все четыре ветви. Спорили, кричали, но сидели за одним столом. Вас попросили встать — и встали все. Такого не было двести лет.",
+        effect: (p) => { return "Вы соединили Грейрат. Это не победа — это работа, которая не кончается."; },
+        choices: [
+          {
+            text: "Сказать речь",
+            effect: (p) => {
+            p.asuraInfluence = (p.asuraInfluence||0) + 50;
+            return '+60 БМ от всех ветвей, +50 влияния в Асуре, флаг «Грейрат едины».';
+          },
+            flags: { grd_united: true },
+          },
+        ]
+      },
+      {
+        id: "grd_fin_split", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("grd_2_boreas") || hasStoryFlag("grd_3_war") || hasStoryFlag("grd_4_peace") || hasStoryFlag("grd_5_none")],
+        title: "Четыре чужих дома",
+        text: "Ветви разошлись. У каждой теперь своё имя, свой герб и своя память о том, кто начал. Вас помнят все четыре — и каждый по-своему.",
+        effect: (p) => { return "Грейрат раскололись при вас. Это тоже останется в хрониках."; },
+        choices: [
+          {
+            text: "Записать всё честно",
+            effect: (p) => {
+            p.intellect += 25;
+            return '+25 Знаний, -15 репутации, флаг «раскол Грейрат».';
+          },
+            flags: { grd_split: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🐉 Первый Дух Алхор -----
+  {
+    id: "pg_spirit_epilogue", icon: "🐉", title: "🐉 Первый Дух Алхор — чем это кончилось",
+    nodes: [
+      {
+        id: "pgs_fin_wing", age: 42, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgs_asked") || hasStoryFlag("pgs_silent") || hasStoryFlag("pgs_sword") || hasStoryFlag("pgs_truth") || hasStoryFlag("pgs_half") || hasStoryFlag("pgs_refused") || hasStoryFlag("pgs_wing") || hasStoryFlag("pgs_why") || hasStoryFlag("pgs_no") || hasStoryFlag("pgs_confess") || hasStoryFlag("pgs_cover") || hasStoryFlag("pgs_blame")],
+        title: "Крыло, которое вернулось",
+        text: "Статуя у крепости стояла без крыла триста лет. Вы нашли камень в подвале — и оказалось, что он всегда был там, где надо. Крыло встало на место с первого раза.",
+        effect: (p) => { return "Духи признали вашу линию. Крепость теперь отвечает вам первой."; },
+        choices: [
+          {
+            text: "Оставить как есть",
+            effect: (p) => {
+            p.intellect += 80;
+            return '+80 Знаний, +40 макс. маны, флаг «крыло вернулось» (открывает поздние сцены Брейкера).';
+          },
+            flags: { pgs_wing: true },
+          },
+        ]
+      },
+      {
+        id: "pgs_fin_silent", age: 42, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgs_2_asked") || hasStoryFlag("pgs_3_truth") || hasStoryFlag("pgs_4_wing")],
+        title: "Лестница, которой больше нет",
+        text: "Лестница исчезла. Духи забрали своё обратно — не в наказание, а потому что вы не захотели подниматься. Это был ваш выбор, и они его уважают.",
+        effect: (p) => { return "Вы отказались от пути. Не каждый должен дойти до верха."; },
+        choices: [
+          {
+            text: "Принять отказ",
+            effect: (p) => {
+            p.maxHp = Math.max(10, p.maxHp + 20); p.hp = Math.min(p.maxHp, p.hp + Math.max(0,20));
+            return '+20 HP покоя, флаг «лестница закрыта».';
+          },
+            flags: { pgs_closed: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: ⚔️ Золотой Рыцарь Сильфид -----
+  {
+    id: "pg_sylph_epilogue", icon: "⚔️", title: "⚔️ Золотой Рыцарь Сильфид — чем это кончилось",
+    nodes: [
+      {
+        id: "pgsy_fin_book", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgsy_2_fight") || hasStoryFlag("pgsy_3_drop")],
+        title: "Книга учителя",
+        text: "Он оставил книгу — не о мече, о страхе. Двадцать лет вы читали её раз в год и каждый раз находили новое. Меч — это то, что остаётся, когда страх перестаёт быть врагом.",
+        effect: (p) => { return "Вы поняли то, что Сильфид понимал в двадцать. Поздно — но не слишком."; },
+        choices: [
+          {
+            text: "Переписать для рода",
+            effect: (p) => {
+            p.swordGodExp += 50;
+            return '+50 к мечу навсегда, флаг «книга Сильфида» (поздние сцены).';
+          },
+            flags: { pgsy_book: true },
+          },
+        ]
+      },
+      {
+        id: "pgsy_fin_drop", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgsy_2_fight") || hasStoryFlag("pgsy_3_drop")],
+        title: "Опущенный меч",
+        text: "Вы не стали драться третий раз. Он кивнул и ушёл. Через год вы узнали, что он умер, и в завещании было одно слово: «Достойно».",
+        effect: (p) => { return "Вы выиграли тем, что не стали играть."; },
+        choices: [
+          {
+            text: "Принять",
+            effect: (p) => {
+            p.intellect += 30;
+            return '+30 Знаний, +20 репутации в крепости, флаг «опущенный меч».';
+          },
+            flags: { pgsy_drop: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 👑 Аудиенция у Перугиуса -----
+  {
+    id: "pg_master_epilogue", icon: "👑", title: "👑 Аудиенция у Перугиуса — чем это кончилось",
+    nodes: [
+      {
+        id: "pgm_fin_seat", age: 44, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgm_know") || hasStoryFlag("pgm_protect") || hasStoryFlag("pgm_seat") || hasStoryFlag("pgm_ask12") || hasStoryFlag("pgm_ignore") || hasStoryFlag("pgm_students") || hasStoryFlag("pgm_enemy") || hasStoryFlag("pgm_child") || hasStoryFlag("pgm_self") || hasStoryFlag("pgm_duty") || hasStoryFlag("pgm_decline") || hasStoryFlag("pgm_loss")],
+        title: "Двенадцатое место",
+        text: "Двенадцатое место заняли вы — не духом, а человеком. Перугиус сказал: «Я ждал триста лет. Не тебя — но тебя тоже подходит.»",
+        effect: (p) => { return "В крепости есть ваше окно. Это не титул — это адрес."; },
+        choices: [
+          {
+            text: "Сесть",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + 1000);
+            if (typeof changePowerAttitude === 'function') changePowerAttitude(1, Math.max(1,2));
+            return '+2 к отношениям всех Сил, +1000🪙 разово, флаг «двенадцатое место».';
+          },
+            flags: { pgm_seat: true },
+          },
+        ]
+      },
+      {
+        id: "pgm_fin_refuse", age: 44, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgm_2_know") || hasStoryFlag("pgm_3_ask12") || hasStoryFlag("pgm_4_seat")],
+        title: "Отказ от места",
+        text: "Вы отказались. Он не удивился. «Все, кто брал, жалели. Все, кто отказывался, — тоже. Выбирай, кем жалеть.» Вы выбрали.",
+        effect: (p) => { return "Вы отказались от места в крепости. Крепость это запомнила."; },
+        choices: [
+          {
+            text: "Уйти",
+            effect: (p) => {
+            p.maxHp = Math.max(10, p.maxHp + 40); p.hp = Math.min(p.maxHp, p.hp + Math.max(0,40));
+            return '+40 HP свободы, флаг «отказ от места»: поздние сцены станут другими.';
+          },
+            flags: { pgm_refused: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🌀 Лаплас в Хаос Брейкере -----
+  {
+    id: "pg_laplace_epilogue", icon: "🌀", title: "🌀 Лаплас в Хаос Брейкере — чем это кончилось",
+    nodes: [
+      {
+        id: "pgl_fin_answer", age: 46, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgl_2_enter") || hasStoryFlag("pgl_3_trap")],
+        title: "Ответ, который он не хотел",
+        text: "Вы задали вопрос, который он задавал себе триста лет, — и у вас был ответ. Он ушёл, не попрощавшись. С тех пор дверь в крепости открывается только для тех, кто приходит с вопросом.",
+        effect: (p) => { return "Вы спорили с Лапласом и вышли из спора с собой."; },
+        choices: [
+          {
+            text: "Записать вопрос",
+            effect: (p) => {
+            p.intellect += 60;
+            return '+60 Знаний, +1 к отношениям Сил, флаг «вопрос Лапласа».';
+          },
+            flags: { pgl_question: true },
+          },
+        ]
+      },
+      {
+        id: "pgl_fin_taken", age: 46, weight: 14,
+        fromAny: [(p) => hasStoryFlag("pgl_2_enter") || hasStoryFlag("pgl_3_trap")],
+        title: "Место, которое заняли",
+        text: "Он вернулся не через дверь — через вас. Вы чувствуете его как вторую тень, и иногда он думает вашими словами. Дверь в крепости всё ещё закрыта.",
+        effect: (p) => { return "В вас есть кто-то второй. Это останется в роду."; },
+        choices: [
+          {
+            text: "Жить с этим",
+            effect: (p) => {
+            p.intellect += 40;
+            return '+40 Знаний, -20 HP навсегда, флаг «вторая тень» (сюжет для следующего поколения).';
+          },
+            flags: { pgl_shadow: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🪞 Двойник -----
+  {
+    id: "double_epilogue", icon: "🪞", title: "🪞 Двойник — чем это кончилось",
+    nodes: [
+      {
+        id: "dbl_fin_name", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("db_2_meet") || hasStoryFlag("db_3_listen")],
+        title: "Имя, которое вернули",
+        text: "Он умер с вашим именем, а вы живёте со своим. Через двадцать лет в хрониках появилось уточнение: «был также…». Вы дописали его сами.",
+        effect: (p) => { return "У двойника наконец есть имя. У вас — тоже."; },
+        choices: [
+          {
+            text: "Дописать",
+            effect: (p) => {
+            p.intellect += 20;
+            return '+20 Знаний, +15 репутации, флаг «двойник назван».';
+          },
+            flags: { dbl_named: true },
+          },
+        ]
+      },
+      {
+        id: "dbl_fin_gone", age: 34, weight: 14,
+        fromAny: [(p) => hasStoryFlag("db_2_meet") || hasStoryFlag("db_3_listen")],
+        title: "Тот, кто был лучше",
+        text: "Он делал то, чего вы не решались. Умер за это. Вы дожили и стали осторожнее — и иногда думаете, кто из вас был настоящим.",
+        effect: (p) => { return "Вы потеряли лучшую часть себя, которая была чужим человеком."; },
+        choices: [
+          {
+            text: "Признать",
+            effect: (p) => {
+            p.intellect += 25;
+            return '+25 Знаний, -10 HP, флаг «двойник лучше».';
+          },
+            flags: { dbl_better: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🏷️ Аукцион имён -----
+  {
+    id: "names_epilogue", icon: "🏷️", title: "🏷️ Аукцион имён — чем это кончилось",
+    nodes: [
+      {
+        id: "nms_fin_free", age: 32, weight: 14,
+        fromAny: [(p) => hasStoryFlag("nm_2_list") || hasStoryFlag("nm_3_freed")],
+        title: "Имя, которое она вернула",
+        text: "Она расплатилась сама — работала шесть лет и выкупила себя. Пришла к вам не с благодарностью, а с вопросом: «Почему ты вообще полез?» Вы не смогли ответить, и она засмеялась.",
+        effect: (p) => { return "Вы помогли, и вам не заплатили. Это редкость."; },
+        choices: [
+          {
+            text: "Позвать её в род",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 15);
+            return '+15 репутации, новый член рода с характером, флаг «выкупленная».';
+          },
+            flags: { nms_free: true },
+          },
+        ]
+      },
+      {
+        id: "nms_fin_list", age: 32, weight: 14,
+        fromAny: [(p) => hasStoryFlag("nm_2_list") || hasStoryFlag("nm_3_freed")],
+        title: "Список, который не кончается",
+        text: "Вы выкупили одиннадцать. В списке было четыреста. Через двадцать лет список всё ещё существует — только теперь он ваш.",
+        effect: (p) => { return "Вы не остановили рабство. Вы только испортили кому-то вечер."; },
+        choices: [
+          {
+            text: "Держать список",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + -200);
+            p.reputation = Math.max(0, (p.reputation||0) + 40);
+            return '-200🪙, +40 репутации, флаг «список имён» (сюжет на следующее поколение).';
+          },
+            flags: { nms_list: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🎓 Школа для демонов -----
+  {
+    id: "school_epilogue", icon: "🎓", title: "🎓 Школа для демонов — чем это кончилось",
+    nodes: [
+      {
+        id: "school_fin_open", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sc_2_second") || hasStoryFlag("sc_3_second")],
+        title: "Школа, которая работает",
+        text: "Через двадцать лет в Шарии открылась вторая. Никто не снимал запрет — его просто перестали вспоминать. Первый выпуск пришёл на открытие.",
+        effect: (p) => { return "Вы изменили то, что меняется только медленно."; },
+        choices: [
+          {
+            text: "Приехать на открытие",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 30);
+            return '+30 репутации в Шарии, +20 Знаний, флаг «школа живёт».';
+          },
+            flags: { school_alive: true },
+          },
+        ]
+      },
+      {
+        id: "school_fin_closed", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("sc_2_second") || hasStoryFlag("sc_3_second")],
+        title: "Школа, которую закрыли",
+        text: "Её закрыли через три года. Двенадцать учеников разъехались по миру и выучили ещё сорок. Идею нельзя закрыть приказом.",
+        effect: (p) => { return "Школу закрыли. Учеников — нет."; },
+        choices: [
+          {
+            text: "Найти их",
+            effect: (p) => {
+            p.intellect += 25;
+            return '+25 Знаний, +15 влияния, флаг «двенадцать».';
+          },
+            flags: { school_twelve: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🔔 Разбитый колокол -----
+  {
+    id: "bell_epilogue", icon: "🔔", title: "🔔 Разбитый колокол — чем это кончилось",
+    nodes: [
+      {
+        id: "bell_fin_ring", age: 30, weight: 14,
+        fromAny: [(p) => hasStoryFlag("bl_2_seek") || hasStoryFlag("bl_3_heal")],
+        title: "Колокол, который отлили заново",
+        text: "Его отлили из того же металла и повесили в ту же башню. В первый раз он ударил криво. Во второй — ровно. Двадцать лет никто не помнит, что он когда-то был разбит.",
+        effect: (p) => { return "Вы вернули городу голос. Об этом не пишут в хрониках — об этом помнят."; },
+        choices: [
+          {
+            text: "Позвонить самому",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 25);
+            return '+25 репутации во всех регионах, флаг «колокол цел».';
+          },
+            flags: { bell_whole: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🦴 Кости в поле -----
+  {
+    id: "bones_epilogue", icon: "🦴", title: "🦴 Кости в поле — чем это кончилось",
+    nodes: [
+      {
+        id: "bones_fin_battle", age: 32, weight: 14,
+        fromAny: [(p) => hasStoryFlag("bn_2_count") || hasStoryFlag("bn_3_root")],
+        title: "Битва, которую скрыли",
+        text: "Вы откопали двести тел. Кто-то очень давно очень тщательно замел это место. Через двадцать лет хронисты назвали это «делом, о котором не говорили».",
+        effect: (p) => { return "Вы раскопали не кости — молчание."; },
+        choices: [
+          {
+            text: "Опубликовать",
+            effect: (p) => {
+            p.intellect += 30;
+            return '+30 Знаний, -20 репутации у короны, +25 у простых, флаг «скрытая битва».';
+          },
+            flags: { bones_published: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🩸 Налог кровью -----
+  {
+    id: "taxblood_epilogue", icon: "🩸", title: "🩸 Налог кровью — чем это кончилось",
+    nodes: [
+      {
+        id: "taxblood_fin_war", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("tb_2_law") || hasStoryFlag("tb_3_court")],
+        title: "Право, которое забрали",
+        text: "Указ отменили — на год. Потом вернули под другим названием. Но каждый, кто его подписывал, теперь знает цену.",
+        effect: (p) => { return "Вы выиграли год свободы для тех, кто не умеет говорить."; },
+        choices: [
+          {
+            text: "Сохранить копию указа",
+            effect: (p) => {
+            p.intellect += 25;
+            return '+25 Знаний, флаг «право на сосуд» (сюжет для поздних поколений).';
+          },
+            flags: { txb_copy: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🔑 Дом, который отняли -----
+  {
+    id: "nohome_epilogue", icon: "🔑", title: "🔑 Дом, который отняли — чем это кончилось",
+    nodes: [
+      {
+        id: "nohome_fin_built", age: 30, weight: 14,
+        fromAny: [(p) => hasStoryFlag("nh_2_error") || hasStoryFlag("nh_3_mob")],
+        title: "Дом, который построили",
+        text: "Вы не вернули старый. Вы построили новый — на три семьи, с общей кухней. Через двадцать лет в нём живёт двадцать человек, и никто из них не платит за крышу.",
+        effect: (p) => { return "Вы вернули не дом, а идею дома."; },
+        choices: [
+          {
+            text: "Открыть двери",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + -150);
+            p.reputation = Math.max(0, (p.reputation||0) + 50);
+            return '+50 репутации у простых, -150🪙, флаг «общий дом» (наследуется).';
+          },
+            flags: { nh_shared: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🩸 Наследство печати -----
+  {
+    id: "inherit_mark_epilogue", icon: "🩸", title: "🩸 Наследство печати — чем это кончилось",
+    nodes: [
+      {
+        id: "inh_fin_open", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("inh_2_opened") || hasStoryFlag("inh_3_asked")],
+        title: "Тайник, который открыли",
+        text: "В нём лежало письмо от прадеда. Оно было адресовано «тому, кто откроет». Вы прочли и поняли: он писал не вам, а следующему — и вы теперь часть его линии.",
+        effect: (p) => { return "Печать сработала. Письмо перешло к вам."; },
+        choices: [
+          {
+            text: "Написать своё",
+            effect: (p) => {
+            p.intellect += 30;
+            return '+30 Знаний, +20 HP, флаг «линия писем» (переходит по наследству).';
+          },
+            flags: { inh_letter: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🌍 Мир после Катаклизма -----
+  {
+    id: "era_late_epilogue", icon: "🌍", title: "🌍 Мир после Катаклизма — чем это кончилось",
+    nodes: [
+      {
+        id: "era_fin_map", age: 44, weight: 14,
+        fromAny: [(p) => hasStoryFlag("el_2_map") || hasStoryFlag("el_3_old")],
+        title: "Карта нового мира",
+        text: "Ваша карта стала официальной. Корона заплатила, Академия переписала, а через двадцать лет по ней ездили все. Под своей фамилией вы видели название пролива.",
+        effect: (p) => { return "Вы нарисовали мир заново. Потомки будут пользоваться."; },
+        choices: [
+          {
+            text: "Отдать безвозмездно",
+            effect: (p) => {
+            p.intellect += 40;
+            return '+40 Знаний, +40 репутации, путешествия дешевле навсегда, флаг «карта мира».';
+          },
+            flags: { era_map: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🏰 Слишком большой род -----
+  {
+    id: "dynasty_big_epilogue", icon: "🏰", title: "🏰 Слишком большой род — чем это кончилось",
+    nodes: [
+      {
+        id: "dynasty_fin_name", age: 46, weight: 14,
+        fromAny: [(p) => hasStoryFlag("db_2_split") || hasStoryFlag("db_3_law")],
+        title: "Имя, которое осталось",
+        text: "Корона считала вас опасными, пока вы были одна семья. Через двадцать лет вы — четыре ветви с одним именем, и каждая короне нужна отдельно. Так и задумано.",
+        effect: (p) => { return "Вы победили тем, что разделились."; },
+        choices: [
+          {
+            text: "Подписать раздел",
+            effect: (p) => {
+            p.asuraInfluence = (p.asuraInfluence||0) + 30;
+            return '+30 влияния, +25 к отношениям Сил, флаг «дом разделён».';
+          },
+            flags: { dyb_split: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 📖 Что стало с вашим именем -----
+  {
+    id: "legend_late_epilogue", icon: "📖", title: "📖 Что стало с вашим именем — чем это кончилось",
+    nodes: [
+      {
+        id: "legend_fin_true", age: 48, weight: 14,
+        fromAny: [(p) => hasStoryFlag("ll_2_truth") || hasStoryFlag("ll_3_break")],
+        title: "Правда на площади",
+        text: "Вы снесли статую и поставили доску с фактами. Люди прочли, поспорили, и через двадцать лет история о вас стала скучной и точной. Скучная история — самая надёжная.",
+        effect: (p) => { return "Вы заменили легенду на правду. Это редко кто выдерживает."; },
+        choices: [
+          {
+            text: "Оставить доску",
+            effect: (p) => {
+            p.intellect += 30;
+            return '+30 Знаний, -15 краткосрочной славы, флаг «правда вместо статуи».';
+          },
+            flags: { leg_truth: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: ⚔️ Наёмники рода -----
+  {
+    id: "mercs_epilogue", icon: "⚔️", title: "⚔️ Наёмники рода — чем это кончилось",
+    nodes: [
+      {
+        id: "mercs_fin_oath", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("mc_2_lead") || hasStoryFlag("mc_3_steward")],
+        title: "Присяга, которую дали заново",
+        text: "Через двадцать лет отряд снова присягнул роду — уже вашим детям. Не за золото, а потому что «твой отец платил вовремя и не посылал на смерть ради славы».",
+        effect: (p) => { return "Наёмники стали вассалами. Так начинаются настоящие дома."; },
+        choices: [
+          {
+            text: "Принять присягу",
+            effect: (p) => {
+            p.squadFame += 25;
+            return '+25 к славе, +20 репутации, отряд усиливает род навсегда, флаг «свой отряд».';
+          },
+            flags: { mrc_oath: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🕯️ Проклятие за добро -----
+  {
+    id: "curse_kind_epilogue", icon: "🕯️", title: "🕯️ Проклятие за добро — чем это кончилось",
+    nodes: [
+      {
+        id: "curse_fin_lifted", age: 40, weight: 14,
+        fromAny: [(p) => hasStoryFlag("ck_2_found") || hasStoryFlag("ck_3_endure")],
+        title: "Проклятие, которое сняли",
+        text: "Оно снялось не заклинанием. Оно снялось тем, что вы двадцать лет делали то же самое — и ни разу не пожалели. Проклятия боятся только тех, кто сдаётся.",
+        effect: (p) => { return "Проклятие ушло. Вы остались таким же."; },
+        choices: [
+          {
+            text: "Проверить руки",
+            effect: (p) => {
+            p.maxHp = Math.max(10, p.maxHp + 40); p.hp = Math.min(p.maxHp, p.hp + Math.max(0,40));
+            return '+40 HP навсегда, флаг «проклятие снято» (сюжеты поздних поколений станут теплее).';
+          },
+            flags: { crs_lifted: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🛤️ Дорога, которая стала домом -----
+  {
+    id: "road_home_epilogue", icon: "🛤️", title: "🛤️ Дорога, которая стала домом — чем это кончилось",
+    nodes: [
+      {
+        id: "road_fin_stop", age: 42, weight: 14,
+        fromAny: [(p) => hasStoryFlag("rh_2_stop") || hasStoryFlag("rh_3_search")],
+        title: "Место, где остановились",
+        text: "Через двадцать лет повозок больше нет — есть дома. Вы стоите на земле, которую род получил не по праву, а потому что больше никто не хотел. Это тоже право.",
+        effect: (p) => { return "Дорога кончилась. Род получил землю."; },
+        choices: [
+          {
+            text: "Пустить корни",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 20);
+            return '+1 имение, +20 репутации у местных, флаг «оседлый род».';
+          },
+            flags: { rh_rooted: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🕯️ След предка -----
+  {
+    id: "ancestor_epilogue", icon: "🕯️", title: "🕯️ След предка — чем это кончилось",
+    nodes: [
+      {
+        id: "ancestor_fin_circle", age: 44, weight: 14,
+        fromAny: [(p) => hasStoryFlag("an_2_map") || hasStoryFlag("an_3_sail")],
+        title: "Круг под водой",
+        text: "На дне — круг из семи камней и ваша фамилия, выбитая триста лет назад. Вы не знаете, кто это сделал. Вы знаете, что это были ваши.",
+        effect: (p) => { return "Вы нашли предка, который знал больше, чем записали."; },
+        choices: [
+          {
+            text: "Оставить как есть",
+            effect: (p) => {
+            p.intellect += 50;
+            return '+50 Знаний, +30 макс. маны, флаг «круг предков» (открывает поздние сцены).';
+          },
+            flags: { anc_circle: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🌾 Голодный век -----
+  {
+    id: "famine_epilogue", icon: "🌾", title: "🌾 Голодный век — чем это кончилось",
+    nodes: [
+      {
+        id: "famine_fin_barns", age: 36, weight: 14,
+        fromAny: [(p) => hasStoryFlag("fn_2_open") || hasStoryFlag("fn_3_sell")],
+        title: "Амбары, которые открыли",
+        text: "Через двадцать лет вам поставили памятник — не за войну, за хлеб. Он стоит у входа на рынок, и торговки кладут к нему зерно.",
+        effect: (p) => { return "Вы пережили голод, не потеряв людей. Это редкая победа."; },
+        choices: [
+          {
+            text: "Прийти на рынок",
+            effect: (p) => {
+            p.coins = Math.max(0, p.coins + -100);
+            p.reputation = Math.max(0, (p.reputation||0) + 40);
+            return '+40 репутации, -100🪙, флаг «хлебный памятник» (наследуется).';
+          },
+            flags: { fnm_monument: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 👑 Наследник, которого не хотели -----
+  {
+    id: "unwanted_heir_epilogue", icon: "👑", title: "👑 Наследник, которого не хотели — чем это кончилось",
+    nodes: [
+      {
+        id: "unheir_fin_throne", age: 44, weight: 14,
+        fromAny: [(p) => hasStoryFlag("uh_2_council") || hasStoryFlag("uh_3_ask")],
+        title: "Тот, кто сел",
+        text: "Он сел не потому, что был старшим, а потому что оказался единственным, кто остался. Через двадцать лет о нём говорят лучше, чем о вас. Это лучшая новость за всю жизнь.",
+        effect: (p) => { return "Род выбрал правильно — вопреки вам."; },
+        choices: [
+          {
+            text: "Признать вслух",
+            effect: (p) => {
+            p.reputation = Math.max(0, (p.reputation||0) + 25);
+            return '+25 репутации, +20 HP, флаг «правильный наследник» (следующее поколение начнёт сильнее).';
+          },
+            flags: { unheir_seated: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🏚️ Великий дом падает -----
+  {
+    id: "fall_house_epilogue", icon: "🏚️", title: "🏚️ Великий дом падает — чем это кончилось",
+    nodes: [
+      {
+        id: "fallhouse_fin_adopted", age: 38, weight: 14,
+        fromAny: [(p) => hasStoryFlag("fh_2_land") || hasStoryFlag("fh_3_help")],
+        title: "Имя, которое приняли",
+        text: "Мальчик вырос и взял вашу фамилию. Не потому что забыл свою — потому что ваша теперь означала что-то. Через двадцать лет он был лучшим из ваших.",
+        effect: (p) => { return "Вы спасли не дом — имя. И оно оказалось вашим."; },
+        choices: [
+          {
+            text: "Вписать в род",
+            effect: (p) => {
+            p.squadFame += 20;
+            return '+20 к славе, +25 репутации, новый наследник рода, флаг «принятое имя».';
+          },
+            flags: { flh_adopted: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🧬 Судьба ветви -----
+  {
+    id: "branch_fate_epilogue", icon: "🧬", title: "🧬 Судьба ветви — чем это кончилось",
+    nodes: [
+      {
+        id: "branch_fin_side", age: 46, weight: 14,
+        fromAny: [(p) => hasStoryFlag("bf_2_side") || hasStoryFlag("bf_3_commune")],
+        title: "Ветвь, которая выжила",
+        text: "Через двадцать лет ваша линия — не главная, но живая. В хрониках она идёт сбоку, мелким шрифтом. Мелкий шрифт переживает крупный.",
+        effect: (p) => { return "Ваша ветвь выжила. Это всё, что нужно было."; },
+        choices: [
+          {
+            text: "Записать",
+            effect: (p) => {
+            p.intellect += 15;
+            return '+15 Знаний, флаг «боковая ветвь»: сюжеты поздних поколений станут своими.';
+          },
+            flags: { brf_side: true },
+          },
+        ]
+      },
+    ]
+  },
+  // ----- ЭПИЛОГ: 🕯️ Тот, кто придёт после -----
+  {
+    id: "last_heir_epilogue", icon: "🕯️", title: "🕯️ Тот, кто придёт после — чем это кончилось",
+    nodes: [
+      {
+        id: "lastheir_fin_open", age: 50, weight: 14,
+        fromAny: [(p) => hasStoryFlag("lh_2_long") || hasStoryFlag("lh_3_short")],
+        title: "Завещание, которое прочли",
+        text: "Сорок страниц прочли вслух за три вечера. На третьем плакали все, включая тех, кто не умел. Вы умерли заранее — и всё равно были в комнате.",
+        effect: (p) => { return "Вы оставили не деньги, а слова. Слова оказались тяжелее."; },
+        choices: [
+          {
+            text: "Закрыть книгу",
+            effect: (p) => {
+            p.intellect += 30;
+            return '+30 Знаний, +25 репутации, флаг «завещание прочтено» (следующее поколение получит +15 ко всем навыкам).';
+          },
+            flags: { lsh_read: true },
+          },
+        ]
+      },
+    ]
+  },
 ];
 
 // ------------------------------------------------------------------
+
 // Состояние сюжета хранится в player.story:
 //   story.flags     — что уже случилось (решения)
 //   story.done      — какие узлы пройдены
@@ -2518,6 +3869,11 @@ function storyNodeAvailable(node) {
 
   if (node.reqRegion && !node.reqRegion.includes(player.currentRegionKey)) return false;
   if (node.from && !hasStoryFlag(node.from)) return false;
+  // Финал истории открывается, если история действительно была разыграна:
+  // подходит любой из перечисленных «итоговых» флагов этой линии.
+  if (node.fromAny && !node.fromAny.some(fn => {
+    try { return !!fn(player); } catch (e) { return false; }
+  })) return false;
   // Узел без `from` — стартовый, открывается по возрасту
   if (!node.from && player.age < (node.age || 0)) return false;
   if (node.from && player.age < (node.age || 0)) return false;

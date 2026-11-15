@@ -1029,7 +1029,7 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
     log(`📜 <b>${esc(node.title)}</b>: ${res}`);
     playSound("win");
     updateUI();
-    if (yearFlowActive) {
+    if (yearFlowActive || yearReportOpen) {
       queueYearExtra(node.title, res, "📜");
       finalizeYear();
       showYearSummary();
@@ -1057,7 +1057,7 @@ function chooseStoryNode(lineId, nodeId, choiceIdx) {
 
   log(`📜 <b>${esc(node.title)}</b>: ${res}`);
   playSound("win");
-  if (yearFlowActive) {
+  if (yearFlowActive || yearReportOpen) {
     queueYearExtra(node.title, res, "📜");
     finalizeYear();
     showYearSummary();
@@ -1081,7 +1081,7 @@ function performStoryActivity(storyId) {
   player.storyCompleted.push(st.id);
   const res = st.action(player, worldState);
   log(res); playSound(st.id === "s1_calamity" ? "calamity" : "win");
-  const wasInYear = yearFlowActive;
+  const wasInYear = yearFlowActive || yearReportOpen;
   updateUI();
   // Если веха выпала посреди года (например, Катаклизм), год обязан закончиться
   // окном итогов — иначе игрок застревает без возможности прожить следующий год
@@ -2252,6 +2252,18 @@ function showYearSummary() {
     });
   }
 
+  const milestones = getAvailableStories();
+  if (milestones.length) {
+    html += `<div class="year-section-title">🏛️ Вехи эпохи</div>`;
+    milestones.forEach(st => {
+      html += `<div class="year-twist" style="border-color:rgba(56,189,248,0.45); background:rgba(56,189,248,0.06);">
+        <div class="year-twist-title" style="color:#7dd3fc;">${esc(st.name)}</div>
+        <div class="year-twist-text">${esc(st.desc)}</div>
+        <button class="destiny-choice" style="margin-top:5px; background:#0e4a63;" onclick="performStoryActivity('${st.id}')">✨ Свершить</button>
+      </div>`;
+    });
+  }
+
   if (yearExtras.length) {
     html += `<div class="year-section-title">⏳ Что случилось</div>`;
     html += yearExtras.map(e => `<div class="year-extra"><b>${e.icon} ${esc(e.title)}</b><div>${e.text}</div></div>`).join("");
@@ -2272,7 +2284,6 @@ function showYearSummary() {
   if ($("year-summary-modal")) $("year-summary-modal").style.display = "flex";
   yearReportOpen = true;
   yearExtras = [];
-  yearSnapshot = takeYearSnapshot();
   syncTelegramBackButton();
 }
 
@@ -2295,6 +2306,7 @@ function ageUp() {
   if (yearFlowActive) return;              // защита от двойного клика
   yearFlowActive = true;
   yearFinalized = false;
+  yearReportOpen = false;                  // окно прошлого года больше не открыто
   yearExtras = [];
   yearSnapshot = takeYearSnapshot();       // точка отсчёта для дневника года
   player.age++; worldState.currentWorldYear++;
@@ -2472,7 +2484,7 @@ function triggerRandomEvent(ev) {
       if ($("event-modal")) $("event-modal").style.display = "none";
       log(`<b>[Выбор]</b> ${out}`); playSound("click");
       updateUI();
-      if (yearFlowActive) { finalizeYear(); showYearSummary(); }
+      if (yearFlowActive || yearReportOpen) { queueYearExtra(ev.title, out, ev.icon || "⚡"); finalizeYear(); showYearSummary(); }
       else showActionModal("Итог", out, ev.icon || "⚡");
       if (player.hp <= 0) handleDeath("Пал жертвой роковых событий года");
     };

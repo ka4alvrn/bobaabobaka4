@@ -168,8 +168,11 @@
       <div style="font-size:32px; margin-bottom:4px;">📖</div>
       <div class="modal-title" style="color: var(--accent-light);">Дневник года</div>
       <div class="modal-sub" id="year-summary-title">Год прожит</div>
-      <div class="birth-card" id="year-summary-body" style="font-size:12px; line-height:1.6; text-align:left;"></div>
-      <button class="btn-main" style="margin-top:12px;" onclick="closeYearSummary()">Продолжить</button>
+      <div class="birth-card" id="year-summary-body" style="font-size:12px; line-height:1.6; text-align:left; max-height:52vh; overflow-y:auto;"></div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn-secondary" style="margin:0; flex:1;" onclick="closeYearSummary()">Продолжить</button>
+        <button class="btn-main" style="margin:0; flex:1;" onclick="closeYearSummaryAndNext()">⏳ Ещё год</button>
+      </div>
     </div>
   </div>
 

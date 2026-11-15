@@ -140,6 +140,28 @@
   </div>
 
   <!-- Интерактивное событие с выбором -->
+  <!-- ОКНО «СУДЬБА»: дневник года, вехи, сюжетные линии, отложенные последствия -->
+  <div id="destiny-modal" style="display: none;">
+    <div class="destiny-sheet">
+      <div class="destiny-head">
+        <div>
+          <div class="destiny-title">📜 Судьба рода</div>
+          <div class="destiny-sub" id="destiny-sub">Дневник, вехи и последствия решений</div>
+        </div>
+        <button class="destiny-close" onclick="closeDestinyWindow()">✕</button>
+      </div>
+
+      <div class="destiny-tabs">
+        <button class="destiny-tab active" id="destiny-tab-btn-year" onclick="setDestinyTab('year', this)">📖 Год</button>
+        <button class="destiny-tab" id="destiny-tab-btn-lines" onclick="setDestinyTab('lines', this)">🌿 Линии судьбы</button>
+        <button class="destiny-tab" id="destiny-tab-btn-path" onclick="setDestinyTab('path', this)">🧭 Путь</button>
+        <button class="destiny-tab" id="destiny-tab-btn-pending" onclick="setDestinyTab('pending', this)">⏳ Эхо</button>
+      </div>
+
+      <div class="destiny-body" id="destiny-body"></div>
+    </div>
+  </div>
+
   <!-- Дневник года: короткая сводка после прожитого года -->
   <div id="year-summary-modal" style="display: none;">
     <div class="birth-sheet">
@@ -329,6 +351,7 @@
     <div class="log-box" id="logs"></div>
 
     <button class="btn-main" onclick="ageUp()">⏳ Прожить 1 год (Восстановить силы)</button>
+    <button class="btn-main" style="margin-top:6px; background:linear-gradient(135deg,#7c3aed,#a855f7);" onclick="openDestinyWindow()">📜 Судьба рода <span id="destiny-badge" class="badge-mythic pulse" style="display:none; font-size:10px; margin-left:4px;">новое</span></button>
     <button class="btn-secondary" style="margin-top:6px;" onclick="showYearSummary()">📖 Дневник последнего года</button>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
       <button class="btn-secondary" style="margin-top:0;" onclick="askNewSoul()">🔄 Новая душа (время идёт)</button>
@@ -336,13 +359,6 @@
     </div>
     <button class="btn-secondary" style="margin-top:6px;" onclick="openSaveModal()">💾 Код сохранения (Экспорт / Импорт)</button>
 
-    <div class="story-life-box" style="margin-top: 14px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span class="section-title" style="margin: 0;">📜 Сюжетные Вехи Судьбы</span>
-        <span id="story-notify-badge" class="badge-mythic pulse" style="display:none; font-size:10px;">⚡ Доступна веха!</span>
-      </div>
-      <div id="life-story-container"></div>
-    </div>
   </div>
 
   <!-- ВКЛАДКА 2: ДЕЛА, СЛУЖБА И ПОДПОЛЬЕ -->
@@ -519,6 +535,7 @@
   <script src="./music.js"></script>
   <script src="./balance.js"></script>
   <script src="./data.js"></script>
+  <script src="./story.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

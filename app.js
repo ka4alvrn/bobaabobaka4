@@ -700,7 +700,7 @@ function setWorldSubTab(sub, btnEl) {
   });
   btnEl?.parentElement?.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
   btnEl?.classList.add("active");
-  ({ relations: renderRelations, travel: renderTravelTab, perugius: renderChaosBreaker, greyrat: renderGreyratBranches, tablets: renderTablets, politics: renderPolitics, tree: renderDynastyTree, languages: renderLanguages, schools: renderSchools })[sub]?.();
+  ({ relations: renderRelations, travel: renderTravelTab, perugius: renderChaosBreaker, greyrat: renderGreyratBranches, tablets: renderTablets, politics: renderPolitics, tree: () => { renderTitles(); renderDynastyTree(); }, languages: renderLanguages, schools: renderSchools })[sub]?.();
   playSound("click");
 }
 
@@ -708,6 +708,143 @@ function jumpToWorldMap() {
   switchTab("relations");
   const mapBtn = document.querySelector("#tab-relations .sub-tab-btn:nth-child(2)");
   setWorldSubTab("travel", mapBtn);
+}
+
+// =========================================================================
+// СОБЫТИЯ ВЕКА: раз в 30-50 лет мир переворачивается
+// =========================================================================
+// Это не случайная встреча на дороге. Это событие, которое меняет карту,
+// цены, доступные истории и остаётся в памяти поколений.
+
+const CENTURY_EVENTS = [
+  {
+    id: "great_war", icon: "⚔️", title: "Война Шести Корон",
+    minYear: 440, cooldown: 40,
+    desc: "Пять королевств и Демонический Континент объявили друг другу войну одновременно. Такого не было со времён Катаклизма.",
+    world: "war_all",
+    chronicle: "Началась Война Шести Корон — все регионы вступили в войну.",
+    choices: [
+      { text: "Воевать за корону", effect: (p) => { p.swordGodExp += 120; p.squadFame += 200; p.reputation += 20; return "Вы вернулись с войны с именем и без иллюзий (+120 меча, +200 славы)."; } },
+      { text: "Защищать свой дом", effect: (p) => { p.maxHp += 100; p.hp = p.maxHp; (p.estates || []).length; p.reputation += 10; return "Вы не ушли на войну — вы держали ворота. Дом выстоял (+100 HP навсегда)."; } },
+      { text: "Продавать оружие обеим сторонам", effect: (p) => { p.coins += 2000; p.reputation -= 25; return "Война кормит тех, кто умеет считать (+2000🪙, −25 репутации)."; } }
+    ]
+  },
+  {
+    id: "plague_world", icon: "🦠", title: "Великий мор",
+    minYear: 470, cooldown: 45,
+    desc: "Болезнь пришла из портов и пошла по трактам. Умирают в каждом втором доме, лекари не спят неделями.",
+    world: "plague_all",
+    chronicle: "Великий мор прошёл по Шестиликому Миру.",
+    choices: [
+      { text: "Лечить всех, кто приходит", effect: (p) => { p.intellect += 60; p.reputation += 45; p.hp = Math.max(10, p.hp - 40); return "Вы не спали три месяца. Половина выживших обязана вам жизнью (+45 репутации, −40 HP)."; } },
+      { text: "Закрыть дом и переждать", effect: (p) => { p.coins -= 100; return "Вы переждали за стенами. Никто из ваших не умер — и никто из чужих вам этого не забудет."; } },
+      { text: "Скупать лекарства и продавать", effect: (p) => { p.coins += 1500; p.reputation -= 40; return "На чужом страхе вы построили состояние (+1500🪙, −40 репутации)."; } }
+    ]
+  },
+  {
+    id: "awakening", icon: "🐉", title: "Пробуждение Древнего",
+    minYear: 500, cooldown: 50,
+    desc: "В Бегаритте проснулось что-то, что спало с начала времён. Песок встал стеной на три дня. Семь Сил выехали все сразу — впервые за двести лет.",
+    world: "war_begaritt",
+    chronicle: "Древнее пробудилось в Бегаритте. Семь Сил выехали вместе.",
+    choices: [
+      { text: "Пойти вместе с Силами", effect: (p) => { p.intellect += 40; p.swordGodExp += 60; if (typeof changePowerAttitude === "function") changePowerAttitude(1, 12); return "Вы были там, где решалась судьба мира. Семь Сил запомнили ваше лицо."; } },
+      { text: "Укрыть беженцев", effect: (p) => { p.reputation += 50; p.coins -= 300; return "Пока герои дрались, вы кормили тех, кто бежал. Это тоже подвиг, просто без песен."; } },
+      { text: "Не приближаться", effect: (p) => { return "Вы остались дома. Мир пережил это без вас — и вы не уверены, что жалеете."; } }
+    ]
+  },
+  {
+    id: "fall_crown", icon: "👑", title: "Падение Асурской Короны",
+    minYear: 530, cooldown: 55,
+    desc: "Династия Асуры прервалась в одну ночь. Трон пуст, четыре дома уже делят корону, а тракты перекрыты.",
+    world: "purge_all",
+    chronicle: "Асурская корона пала. Четыре дома начали делить власть.",
+    choices: [
+      { text: "Поддержать один из домов", effect: (p) => { p.asuraInfluence += 60; p.reputation += 15; return "Вы поставили на дом, который выиграл. Влияние в Асуре выросло вдвое."; } },
+      { text: "Собирать земли, пока пусто", effect: (p) => { p.coins += 1200; p.reputation -= 15; return "Пока сильные делили корону, вы делили их земли (+1200🪙, −15 репутации)."; } },
+      { text: "Держать нейтралитет", effect: (p) => { p.intellect += 30; return "Вы не встали ни на чью сторону — и все четыре дома вам за это благодарны. Пока."; } }
+    ]
+  },
+  {
+    id: "old_gods", icon: "⛪", title: "Возвращение Старых Богов",
+    minYear: 560, cooldown: 60,
+    desc: "В Милисе рухнула главная статуя — под ней нашли другую, старше на тысячу лет. Церковь раскололась за неделю.",
+    world: "fair_milis",
+    chronicle: "Старые боги вернулись в Милис. Церковь раскололась.",
+    choices: [
+      { text: "Встать за новую веру", effect: (p) => { p.intellect += 45; p.reputation += 25; return "Вы были среди первых. История запомнит вас в первой строке."; } },
+      { text: "Встать за старую церковь", effect: (p) => { p.asuraInfluence += 40; p.reputation += 10; return "Вы остались с тем, что было. Старая церковь не забывает верных."; } },
+      { text: "Уехать из Милиса до конца спора", effect: (p) => { p.coins -= 200; return "Вы уехали. Вера — это то, что дороже денег и дешевле крови."; } }
+    ]
+  }
+];
+
+// Когда случается следующее событие века
+function nextCenturyEvent() {
+  if (!Array.isArray(worldState.centuryDone)) worldState.centuryDone = [];
+  const year = worldState.currentWorldYear;
+  const available = CENTURY_EVENTS.filter(e =>
+    !worldState.centuryDone.includes(e.id) &&
+    year >= e.minYear &&
+    (!worldState.lastCenturyYear || year - worldState.lastCenturyYear >= (e.cooldown || 40) / 3)
+  );
+  return available[0] || null;
+}
+
+// Запуск события века — это окно с последствиями на весь мир
+function triggerCenturyEvent(ev) {
+  if (!ev) return false;
+  worldState.centuryDone = worldState.centuryDone || [];
+  if (worldState.centuryDone.includes(ev.id)) return false;
+  worldState.centuryDone.push(ev.id);
+  worldState.lastCenturyYear = worldState.currentWorldYear;
+
+  // Меняем состояния регионов по сценарию события
+  ensureWorldState();
+  const setAll = (stateId, years) => Object.keys(REGIONS).forEach(k => worldState.regionStates[k] = { id: stateId, yearsLeft: years });
+  if (ev.world === "war_all") setAll("war", 5);
+  else if (ev.world === "plague_all") setAll("plague", 3);
+  else if (ev.world === "purge_all") setAll("purge", 4);
+  else if (ev.world === "war_begaritt") { setAll("calm", 1); worldState.regionStates.begaritt = { id: "war", yearsLeft: 6 }; }
+  else if (ev.world === "fair_milis") { setAll("calm", 1); worldState.regionStates.milis = { id: "fair", yearsLeft: 4 }; }
+
+  if (ev.chronicle) worldState.chronicles.push({ year: worldState.currentWorldYear, text: `🌍 ${ev.chronicle}` });
+
+  // Окно с выбором
+  setText("event-icon", ev.icon);
+  setText("event-title", ev.title);
+  setText("event-desc", `${ev.desc}<br><br><span style="color:#fbbf24; font-size:11px;">Событие века. Оно изменит не только вашу жизнь.</span>`);
+  const cBox = $("event-choices"); if (!cBox) return false;
+  cBox.innerHTML = "";
+  ev.choices.forEach(ch => {
+    const btn = document.createElement("button");
+    btn.className = "event-choice-btn";
+    btn.innerText = ch.text;
+    btn.onclick = () => {
+      const out = ch.effect(player);
+      if ($("event-modal")) $("event-modal").style.display = "none";
+      log(`<b>[Событие века]</b> ${out}`);
+      worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name}: ${ch.text.toLowerCase()} — ${ev.title}.` });
+      queueYearExtra(`${ev.icon} ${ev.title}`, out, ev.icon);
+      playSound("win");
+      const wasInYear = yearFlowActive || yearReportOpen;
+      updateUI();
+      finishYearIfActive(wasInYear, ev.title, out, ev.icon);
+    };
+    cBox.appendChild(btn);
+  });
+  if ($("event-modal")) $("event-modal").style.display = "flex";
+  playSound("calamity");
+  return true;
+}
+
+// Ближайшее событие века — для подсказки игроку
+function upcomingCenturyEvent() {
+  if (!Array.isArray(worldState.centuryDone)) worldState.centuryDone = [];
+  const left = CENTURY_EVENTS.filter(e => !worldState.centuryDone.includes(e.id));
+  if (!left.length) return null;
+  const next = left.reduce((a, b) => a.minYear <= b.minYear ? a : b);
+  return { ev: next, yearsLeft: Math.max(0, next.minYear - worldState.currentWorldYear) };
 }
 
 // =========================================================================
@@ -924,6 +1061,15 @@ function renderWorldNews() {
       <span style="font-size:10px; color:var(--muted);">состояния меняются каждый год</span>
     </div>
     <div style="margin-top:7px;">${rows}</div>
+    ${(() => {
+      const up = upcomingCenturyEvent();
+      if (!up) return "";
+      return `<div style="margin-top:8px; padding-top:7px; border-top:1px solid rgba(148,163,184,0.18); font-size:10.5px; color:#94a3b8; line-height:1.45;">
+        ${up.yearsLeft <= 0
+          ? `🌍 <b style="color:#fbbf24;">Событие века близко:</b> ${esc(up.ev.title)} — может начаться в любой год.`
+          : `🌍 Следующее событие века — <b style="color:#cbd5e1;">${esc(up.ev.title)}</b>, примерно через ${up.yearsLeft} лет.`}
+      </div>`;
+    })()}
   </div>`;
 }
 
@@ -2339,6 +2485,151 @@ function buyNobilityTitle(id, cost, reqInf) {
   player.coins -= cost; player.nobilityTitle = id; log(`👑 Дарован титул!`); playSound("win"); updateUI(); renderPolitics();
 }
 
+// =========================================================================
+// ТИТУЛЫ И ПРОЗВИЩА
+// =========================================================================
+// Прозвище не выбирают — его дают. Игрок совершает поступки, а род и мир
+// называют его так, как запомнили. Прозвище остаётся в хрониках навсегда:
+// в дереве предков, в летописи, в памяти следующего поколения.
+//
+// Каждое прозвище требует конкретного дела, а не числа в характеристиках.
+
+const TITLES = [
+  // --- Деньги и долг ---
+  { id: "debtor", name: "Долговой", icon: "💰", cond: (p) => (p.story?.flags?.debt_owned || p.story?.flags?.debt_paid) && p.reputation < 40,
+    text: "Ваше имя произносят вместе с суммой." },
+  { id: "payer", name: "Платящий", icon: "🪙", cond: (p) => p.story?.flags?.debt_paid && p.reputation >= 40,
+    text: "О вас говорят: «С этим можно иметь дело»." },
+  { id: "rich", name: "Золотой", icon: "👑", cond: (p) => p.coins >= 12000, text: "Ваш кошель стал громче вашего голоса." },
+  { id: "greedy", name: "Скупой", icon: "🪙", cond: (p) => p.coins >= 3000 && (p.reputation || 0) <= 10, text: "Богатство есть, а имени доброго нет." },
+
+  // --- Война и меч ---
+  { id: "swordsman", name: "Клинок", icon: "⚔️", cond: (p) => (p.swordGodExp || 0) >= 400, text: "О вас говорят как о мече, а не о человеке." },
+  { id: "undefeated", name: "Непобеждённый", icon: "🛡️", cond: (p) => (p.squadFame || 0) >= 300 && (p.hp || 0) >= (p.maxHp || 1) * 0.9,
+    text: "Вы уходили из каждой схватки на ногах." },
+  { id: "butcher", name: "Мясник", icon: "🩸", cond: (p) => (p.story?.flags?.debt_kill || p.story?.flags?.her_denied) && (p.reputation || 0) < 25,
+    text: "За вами идут не потому что верят — потому что боятся." },
+  { id: "peacemaker", name: "Миротворец", icon: "🕊️", cond: (p) => p.story?.flags?.bdr_peace || p.story?.flags?.grd_peace,
+    text: "Вы останавливали то, что должно было случиться." },
+
+  // --- Магия и знание ---
+  { id: "mage", name: "Магистр", icon: "🔮", cond: (p) => (p.magicExp || 0) >= 400, text: "Ваши заклинания обсуждают в Академии." },
+  { id: "sage", name: "Мудрый", icon: "📖", cond: (p) => (p.intellect || 0) >= 120, text: "К вам приходят с вопросами, а не с приказами." },
+  { id: "silent", name: "Молчаливый", icon: "🤫", cond: (p) => p.story?.flags?.sl_3_use || p.story?.flags?.sl_4_sold, text: "Вы говорили так, что вас слышали." },
+
+  // --- Династия и люди ---
+  { id: "father", name: "Отец Рода", icon: "👶", cond: (p) => (p.children || []).length >= 4, text: "Ваш дом шумит детьми и ссорами." },
+  { id: "widower", name: "Вдовец", icon: "🕯️", cond: (p) => !!p.widowed && p.widowed.name, text: "Вы пережили того, с кем делили жизнь." },
+  { id: "last_child", name: "Последний", icon: "🕯️", cond: (p) => p.story?.flags?.bf_1, text: "На вас может кончиться линия — и вы это знаете." },
+  { id: "beloved", name: "Любимый", icon: "🤍", cond: (p) => (p.reputation || 0) >= 100, text: "Вас любят не за титул." },
+  { id: "hated", name: "Ненавистный", icon: "🖤", cond: (p) => (p.reputation || 0) <= -40, text: "Ваше имя произносят как проклятие." },
+
+  // --- Мир и власть ---
+  { id: "power", name: "Сила Мира", icon: "🏆", cond: (p) => !!p.currentPowersSeat, text: "Ваше место — на Монументе." },
+  { id: "greyrat", name: "Единый Грейрат", icon: "🩸", cond: (p) => (p.greyratAllies || []).length >= 4, text: "Вы соединили то, что двести лет было четырьмя домами." },
+  { id: "chaos", name: "Поднявшийся", icon: "🐉", cond: (p) => (p.perugiusTrials || []).length >= 3, text: "В крепости есть ваше окно." },
+  { id: "traveller", name: "Странник", icon: "🧭", cond: (p) => Object.keys(p.visitedRegions || {}).length >= 6, text: "Вы видели все шесть ликов мира." },
+  { id: "settler", name: "Осевший", icon: "🏠", cond: (p) => (p.estates || []).length >= 3 && Object.keys(p.visitedRegions || {}).length <= 2,
+    text: "Вы выбрали место, а не дорогу." },
+
+  // --- Характер ---
+  { id: "kind", name: "Добрый", icon: "🤗", cond: (p) => (p.regionOpinionSum || 0) >= 80, text: "Регионы помнят вашу помощь." },
+  { id: "grim", name: "Хмурый", icon: "🌑", cond: (p) => (p.deaths || 0) >= 6, text: "Вы видели слишком много чужих похорон." }
+];
+
+// Считаем сводные показатели, на которые опираются условия
+function refreshTitleStats() {
+  if (!player) return;
+  ensureWorldState();
+  player.regionOpinionSum = Object.values(worldState.regionOpinion || {}).reduce((a, b) => a + b, 0);
+  player.visitedRegions = player.visitedRegions || {};
+  player.visitedRegions[player.currentRegionKey] = true;
+}
+
+// Какие прозвища заслужил герой прямо сейчас
+function earnedTitles() {
+  refreshTitleStats();
+  return TITLES.filter(t => {
+    try { return !!t.cond(player); } catch (e) { return false; }
+  });
+}
+
+// Раз в год (и при важных событиях) проверяем: не дали ли новое прозвище
+function checkTitles() {
+  if (!player) return;
+  if (!Array.isArray(player.titles)) player.titles = [];
+  const earned = earnedTitles();
+  earned.forEach(t => {
+    if (!player.titles.includes(t.id)) {
+      player.titles.push(t.id);
+      // Главным прозвищем становится самое «весомое» из последних
+      player.epithetId = t.id;
+      log(`${t.icon} Вас стали звать <b>${esc(t.name)}</b>. ${esc(t.text)}`);
+      queueYearExtra(`${t.icon} Новое прозвище`, `<b>${esc(t.name)}</b> — ${esc(t.text)}`, "🏷️");
+      worldState.chronicles.push({ year: worldState.currentWorldYear, text: `${player.name} получил прозвище «${t.name}».` });
+      playSound("win");
+    }
+  });
+}
+
+// Выбор, какое прозвище носить (если их несколько)
+function setEpithet(id) {
+  if (!player.titles || !player.titles.includes(id)) return;
+  player.epithetId = id;
+  const t = TITLES.find(x => x.id === id);
+  if (t) { log(`🏷️ Вы носите прозвище <b>${esc(t.name)}</b>.`); playSound("click"); }
+  renderTitles(); updateUI();
+}
+
+// Полное имя героя с прозвищем
+function heroFullName(p) {
+  const pp = p || player;
+  if (!pp) return "";
+  const t = TITLES.find(x => x.id === pp.epithetId);
+  return t ? `${pp.name} ${t.name}` : pp.name;
+}
+
+// Экран прозвищ
+function renderTitles() {
+  const box = $("titles-box");
+  if (!box || !player) return;
+  if (!Array.isArray(player.titles)) player.titles = [];
+  const owned = TITLES.filter(t => player.titles.includes(t.id));
+  const locked = TITLES.filter(t => !player.titles.includes(t.id));
+
+  let html = `<div class="card" style="border-color:#a855f7; background:#150f24;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <b style="color:#d8b4fe; font-size:13px;">🏷️ Прозвища рода</b>
+      <span style="font-size:11px; color:var(--muted);">${owned.length} / ${TITLES.length}</span>
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-top:4px; line-height:1.45;">
+      Прозвище не выбирают — его дают за дела. Одно носится сейчас, остальные остаются в истории.
+    </div>
+  </div>`;
+
+  if (owned.length) {
+    html += owned.map(t => `<div class="title-row ${player.epithetId === t.id ? "active" : ""}">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+        <div><b style="font-size:12px;">${t.icon} ${esc(t.name)}</b>
+          ${player.epithetId === t.id ? '<span class="title-current">сейчас</span>' : ""}</div>
+        ${player.epithetId === t.id ? "" : `<button style="font-size:10px; padding:3px 8px; background:#4c1d95;" onclick="setEpithet('${t.id}')">Носить</button>`}
+      </div>
+      <div style="font-size:10.5px; color:#cbd5e1; margin-top:3px;">${esc(t.text)}</div>
+    </div>`).join("");
+  } else {
+    html += `<div class="card" style="text-align:center; color:var(--muted); font-size:11.5px;">Пока у вас нет прозвища. Проживите жизнь — и род придумает, как вас называть.</div>`;
+  }
+
+  if (locked.length) {
+    html += `<div class="section-title" style="margin-top:12px; font-size:12px;">Ещё не ваше (${locked.length})</div>`;
+    html += locked.map(t => `<div class="title-row locked">
+      <b style="font-size:11.5px; color:#64748b;">${t.icon} ${esc(t.name)}</b>
+      <div style="font-size:10px; color:#475569; margin-top:2px;">За дела, которые вы пока не совершили.</div>
+    </div>`).join("");
+  }
+  box.innerHTML = html;
+}
+
 function renderDynastyTree() {
   const cont = $("dynasty-tree-container"); if (!cont) return;
   let html = `<div class="tree-node current"><div class="tree-gen">👑 Поколение ${player.generation} (Сейчас • ${worldState.currentWorldYear} г.)</div>
@@ -2349,7 +2640,7 @@ function renderDynastyTree() {
   html += `<div class="section-title">Зал Славы Предков (${worldState.dynastyHistory.length})</div>`;
   html += worldState.dynastyHistory.length ? worldState.dynastyHistory.slice().reverse().map(a => `
     <div class="tree-node"><div class="tree-gen">📜 Поколение ${a.gen} ${a.powersSeat ? `• #${a.powersSeat} Семи Сил` : ""}</div>
-    <b>${esc(a.name)}</b> (${a.race}) • Пик БМ: ${fmtNum(a.peakCp)} • ${a.maxAge} л.<div style="font-size:10px; color:var(--muted);">${a.deathReason}</div></div>`).join("") : `<div style="color:var(--muted); font-size:11px;">Летопись предков пока пуста.</div>`;
+    <b>${esc(a.name)}</b>${a.epithet ? ` <span class="epithet-badge">${a.epithetIcon || "🏷️"} ${esc(a.epithet)}</span>` : ""} (${a.race}) • Пик БМ: ${fmtNum(a.peakCp)} • ${a.maxAge} л.<div style="font-size:10px; color:var(--muted);">${a.deathReason}</div></div>`).join("") : `<div style="color:var(--muted); font-size:11px;">Летопись предков пока пуста.</div>`;
   cont.innerHTML = html;
 }
 
@@ -2926,8 +3217,8 @@ function renderRelations() {
         if (hasCanonQ) actHtml += `<button class="npc-action-full" style="background:#b45309;" onclick="doCanonQuest('${npc.id}')">⭐ Квест: ${CANON_QUESTS[npc.id].title}</button>`;
         if (player.age >= 16 && !inSquad && !npc.isChild) actHtml += `<button class="npc-action-full" style="background:#312e81;" onclick="addToSquad('${npc.id}')">🛡️ В боевой отряд</button>`;
         if (player.age >= 14 && !npc.isFamily && !npc.isChild && npc.status !== "Пара" && npc.status !== "Супруг/Супруга") actHtml += `<button class="action-love npc-action-full" onclick="npcInteract('${npc.id}','confess')">❤️ Признаться в чувствах</button>`;
-        if (player.age >= 16 && npc.status === "Пара" && !player.spouse) actHtml += `<button class="action-married npc-action-full" onclick="npcInteract('${npc.id}','marry')">💍 Пожениться</button>`;
-        if (npc.status === "Супруг/Супруга") actHtml += `<button class="action-married npc-action-full" ${player.pregnancy ? "disabled" : ""} onclick="npcInteract('${npc.id}','child')">${player.pregnancy ? "⏳ Ожидание малыша" : "👶 Зачать ребенка"}</button>`;
+        if (player.age >= 16 && npc.status === "Пара" && canMarry(npc)) actHtml += `<button class="action-married npc-action-full" onclick="npcInteract('${npc.id}','marry')">💍 Пожениться</button>`;
+        if (npc.status === "Супруг/Супруга" && !npc.isDead) actHtml += `<button class="action-married npc-action-full" ${player.pregnancy ? "disabled" : ""} onclick="npcInteract('${npc.id}','child')">${player.pregnancy ? "⏳ Ожидание малыша" : "👶 Зачать ребенка"}</button>`;
       }
     }
     const badges = `${npc.isCanon ? '<span class="badge-canon">Канон ⭐</span> ' : ""}${npc.isChild ? '<span style="color:#fbbf24;">(Наследник)</span> ' : ""}${childTraitBadge(npc)}${npc.isLost ? '<span class="badge-mythic">Пропал ⚡</span> ' : ""}${inSquad ? '<span class="badge-rare">Отряд 🛡️</span>' : ""}`;
@@ -2948,6 +3239,22 @@ function doCanonQuest(id) {
   log(`⭐ <b>Личный квест:</b> ${q.rewardText}`);
   playSound("win"); showActionModal(q.title, q.rewardText, "⭐");
   updateUI(); renderRelations();
+}
+
+// Можно ли вступить в новый брак: не женат, не в трауре, партнёр жив
+function canMarry(npc) {
+  if (!npc || npc.isDead) return false;
+  if (player.spouse && !player.spouse.isDead && player.spouse.id !== npc.id) return false;
+  if (player.spouse && player.spouse.id === npc.id) return false;   // уже супруги
+  if (player.mourningUntilYear && worldState.currentWorldYear < player.mourningUntilYear) return false;
+  return true;
+}
+
+// Текст, объясняющий, почему брак сейчас невозможен
+function marryBlockReason(npc) {
+  if (player.spouse && !player.spouse.isDead && player.spouse.id !== npc.id) return `Вы женаты на ${player.spouse.name}.`;
+  if (player.mourningUntilYear && worldState.currentWorldYear < player.mourningUntilYear) return "Траур по умершему супругу — ещё год.";
+  return "";
 }
 
 function npcInteract(id, act) {
@@ -2971,7 +3278,21 @@ function npcInteract(id, act) {
   else if (act === "loan") { if (npc.relation >= 75) { const g = Math.floor(Math.random() * 20) + 10; player.coins += g; npc.relation -= 5; msg = `${npc.name} одолжил(а) +${g}🪙.`; playSound("coin"); } else msg = `Мало доверия (нужно 75%+).`; }
   else if (act === "insult") { npc.relation = Math.max(0, npc.relation - 30); if (npc.relation <= 25) npc.status = "Заклятый враг"; msg = `Вы оскорбили ${npc.name}!`; playSound("click"); }
   else if (act === "confess") { if (npc.relation >= 75) { npc.status = "Пара"; msg = `💖 ${npc.name} ответил(а) взаимностью!`; playSound("win"); } else { npc.relation = Math.max(0, npc.relation - 10); msg = `💔 ${npc.name}: "Останемся друзьями..."`; } }
-  else if (act === "marry") { if (npc.relation >= 88) { npc.status = "Супруг/Супруга"; player.spouse = npc; msg = `💍 Вы и ${npc.name} поженились!`; playSound("win"); } else msg = `Укрепите отношения до 88%+!`; }
+  else if (act === "marry") {
+    if (!canMarry(npc)) { msg = marryBlockReason(npc) || "Сейчас брак невозможен."; }
+    else if (npc.relation >= 88) {
+      // Прошлый супруг (если был и умер) остаётся в памяти, но не в статусе
+      const wasWidow = !!player.widowed;
+      npc.status = "Супруг/Супруга"; player.spouse = npc;
+      if (wasWidow) {
+        player.widowed.was = player.widowed.was || [];
+        player.widowed.was.push({ name: player.widowed.name, year: player.widowed.year });
+        player.widowed = { year: 0, name: "", since: 0, was: player.widowed.was };
+        queueYearExtra("Новая семья", `Вы вступили в новый брак с ${esc(npc.name)}. Прежний супруг остался в памяти рода.`, "💍");
+      }
+      msg = `💍 Вы и ${npc.name} поженились!`; playSound("win");
+    } else msg = `Укрепите отношения до 88%+!`;
+  }
   else if (act === "child") { player.pregnancy = { partnerName: npc.name, partnerRace: npc.race || "Человек" }; msg = `👶 Вы с ${npc.name} ждёте ребёнка!`; playSound("win"); }
   log(msg); showActionModal("Отношения", msg, "👥"); updateUI(); renderRelations(); renderSocialCounter();
 }
@@ -3327,6 +3648,14 @@ function ageUp() {
         npc.isDead = true; npc.status = "Покойный(ая)";
         log(`🕯️ ${npc.name} скончался(ась) в возрасте ${npc.age} лет.`);
         queueYearExtra("Утрата", `${esc(npc.name)} скончался(ась) в возрасте ${npc.age} лет.`, "🕯️");
+        // Вдовство: супруг ушёл, но не остался «занятым» навсегда.
+        // Траур — год, потом можно снова связать жизнь с кем-то.
+        if (player.spouse && player.spouse.id === npc.id) {
+          player.widowed = { year: worldState.currentWorldYear, name: npc.name, since: player.age };
+          player.spouse = null;
+          player.mourningUntilYear = worldState.currentWorldYear + 1;
+          queueYearExtra("Вдовство", `Вы остались без ${esc(npc.name)}. Траур — год, потом жизнь продолжится, если захотите.`, "🕯️");
+        }
       }
     }
   });
@@ -3375,6 +3704,8 @@ function ageUp() {
   applyGreyratAllianceYearly();
   // Живой мир: состояния регионов меняются, вестник пишет новости года
   advanceWorldStates();
+  // Прозвища: род и мир решают, как вас называть
+  checkTitles();
   // Дети: растут, показывают характер, просят
   advanceChildrenYear();
   (player.children || []).forEach(c => {
@@ -3407,6 +3738,10 @@ function ageUp() {
   if (worldState.currentWorldYear === CALAMITY_YEAR && !worldState.calamityOccurred) {
     performStoryActivity("s1_calamity"); return;
   }
+
+  // Событие века: раз в несколько десятилетий мир переворачивается целиком
+  const centuryEv = nextCenturyEvent();
+  if (centuryEv && triggerCenturyEvent(centuryEv)) return;
 
   const canon = trySpawnCanonNpc(false);
   if (canon) {
@@ -3526,14 +3861,18 @@ function handleDeath(reason) {
   yearExtras = [];
   if ($("year-summary-modal")) $("year-summary-modal").style.display = "none";
   playSound("death");
+  const finalTitle = TITLES.find(t => t.id === player.epithetId);
   worldState.dynastyHistory.push({
     gen: player.generation, name: player.name, gender: player.gender, race: player.race,
-    peakCp: calcCombatPower(player), maxAge: player.age, deathReason: reason, powersSeat: player.currentPowersSeat
+    peakCp: calcCombatPower(player), maxAge: player.age, deathReason: reason, powersSeat: player.currentPowersSeat,
+    epithet: finalTitle ? finalTitle.name : null, epithetIcon: finalTitle ? finalTitle.icon : null,
+    titles: (player.titles || []).slice()
   });
 
   setText("death-reason", `${reason} в возрасте ${player.age} лет.`);
   if ($("death-summary")) $("death-summary").innerHTML = `
-    <div>🎖️ <b>${esc(player.name)}</b> (${player.race}) • Прожито: <b>${player.age} л.</b></div>
+    <div>🎖️ <b>${esc(heroFullName(player))}</b> (${player.race}) • Прожито: <b>${player.age} л.</b></div>
+    ${(player.titles || []).length ? `<div style="font-size:11px; color:#c4b5fd;">🏷️ ${player.titles.map(id => { const t = TITLES.find(x => x.id === id); return t ? t.icon + " " + esc(t.name) : ""; }).filter(Boolean).join(" • ")}</div>` : ""}
     <div>⚡ Пиковая БМ: <b>${calcCombatPower(player).toLocaleString()}</b> • Золото: <b>${player.coins.toLocaleString()}🪙</b></div>
     ${player.currentPowersSeat ? `<div style="color:var(--gold);">🏆 Титул #${player.currentPowersSeat} Семи Сил (наследуется преемником!)</div>` : ""}`;
 
@@ -3745,6 +4084,17 @@ function normalizeLoadedData(data) {
   if (typeof player.socialAp !== "number") player.socialAp = getMaxSocialAp();
   // Дети из старых сейвов получают характер задним числом
   if (typeof initChildTraits === "function") initChildTraits();
+  if (!Array.isArray(player.titles)) player.titles = [];
+  if (typeof player.visitedRegions !== "object" || player.visitedRegions === null) player.visitedRegions = {};
+  if (!Array.isArray(worldState.centuryDone)) worldState.centuryDone = [];
+  // Старый сейв с умершим супругом: место освобождаем, траур уже прошёл
+  if (player.spouse && player.spouse.isDead) {
+    player.widowed = player.widowed || { year: worldState.currentWorldYear - 2, name: player.spouse.name, since: 0 };
+    player.spouse = null;
+    if (!player.mourningUntilYear || player.mourningUntilYear > worldState.currentWorldYear) {
+      player.mourningUntilYear = worldState.currentWorldYear;
+    }
+  }
   // Объект экипировки мог частично потеряться
   if (typeof player.equipment !== "object" || player.equipment === null) {
     player.equipment = { weapon: null, armor: null, accessory: null };

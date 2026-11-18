@@ -4291,6 +4291,31 @@ function menuStoryMode() {
   menuOpen("origin-screen");
 }
 
+// «Продолжить» — если есть незакрытая глава кампании
+function menuResume() {
+  const saved = loadCampaign();
+  if (!saved) { menuStoryMode(); return; }
+  campaign = saved;
+  storyShowScene(saved.sceneId);
+}
+
+function refreshResumeButton() {
+  const choiceBox = document.querySelector("#main-menu .mm-choice");
+  if (!choiceBox) return;
+  const old = document.getElementById("mm-resume");
+  if (old) old.remove();
+  const saved = loadCampaign();
+  if (!saved) return;
+  const o = STORY_ORIGINS.find(x => x.id === saved.originId);
+  const btn = document.createElement("button");
+  btn.id = "mm-resume";
+  btn.className = "mm-start";
+  btn.style.margin = "0 0 14px";
+  btn.textContent = `▶ Продолжить — ${o ? o.name : "история"}`;
+  btn.onclick = menuResume;
+  choiceBox.parentNode.insertBefore(btn, choiceBox);
+}
+
 function menuFreeMode() {
   menuOpen(null);
   if (!loadGame()) showCreation();
@@ -4494,6 +4519,7 @@ function startAtMenu() {
   const nav = document.querySelector(".bottom-nav");
   if (nav) nav.style.display = "none";
   menuOpen("main-menu");
+  refreshResumeButton();
 }
 
 if (typeof startAtMenu === "function") startAtMenu();

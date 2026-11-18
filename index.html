@@ -19,6 +19,82 @@
   <!-- Скрытый input для загрузки своего фото персонажа -->
   <input type="file" id="avatar-upload" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
 
+
+  <!-- ═══ ТИТУЛЬНОЕ МЕНЮ ═══ -->
+  <div id="main-menu">
+    <div class="mm-bg"></div>
+    <div class="mm-inner">
+      <div class="mm-crest">☸</div>
+      <h1 class="mm-title">Bit Tensei</h1>
+      <div class="mm-sub">Шестиликий Мир ждёт своего героя</div>
+
+      <div class="mm-choice">
+        <button class="mm-card mm-story" onclick="menuStoryMode()">
+          <span class="mm-card-icon">📖</span>
+          <span class="mm-card-body">
+            <span class="mm-card-title">Сюжет</span>
+            <span class="mm-card-desc">Одна жизнь от рождения до конца. Семь глав, три судьбы, десять развязок.</span>
+          </span>
+        </button>
+        <button class="mm-card mm-free" onclick="menuFreeMode()">
+          <span class="mm-card-icon">🎲</span>
+          <span class="mm-card-body">
+            <span class="mm-card-title">Свободный режим</span>
+            <span class="mm-card-desc">Колесо Сансары, род на века, весь мир — без сюжетных рамок.</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="mm-foot">
+        <button class="mm-mini" onclick="menuSettings()">⚙️ Настройки</button>
+        <button class="mm-mini" onclick="menuCredits()">✦ Об игре</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ВЫБОР РОЖДЕНИЯ (сюжетный режим) ═══ -->
+  <div id="origin-screen" style="display:none;">
+    <div class="mm-bg"></div>
+    <div class="mm-inner mm-wide">
+      <div class="mm-step">Шаг 1 из 2</div>
+      <h2 class="mm-h2">Где вы родитесь?</h2>
+      <div class="mm-sub" style="margin-bottom:14px;">Три судьбы. Один мир. Ни одна не легче другой.</div>
+
+      <div class="origin-list" id="origin-list"></div>
+
+      <div class="mm-foot" style="margin-top:16px;">
+        <button class="mm-mini" onclick="backToMenu()">← Назад</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ИМЯ И ПОЛ (сюжетный режим) ═══ -->
+  <div id="naming-screen" style="display:none;">
+    <div class="mm-bg"></div>
+    <div class="mm-inner">
+      <div class="mm-step">Шаг 2 из 2</div>
+      <h2 class="mm-h2">Как вас будут звать?</h2>
+      <div class="mm-sub" id="naming-origin-line" style="margin-bottom:14px;"></div>
+
+      <div class="naming-form">
+        <label class="mm-label">Имя</label>
+        <input id="story-name" class="mm-input" maxlength="16" placeholder="Рудеус" autocomplete="off">
+        <label class="mm-label">Фамилия</label>
+        <input id="story-surname" class="mm-input" maxlength="16" placeholder="Грейрат" autocomplete="off">
+        <label class="mm-label">Пол</label>
+        <div class="mm-gender">
+          <button class="mm-gbtn active" id="gbtn-male" onclick="setStoryGender('male')">♂ Мужской</button>
+          <button class="mm-gbtn" id="gbtn-female" onclick="setStoryGender('female')">♀ Женский</button>
+        </div>
+      </div>
+
+      <button class="mm-start" onclick="beginStory()">Начать историю →</button>
+      <div class="mm-foot" style="margin-top:10px;">
+        <button class="mm-mini" onclick="backToOrigins()">← Назад</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Окно создания персонажа -->
   <div id="creation-overlay">
     <div class="modal-title">🔮 Колесо Сансары</div>
@@ -559,6 +635,7 @@
   <script src="./music.js"></script>
   <script src="./balance.js"></script>
   <script src="./data.js"></script>
+  <script src="./campaign.js"></script>
   <script src="./story.js"></script>
   <script src="./app.js"></script>
 </body>

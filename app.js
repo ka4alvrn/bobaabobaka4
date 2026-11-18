@@ -4220,4 +4220,306 @@ function importSaveCode() {
   } catch { showActionModal("Ошибка", "Неверный код сохранения!", "❌"); }
 }
 
-if (!loadGame()) showCreation();
+
+/* ══════════════════════════════════════════════════════════
+   СЮЖЕТНЫЙ РЕЖИМ: меню, выбор рождения, запуск кампании.
+   Свободный режим не затрагивается: он живёт по своим ключам.
+   ══════════════════════════════════════════════════════════ */
+
+const STORY_SAVE_KEY = "bit_tensei_story_save";
+
+// Три судьбы. Один мир, один год — разный взгляд.
+const STORY_ORIGINS = [
+  {
+    id: "buena",
+    icon: "🏡",
+    name: "Дитя деревни Буэна",
+    place: "Земли Фитоа, Королевство Асура",
+    tone: "Тёплое начало, магия, приключение — и катастрофа, которая всё ломает.",
+    text: "Семья мелкого дворянина в провинции, где все друг друга знают, а главное событие года — приезд торговца. Вы живёте в трёх днях пути от дома, где растёт другой перерождённый. Вы встретите его раньше, чем кто-либо.",
+    question: "Что делает обычный человек, когда история проходит через его двор?",
+    tags: ["Магия", "Дорога", "Поиски"],
+    region: "asura",
+    surname: "Грейрат",
+    name: "Рудеус"
+  },
+  {
+    id: "ars",
+    icon: "👑",
+    name: "Дитя столицы Арс",
+    place: "Королевство Асура, дворец и дома знати",
+    tone: "Холодное начало: интриги, шёпот за спиной, вежливые улыбки и ножи в них.",
+    text: "Вы не принц и не слуга — вы между. Дети знатных домов играют в то же, за что их отцы убивают. Трон шатается, и принцесса, которую вы знали ребёнком, однажды попросит вас о том, за что вешают.",
+    question: "Сколько себя можно потратить, чтобы посадить на трон правильного человека?",
+    tags: ["Интриги", "Власть", "Война"],
+    region: "asura",
+    surname: "Анемой",
+    name: "Люк"
+  },
+  {
+    id: "demon",
+    icon: "🌋",
+    name: "Дитя Рикариса",
+    place: "Демонический Континент, пустошь",
+    tone: "Жёсткое начало: голод, драки, свобода, купленная шрамами.",
+    text: "Демоническая кровь — из тех, кому в остальном мире не подают руку. Пустошь, где сила решает всё, а жалость считается глупостью. Ни имени, ни рода, ни защиты: всё, что у вас будет, вы возьмёте сами — или не будете.",
+    question: "Можно ли стать кем-то, если с рождения ты — никто?",
+    tags: ["Сила", "Свобода", "Свои"],
+    region: "demon",
+    surname: "",
+    name: "Риен"
+  }
+];
+
+let storyOrigin = null;      // выбранное рождение
+let storyGender = "male";
+let storyStarted = false;    // сюжетный режим включён (не свободный)
+
+function menuOpen(id) {
+  ["main-menu", "origin-screen", "naming-screen"].forEach(x => {
+    const el = $(x); if (el) el.style.display = (x === id ? "flex" : "none");
+  });
+  const nav = document.querySelector(".bottom-nav");
+  if (nav) nav.style.display = (id ? "none" : "");
+}
+
+function backToMenu() { menuOpen("main-menu"); }
+function backToOrigins() { menuOpen("origin-screen"); }
+
+function menuStoryMode() {
+  renderOriginList();
+  menuOpen("origin-screen");
+}
+
+// «Продолжить» — если есть незакрытая глава кампании
+function menuResume() {
+  const saved = loadCampaign();
+  if (!saved) { menuStoryMode(); return; }
+  campaign = saved;
+  storyShowScene(saved.sceneId);
+}
+
+function refreshResumeButton() {
+  const choiceBox = document.querySelector("#main-menu .mm-choice");
+  if (!choiceBox) return;
+  const old = document.getElementById("mm-resume");
+  if (old) old.remove();
+  const saved = loadCampaign();
+  if (!saved) return;
+  const o = STORY_ORIGINS.find(x => x.id === saved.originId);
+  const btn = document.createElement("button");
+  btn.id = "mm-resume";
+  btn.className = "mm-start";
+  btn.style.margin = "0 0 14px";
+  btn.textContent = `▶ Продолжить — ${o ? o.name : "история"}`;
+  btn.onclick = menuResume;
+  choiceBox.parentNode.insertBefore(btn, choiceBox);
+}
+
+function menuFreeMode() {
+  menuOpen(null);
+  if (!loadGame()) showCreation();
+}
+
+function menuSettings() {
+  showActionModal("⚙️ Настройки", "Звук и музыку можно выключить кнопкой 🔔 в правом верхнем углу. Сброс прогресса — в окне «Данные» на вкладке персонажа.", "⚙️");
+}
+
+function menuCredits() {
+  showActionModal("✦ Bit Tensei",
+    "История о Шестиликом Мире, перерождении и о том, что остаётся после нас.\n\n" +
+    "Сюжетный режим — одна жизнь от рождения до конца: три судьбы, семь глав, десять развязок.\n" +
+    "Свободный режим — род на века, без сюжетных рамок.", "✦");
+}
+
+function renderOriginList() {
+  const box = $("origin-list");
+  if (!box) return;
+  box.innerHTML = STORY_ORIGINS.map(o => `
+    <div class="origin-card${storyOrigin && storyOrigin.id === o.id ? " picked" : ""}" onclick="pickOrigin('${o.id}')">
+      <div class="origin-top">
+        <div class="origin-icon">${o.icon}</div>
+        <div>
+          <div class="origin-name">${esc(o.name)}</div>
+          <div class="origin-place">${esc(o.place)}</div>
+        </div>
+      </div>
+      <div class="origin-tone">${esc(o.tone)}</div>
+      <div class="origin-text">${esc(o.text)}</div>
+      <div class="origin-tags">${o.tags.map(t => `<span class="origin-tag">${esc(t)}</span>`).join("")}</div>
+    </div>`).join("");
+}
+
+function pickOrigin(id) {
+  storyOrigin = STORY_ORIGINS.find(o => o.id === id) || null;
+  renderOriginList();
+  setTimeout(() => {
+    if (!storyOrigin) return;
+    renderNamingScreen();
+    menuOpen("naming-screen");
+  }, 180);
+}
+
+function renderNamingScreen() {
+  const o = storyOrigin; if (!o) return;
+  const line = $("naming-origin-line");
+  if (line) line.textContent = `${o.icon} ${o.name} • ${o.place}`;
+  const n = $("story-name"), s = $("story-surname");
+  if (n) n.value = o.name;
+  if (s) s.value = o.surname;
+  setStoryGender("male");
+}
+
+function setStoryGender(g) {
+  storyGender = g;
+  const m = $("gbtn-male"), f = $("gbtn-female");
+  if (m) m.classList.toggle("active", g === "male");
+  if (f) f.classList.toggle("active", g === "female");
+}
+
+function beginStory() {
+  const o = storyOrigin; if (!o) return;
+  const name = ($("story-name")?.value || o.name).trim() || o.name;
+  const surname = ($("story-surname")?.value || "").trim();
+  const raceKey = o.id === "demon" ? "demon" : "human";
+  const race = RACES[raceKey] || RACES.human;
+  const region = REGIONS[o.region] || REGIONS.asura;
+  const origin = (region.origins && region.origins[0]) || "Неизвестно";
+  const trait = TRAITS[0];
+  const fam = FAMILY_STATUSES[o.id === "ars" ? 1 : 0] || FAMILY_STATUSES[0];
+
+  storyStarted = true;
+  menuOpen(null);
+  initCharacter(name, surname, storyGender, race, o.region, origin, trait, fam, 0);
+  storyBeginCampaign(o);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   ДВИЖОК КАМПАНИИ
+   Главы → сцены → выборы → последствия.
+   Ветки сходятся, но помнят: флаги, доверие, кто жив.
+   ══════════════════════════════════════════════════════════ */
+
+const CAMPAIGN_SAVE_KEY = "bit_tensei_campaign_save";
+
+// Состояние кампании — отдельно от песочницы
+let campaign = {
+  on: false,
+  originId: null,
+  chapter: 0,          // номер текущей главы (0 = пролог)
+  sceneId: null,       // текущая сцена
+  flags: {},           // памятные выборы
+  trust: {}            // доверие к персонажам
+};
+
+function storyBeginCampaign(origin) {
+  campaign = {
+    on: true,
+    originId: origin.id,
+    chapter: 0,
+    sceneId: origin.id + "_p1",
+    flags: {},
+    trust: {}
+  };
+  saveCampaign();
+  storyShowScene(campaign.sceneId);
+}
+
+// Найти сцену по id во всех главах кампании
+function campaignFindScene(id) {
+  if (typeof CAMPAIGN_SCENES === "undefined" || !id) return null;
+  return CAMPAIGN_SCENES[id] || null;
+}
+
+function storyFlag(name) { return !!campaign.flags[name]; }
+function storyTrust(who) { return Number(campaign.trust[who] || 0); }
+function addTrust(who, delta) {
+  campaign.trust[who] = Math.max(-100, Math.min(100, storyTrust(who) + delta));
+}
+
+// Показать сцену кампании
+function storyShowScene(id) {
+  const sc = campaignFindScene(id);
+  if (!sc) {
+    showActionModal("Конец главы", "Дальше этой точки сюжет пока не написан. Глава будет продолжена в следующей порции.", "📖");
+    return;
+  }
+  campaign.sceneId = id;
+  saveCampaign();
+
+  const modal = $("story-modal");
+  const title = $("story-title"), desc = $("story-text"), choices = $("story-choices"), foot = $("story-foot");
+  const lineName = $("story-line-name"), icon = $("story-icon");
+  if (!modal) return;
+
+  if (title) title.textContent = sc.title || "История";
+  if (lineName) lineName.textContent = sc.chapter || "История";
+  if (icon) icon.textContent = sc.icon || "📖";
+  if (desc) desc.innerHTML = String(sc.text || "").split("\n\n").map(p => `<p>${p}</p>`).join("");
+  if (choices) {
+    choices.innerHTML = (sc.choices || []).map((c, i) =>
+      `<button class="story-choice-btn" onclick="storyPickChoice(${i})">${esc(c.text)}</button>`).join("");
+  }
+  if (foot) foot.innerHTML = "";
+  modal.style.display = "flex";
+}
+
+// Выбор в сцене кампании
+function storyPickChoice(idx) {
+  const sc = campaignFindScene(campaign.sceneId);
+  if (!sc || !sc.choices || !sc.choices[idx]) return;
+  const ch = sc.choices[idx];
+
+  // памятные флаги
+  Object.keys(ch.flags || {}).forEach(f => { campaign.flags[f] = ch.flags[f]; });
+  // доверие
+  Object.keys(ch.trust || {}).forEach(who => addTrust(who, ch.trust[who]));
+
+  const next = typeof ch.next === "function" ? ch.next(campaign) : ch.next;
+
+  // показать последствие выбора, если оно есть
+  if (ch.result) {
+    const desc = $("story-text"), choices = $("story-choices");
+    if (desc) desc.innerHTML = `<p class="story-result">${esc(ch.result)}</p>`;
+    if (choices) {
+      choices.innerHTML = `<button class="story-choice-btn" onclick="storyContinueTo('${next || ""}')">Далее →</button>`;
+    }
+    campaign.pendingNext = next;
+    campaign.sceneId = next || campaign.sceneId;
+    saveCampaign();
+    return;
+  }
+  storyContinueTo(next);
+}
+
+function storyContinueTo(nextId) {
+  const id = nextId || campaign.pendingNext;
+  campaign.pendingNext = null;
+  if (!id) { storyShowScene(campaign.sceneId); return; }
+  saveCampaign();
+  storyShowScene(id);
+}
+
+function saveCampaign() {
+  try { localStorage.setItem(CAMPAIGN_SAVE_KEY, JSON.stringify(campaign)); } catch {}
+}
+
+function loadCampaign() {
+  try {
+    const raw = localStorage.getItem(CAMPAIGN_SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return data && data.sceneId ? data : null;
+  } catch { return null; }
+}
+
+// Титульный экран: меню или сразу в игру
+function startAtMenu() {
+  const nav = document.querySelector(".bottom-nav");
+  if (nav) nav.style.display = "none";
+  menuOpen("main-menu");
+  refreshResumeButton();
+}
+
+if (typeof startAtMenu === "function") startAtMenu();

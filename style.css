@@ -531,3 +531,87 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   padding: 1px 6px;
   margin-left: 4px;
 }
+
+/* ═══════════ ТИТУЛЬНОЕ МЕНЮ И СЮЖЕТНЫЙ РЕЖИМ ═══════════ */
+#main-menu, #origin-screen, #naming-screen {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 22px 16px 30px; overflow-y: auto;
+  background: radial-gradient(120% 90% at 50% 0%, #1d1633 0%, #0d0a18 55%, #07060c 100%);
+}
+#main-menu::after { content: ""; position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(60% 40% at 50% 18%, rgba(157,78,221,0.16), transparent 70%); }
+.mm-bg { position: fixed; inset: 0; pointer-events: none; opacity: .5;
+  background-image: radial-gradient(1.5px 1.5px at 12% 22%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 78% 14%, #fff, transparent),
+    radial-gradient(1.6px 1.6px at 34% 68%, #cbd5e1, transparent),
+    radial-gradient(1.1px 1.1px at 88% 62%, #fff, transparent),
+    radial-gradient(1.3px 1.3px at 56% 36%, #e9d5ff, transparent),
+    radial-gradient(1px 1px at 22% 84%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 68% 88%, #dbeafe, transparent); }
+.mm-inner { position: relative; width: 100%; max-width: 520px; margin: auto; text-align: center; }
+.mm-wide { max-width: 560px; }
+.mm-crest { font-size: 42px; line-height: 1; color: #c084fc; text-shadow: 0 0 26px rgba(168,85,247,.75);
+  animation: mmSpin 26s linear infinite; margin-bottom: 6px; }
+@keyframes mmSpin { to { transform: rotate(360deg); } }
+.mm-title { font-size: 34px; font-weight: 900; letter-spacing: -1px; margin: 0;
+  background: linear-gradient(180deg, #f8fafc 20%, #c084fc 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.mm-sub { font-size: 11.5px; color: #94a3b8; letter-spacing: .4px; margin-top: 4px; }
+.mm-h2 { font-size: 23px; font-weight: 800; margin: 0 0 4px; color: #f1f5f9; }
+.mm-step { font-size: 10px; text-transform: uppercase; letter-spacing: 1.6px; color: #7c3aed; font-weight: 700; margin-bottom: 6px; }
+.mm-choice { display: flex; flex-direction: column; gap: 11px; margin: 26px 0 18px; }
+.mm-card { display: flex; align-items: center; gap: 13px; text-align: left; width: 100%;
+  padding: 15px 15px; border-radius: 16px; cursor: pointer; color: #f1f5f9;
+  border: 1px solid rgba(148,163,184,.22); background: rgba(30,27,53,.72);
+  backdrop-filter: blur(8px); transition: .18s; font-family: inherit; }
+.mm-card:active { transform: scale(.985); }
+.mm-story { border-color: rgba(168,85,247,.5); background: linear-gradient(120deg, rgba(76,29,149,.55), rgba(30,27,53,.75)); }
+.mm-story:active { background: linear-gradient(120deg, rgba(109,40,217,.7), rgba(30,27,53,.85)); }
+.mm-free { border-color: rgba(56,189,248,.35); }
+.mm-free:active { background: rgba(14,116,144,.35); }
+.mm-card-icon { font-size: 26px; flex: 0 0 30px; text-align: center; }
+.mm-card-body { display: flex; flex-direction: column; gap: 3px; }
+.mm-card-title { font-size: 15px; font-weight: 800; letter-spacing: .2px; }
+.mm-card-desc { font-size: 10.5px; color: #a5b4c8; line-height: 1.35; }
+.mm-foot { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.mm-mini { background: transparent; border: 1px solid rgba(148,163,184,.25); color: #94a3b8;
+  font-size: 11px; padding: 7px 13px; border-radius: 20px; cursor: pointer; font-family: inherit; }
+.mm-mini:active { background: rgba(148,163,184,.12); }
+
+/* выбор рождения */
+.origin-list { display: flex; flex-direction: column; gap: 11px; }
+.origin-card { text-align: left; padding: 14px; border-radius: 16px; cursor: pointer;
+  border: 1px solid rgba(148,163,184,.2); background: rgba(24,22,40,.8); transition: .18s; }
+.origin-card:active { transform: scale(.985); }
+.origin-card.picked { border-color: #a855f7; box-shadow: 0 0 0 1px #a855f7, 0 6px 24px rgba(168,85,247,.25); }
+.origin-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.origin-icon { font-size: 24px; }
+.origin-name { font-size: 14.5px; font-weight: 800; color: #f1f5f9; line-height: 1.2; }
+.origin-place { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+.origin-tone { font-size: 10.5px; color: #c4b5fd; font-style: italic; margin-bottom: 5px; }
+.origin-text { font-size: 11.5px; color: #b6c2d4; line-height: 1.45; }
+.origin-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+.origin-tag { font-size: 9.5px; padding: 3px 7px; border-radius: 20px;
+  background: rgba(148,163,184,.13); color: #cbd5e1; }
+
+/* имя и пол */
+.naming-form { display: flex; flex-direction: column; gap: 6px; text-align: left; margin-bottom: 18px; }
+.mm-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #7c8aa0; font-weight: 700; margin-top: 6px; }
+.mm-input { width: 100%; box-sizing: border-box; background: rgba(15,13,26,.9); border: 1px solid rgba(148,163,184,.25);
+  border-radius: 11px; padding: 12px 13px; color: #f1f5f9; font-size: 15px; font-family: inherit; outline: none; }
+.mm-input:focus { border-color: #a855f7; }
+.mm-gender { display: flex; gap: 8px; }
+.mm-gbtn { flex: 1; padding: 11px; border-radius: 11px; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; font-weight: 700; color: #94a3b8; border: 1px solid rgba(148,163,184,.25);
+  background: rgba(15,13,26,.9); transition: .15s; }
+.mm-gbtn.active { border-color: #a855f7; color: #f1f5f9; background: rgba(76,29,149,.5); }
+.mm-start { width: 100%; padding: 15px; border-radius: 14px; border: none; cursor: pointer;
+  font-family: inherit; font-size: 15px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #a855f7); box-shadow: 0 6px 22px rgba(124,58,237,.4); }
+.mm-start:active { transform: scale(.985); }
+
+/* сюжетная кампания: результат выбора и метка главы */
+.story-result { color: #e9d5ff; font-style: italic; border-left: 2px solid #a855f7; padding-left: 10px; }
+.story-chapter-tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: 1.4px;
+  color: #a855f7; font-weight: 700; margin-bottom: 6px; }

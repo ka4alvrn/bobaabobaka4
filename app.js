@@ -438,6 +438,60 @@ function onRegionChange() {
   if ($("select-family-status")) $("select-family-status").innerHTML = statuses.map(f => `<option value="${f.id}">${f.name} — ${f.desc}</option>`).join("");
 }
 
+
+/* ══════════════════════════════════════════════════════════
+   СЛОЖНОСТЬ
+   Одна игра не может быть одинаково интересной всем:
+   кому-то нужен вызов, кому-то — история. Три режима,
+   и они меняют не только цифры, но и жёсткость мира.
+   ══════════════════════════════════════════════════════════ */
+
+const DIFFICULTIES = {
+  easy: {
+    id: "easy", icon: "🌿", name: "Спокойная",
+    desc: "Щедрее золото, добрее враги, медленнее старость.",
+    coinsMult: 1.5, enemyMult: 0.8, decayMult: 0.6, eventHarmMult: 0.7,
+    ageBonus: 8, xpMult: 1.25, hireCostMult: 0.8
+  },
+  normal: {
+    id: "normal", icon: "⚖️", name: "Обычная",
+    desc: "Так, как задумано.",
+    coinsMult: 1, enemyMult: 1, decayMult: 1, eventHarmMult: 1,
+    ageBonus: 0, xpMult: 1, hireCostMult: 1
+  },
+  hard: {
+    id: "hard", icon: "🔥", name: "Суровая",
+    desc: "Меньше золота, злее враги, быстрее старость.",
+    coinsMult: 0.65, enemyMult: 1.3, decayMult: 1.5, eventHarmMult: 1.3,
+    ageBonus: -8, xpMult: 0.85, hireCostMult: 1.25
+  }
+};
+
+let chosenDifficulty = "normal";
+
+function currentDifficulty() {
+  return DIFFICULTIES[player?.difficulty || chosenDifficulty] || DIFFICULTIES.normal;
+}
+
+function setDifficulty(id) {
+  if (!DIFFICULTIES[id]) return;
+  chosenDifficulty = id;
+  document.querySelectorAll(".diff-btn").forEach(b => b.classList.toggle("active", b.dataset.diff === id));
+}
+
+// Применяется на старте жизни: предел жизни, стартовое золото
+function applyDifficultyToNewLife() {
+  const d = DIFFICULTIES[chosenDifficulty] || DIFFICULTIES.normal;
+  player.difficulty = d.id;
+  player.maxAge = Math.max(30, (player.maxAge || 75) + d.ageBonus);
+  return d;
+}
+
+function difficultyLabel() {
+  const d = currentDifficulty();
+  return `<span class="diff-badge" title="${esc(d.desc)}">${d.icon} ${d.name}</span>`;
+}
+
 function showCreation() {
   if ($("select-race")) $("select-race").innerHTML = Object.entries(RACES).map(([k, r]) => `<option value="${k}">${r.name}</option>`).join("");
   if ($("select-region")) $("select-region").innerHTML = Object.entries(REGIONS).map(([k, r]) => `<option value="${k}">${r.name}</option>`).join("");
@@ -502,7 +556,8 @@ function initCharacter(fName, sName, gender, race, regionKey, origin, trait, fam
     generation: dynastyGeneration,
     birthYear: worldState.currentWorldYear - startAge,
     isFirstEraLife: !worldState.calamityOccurred && dynastyGeneration === 1 && worldState.currentWorldYear <= 425,
-    race: race.name, raceObj: race, maxAge: isGod ? 999 : race.maxAge,
+    race: race.name, raceObj: race, maxAge: isGod ? 999 : Math.max(30, race.maxAge + (DIFFICULTIES[chosenDifficulty]?.ageBonus || 0)),
+    difficulty: chosenDifficulty,
     regionKey, currentRegionKey: regionKey, origin: origin.name, trait, familyStatus,
     customAvatar: null,
     age: startAge, ap: getMaxAP(startAge), maxAp: getMaxAP(startAge),
@@ -512,7 +567,7 @@ function initCharacter(fName, sName, gender, race, regionKey, origin, trait, fam
     waterGodExp: isGod ? 1500 : (origin.waterGod || 0) + (trait.waterGod || 0) + (startAge > 5 ? startAge * 3 : 0),
     northGodExp: isGod ? 1500 : (origin.northGod || 0) + (trait.northGod || 0) + (race.bonus.northGod || 0) + (familyStatus.northGod || 0) + (startAge > 5 ? startAge * 3 : 0),
     intellect: isGod ? 500 : 10 + (origin.int || 0) + (trait.int || 0) + (race.bonus.int || 0) + (familyStatus.int || 0) + startAge * 2,
-    coins: isGod ? 99999 : (origin.coins || 0) + (race.bonus.coins || 0) + (familyStatus.coins || 0),
+    coins: isGod ? 99999 : Math.round(((origin.coins || 0) + (race.bonus.coins || 0) + (familyStatus.coins || 0)) * (DIFFICULTIES[chosenDifficulty]?.coinsMult || 1)),
     reputation: 0,
     guildRank: isGod ? "S" : "F", guildExp: 0, guildQuestsThisYear: [], dungeonProgress: {},
     enrolledSchool: null, schoolProgress: 0, graduatedSchools: [],
@@ -688,20 +743,20 @@ function switchTab(tabId) {
   document.querySelectorAll(".nav-item")[idx]?.classList.add("active");
 
   if (tabId === "activities") renderActivities();
-  if (tabId === "inventory") { renderInventoryTab(); renderForge(); renderTestament(); renderFamilyCastle(); renderEstates(); renderCaravans(); }
+  if (tabId === "inventory") { renderInventoryTab(); renderForge(); if (typeof renderAlchemy === "function") renderAlchemy(); renderTestament(); renderFamilyCastle(); renderEstates(); renderCaravans(); }
   if (tabId === "guild") { renderGuildTab(); renderSquad(); }
   if (tabId === "relations") { renderRelations(); renderTravelTab(); renderChaosBreaker(); renderGreyratBranches(); renderTablets(); renderLanguages(); }
   playSound("click");
 }
 
 function setWorldSubTab(sub, btnEl) {
-  ["relations", "travel", "perugius", "greyrat", "tablets", "politics", "tree", "achieve", "languages", "schools"].forEach(t => {
+  ["relations", "travel", "perugius", "greyrat", "tablets", "politics", "tree", "diary", "achieve", "languages", "schools"].forEach(t => {
     const el = $(`world-sub-${t}`);
     if (el) el.style.display = t === sub ? "block" : "none";
   });
   btnEl?.parentElement?.querySelectorAll(".sub-tab-btn").forEach(b => b.classList.remove("active"));
   btnEl?.classList.add("active");
-  ({ relations: renderRelations, travel: renderTravelTab, perugius: renderChaosBreaker, greyrat: renderGreyratBranches, tablets: renderTablets, politics: renderPolitics, tree: () => { renderTitles(); renderDynastyTree(); }, achieve: renderAchievements, languages: renderLanguages, schools: renderSchools })[sub]?.();
+  ({ relations: renderRelations, travel: renderTravelTab, perugius: renderChaosBreaker, greyrat: renderGreyratBranches, tablets: renderTablets, politics: renderPolitics, tree: () => { renderTitles(); renderDynastyTree(); }, achieve: renderAchievements, diary: () => { renderCurrentLifeDiary(); renderDynastyDiary(); }, languages: renderLanguages, schools: renderSchools })[sub]?.();
   playSound("click");
 }
 
@@ -979,10 +1034,23 @@ function regionShortName(k) {
   return r.mapLabel || r.name.replace(/^[^\s]+\s/, "");
 }
 
+// Базовый характер экономики региона: где-то ярмарка, где-то всё привозное
+const REGION_PRICE_BASE = {
+  asura: 1.05,        // столица: на всё наценка
+  begaritt: 1.2,      // пустыня: привозное золото
+  milishion: 0.9,     // торговые города
+  ranoa: 0.95,
+  great_forest: 0.92, // свои травы, своя еда
+  demon: 1.1,
+  north: 1.0
+};
+
 // Множители состояния — используются ценами и доходом
 function worldPriceMult(key) {
   const st = currentRegionState(key);
-  return st.def.effect?.prices || 1;
+  const stateMult = st.def.effect?.prices || 1;
+  const base = REGION_PRICE_BASE[key] ?? 1;
+  return base * stateMult;
 }
 function worldTravelMult(key) {
   const st = currentRegionState(key);
@@ -1610,7 +1678,7 @@ function finalizeYear() {
   yearFinalized = true;
   applyYearlyGrowth();
   processStoryConsequences();
-  if (typeof checkAchievements === "function") checkAchievements();
+  if (typeof checkAchievements === "function") { checkAchievements(); if (typeof checkAchievementRewards === "function") checkAchievementRewards(); }
   updateDestinyBadge();
 }
 
@@ -1785,6 +1853,151 @@ function quitUndergroundJob() { player.currentUndergroundJob = null; player.unde
 // =========================================================================
 // КУЗНИЦА, ЗАВЕЩАНИЕ, ЗАМОК, КАРАВАНЫ, РЫНОК
 // =========================================================================
+
+/* ══════════════════════════════════════════════════════════
+   ЗЕЛЬЕВАРЕНИЕ
+   Раньше зелье просто покупалось за 15🪙. Теперь его можно
+   варить самому: нужны травы, знания и время. Своё — дешевле
+   и лучше покупного.
+   ══════════════════════════════════════════════════════════ */
+
+const HERBS = [
+  { id: "leaf", icon: "🌿", name: "Подорожник", where: "любой регион", price: 4 },
+  { id: "root", icon: "🪵", name: "Корень мандрагоры", where: "Великий Лес", price: 9 },
+  { id: "crystal", icon: "💎", name: "Кристалл маны", where: "Раноа", price: 14 },
+  { id: "ember", icon: "🔥", name: "Огненный цвет", where: "Бегаритт", price: 12 },
+  { id: "shadow", icon: "🌑", name: "Теневая трава", where: "Демонический Континент", price: 11 }
+];
+
+const RECIPES = [
+  { id: "r_heal", icon: "🧪", name: "Зелье исцеления", herbs: { leaf: 2, root: 1 }, minInt: 0, need: "знания 0+",
+    desc: "+60 HP сразу", effect: "heal60" },
+  { id: "r_bigheal", icon: "⚗️", name: "Большое зелье", herbs: { leaf: 3, root: 2, crystal: 1 }, minInt: 40, need: "знания 40+",
+    desc: "+200 HP сразу", effect: "heal200" },
+  { id: "r_mana", icon: "🔵", name: "Эликсир маны", herbs: { crystal: 2, leaf: 1 }, minInt: 25, need: "знания 25+",
+    desc: "полная мана", effect: "mana" },
+  { id: "r_strength", icon: "🔴", name: "Зелье силы", herbs: { ember: 2, root: 1 }, minInt: 60, need: "знания 60+",
+    desc: "+3 к школе Меча навсегда", effect: "sword" },
+  { id: "r_clear", icon: "✨", name: "Ясный взгляд", herbs: { shadow: 1, crystal: 1, leaf: 1 }, minInt: 80, need: "знания 80+",
+    desc: "+8 Знаний навсегда", effect: "int" }
+];
+
+function ensureAlchemy() {
+  if (!player.herbs || typeof player.herbs !== "object") player.herbs = {};
+  if (!player.potions) player.potions = {};
+}
+
+function herbCount(id) { ensureAlchemy(); return player.herbs[id] || 0; }
+
+function gatherHerbs() {
+  ensureAlchemy();
+  if (player.ap < 1) return showActionModal("Усталость", "Нужна ⚡ 1 сила.", "💤");
+  player.ap -= 1;
+  const region = player.currentRegionKey;
+  const pool = HERBS.filter(h => {
+    if (h.id === "root" && region === "great_forest") return true;
+    if (h.id === "crystal" && region === "ranoa") return true;
+    if (h.id === "ember" && region === "begaritt") return true;
+    if (h.id === "shadow" && region === "demon") return true;
+    return h.id === "leaf";
+  });
+  const got = [];
+  const n = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < n; i++) {
+    const h = pool[Math.floor(Math.random() * pool.length)];
+    player.herbs[h.id] = (player.herbs[h.id] || 0) + 1;
+    got.push(h.icon);
+  }
+  player.intellect += 1;
+  log(`🌿 Сбор трав: ${got.join(" ")} (+1 Знаний).`);
+  showActionModal("Сбор трав", `Вы набрали: ${got.join(" ")}\n\nТравы годятся для варки зелий.`, "🌿");
+  playSound("click"); updateUI(); renderAlchemy();
+}
+
+function brewPotion(recipeId) {
+  ensureAlchemy();
+  const r = RECIPES.find(x => x.id === recipeId);
+  if (!r) return;
+  if ((player.intellect || 0) < r.minInt) return showActionModal("Не хватает знаний", `Нужно ${r.minInt} Знаний.`, "📖");
+  for (const [h, n] of Object.entries(r.herbs)) {
+    if (herbCount(h) < n) {
+      const hh = HERBS.find(x => x.id === h);
+      return showActionModal("Нет ингредиентов", `Нужно: ${hh.icon} ${hh.name} ×${n}. Соберите травы.`, "🌿");
+    }
+  }
+  for (const [h, n] of Object.entries(r.herbs)) player.herbs[h] -= n;
+  player.potions[r.id] = (player.potions[r.id] || 0) + 1;
+  log(`⚗️ Сварено: <b>${r.name}</b>.`);
+  playSound("win"); updateUI(); renderAlchemy();
+  showActionModal(r.icon + " " + r.name, `Готово. ${r.desc}.`, r.icon);
+}
+
+function useBrewedPotion(recipeId) {
+  ensureAlchemy();
+  const r = RECIPES.find(x => x.id === recipeId);
+  if (!r || !(player.potions[r.id] > 0)) return;
+  player.potions[r.id] -= 1;
+  let msg = "";
+  switch (r.effect) {
+    case "heal60": player.hp = Math.min(player.maxHp, player.hp + 60); msg = "+60 HP"; break;
+    case "heal200": player.hp = Math.min(player.maxHp, player.hp + 200); msg = "+200 HP"; break;
+    case "mana": player.mana = player.maxMana; msg = "мана восстановлена"; break;
+    case "sword": player.swordGodExp += 3; msg = "+3 к школе Меча"; break;
+    case "int": player.intellect += 8; msg = "+8 Знаний"; break;
+  }
+  log(`${r.icon} Выпито: <b>${r.name}</b> (${msg}).`);
+  playSound("win"); updateUI(); renderAlchemy();
+}
+
+// Докупить травы у торговца — дороже, но без похода
+function buyHerb(id) {
+  ensureAlchemy();
+  const h = HERBS.find(x => x.id === id);
+  if (!h) return;
+  const price = Math.round(h.price * (typeof reputationPriceMult === "function" ? reputationPriceMult() : 1));
+  if (player.coins < price) return showActionModal("Золото", `Нужно ${price}🪙.`, "🪙");
+  player.coins -= price;
+  player.herbs[h.id] = (player.herbs[h.id] || 0) + 1;
+  updateUI(); renderAlchemy();
+}
+
+function renderAlchemy() {
+  const box = $("alchemy-box");
+  if (!box) return;
+  ensureAlchemy();
+  const herbRow = HERBS.map(h => `<div class="herb-cell${herbCount(h.id) ? "" : " empty"}">
+      <span class="herb-icon">${h.icon}</span>
+      <span class="herb-n">${herbCount(h.id)}</span>
+      <span class="herb-name">${h.name}</span>
+      <button class="herb-buy" onclick="buyHerb('${h.id}')">+${h.price}🪙</button>
+    </div>`).join("");
+
+  const recipeRows = RECIPES.map(r => {
+    const can = (player.intellect || 0) >= r.minInt && Object.entries(r.herbs).every(([h, n]) => herbCount(h) >= n);
+    const made = player.potions[r.id] || 0;
+    const need = Object.entries(r.herbs).map(([h, n]) => {
+      const hh = HERBS.find(x => x.id === h);
+      return `${hh.icon}${n}`;
+    }).join(" ");
+    return `<div class="recipe-row${can ? " can" : ""}">
+      <div class="recipe-icon">${r.icon}</div>
+      <div class="recipe-body">
+        <div class="recipe-name">${r.name}${made ? `<span class="recipe-have">×${made}</span>` : ""}</div>
+        <div class="recipe-desc">${r.desc}</div>
+        <div class="recipe-need">${need} • ${r.need}</div>
+      </div>
+      <div class="recipe-actions">
+        <button class="recipe-brew" ${can ? "" : "disabled"} onclick="brewPotion('${r.id}')">Варить</button>
+        ${made ? `<button class="recipe-use" onclick="useBrewedPotion('${r.id}')">Пить</button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+
+  box.innerHTML = `<div class="alch-herbs">${herbRow}</div>
+    <button class="alch-gather" ${player.ap >= 1 ? "" : "disabled"} onclick="gatherHerbs()">🌿 Собрать травы (⚡ 1)</button>
+    <div class="alch-recipes">${recipeRows}</div>`;
+}
+
 function renderForge() {
   const cont = $("forge-container"); if (!cont) return;
   const slots = ["weapon", "armor", "accessory"].filter(s => player.equipment[s]);
@@ -2072,7 +2285,27 @@ function getShopPrice(item) {
   if (player.currentRegionKey === "demon" && player.languages.includes("demon")) price = Math.floor(price * 0.8);
   // Репутация — не только цифра в бейдже: она меняет цены и отношение
   if (typeof reputationPriceMult === "function") price = Math.floor(price * reputationPriceMult());
+  // Регион: в Бегаритте всё привозное, в Милисе ярмарка и дешевле.
+  // Война и мор делают цены грабительскими — это часть «живого мира».
+  const regionMult = typeof worldPriceMult === "function" ? worldPriceMult(player.currentRegionKey) : 1;
+  price = Math.floor(price * regionMult);
   return Math.max(1, price);
+}
+
+// Объяснение цены: игрок должен видеть, почему дорого
+function priceBreakdown(item) {
+  const parts = [];
+  const rep = player.reputation || 0;
+  if (typeof reputationPriceMult === "function") {
+    const m = reputationPriceMult();
+    if (m < 1) parts.push(`доброе имя −${Math.round((1 - m) * 100)}%`);
+    else if (m > 1) parts.push(`дурная слава +${Math.round((m - 1) * 100)}%`);
+  }
+  const rm = typeof worldPriceMult === "function" ? worldPriceMult(player.currentRegionKey) : 1;
+  if (rm > 1.05) parts.push(`дела в землях +${Math.round((rm - 1) * 100)}%`);
+  else if (rm < 0.95) parts.push(`богатый край −${Math.round((1 - rm) * 100)}%`);
+  if (player.currentRegionKey === "demon" && player.languages.includes("demon")) parts.push("свой язык −20%");
+  return parts.join(" • ");
 }
 
 function renderInventoryTab() {
@@ -2096,7 +2329,9 @@ function renderInventoryTab() {
     const items = currentShopCategory === "all" ? SHOP_ITEMS : SHOP_ITEMS.filter(i => currentShopCategory === "artifact" ? (i.type === "accessory" || i.type === "potion") : i.type === currentShopCategory);
     shop.innerHTML = items.map(it => {
       const price = getShopPrice(it);
-      return `<div class="shop-item"><div><b>${it.name}</b> <span style="color:var(--gold); font-size:11px;">${price}🪙</span><div style="font-size:11px; color:var(--muted);">${it.desc}</div></div>
+      const bd = priceBreakdown(it);
+      return `<div class="shop-item"><div><b>${it.name}</b> <span style="color:var(--gold); font-size:11px;">${price}🪙</span><div style="font-size:11px; color:var(--muted);">${it.desc}</div>
+        ${bd ? `<div class="price-note">${bd}${price !== it.cost ? ` (обычно ${it.cost}🪙)` : ""}</div>` : ""}</div>
         <button onclick="buyShopItem('${it.id}')">Купить</button></div>`;
     }).join("");
   }
@@ -2209,11 +2444,13 @@ function renderGuildTab() {
   if (dCont) {
     const pIdx = ADVENTURER_RANKS.indexOf(player.guildRank);
     dCont.innerHTML = DUNGEONS.map(d => {
+      if (typeof refreshDungeonIfNeeded === "function") refreshDungeonIfNeeded(d.id);
       const floor = player.dungeonProgress[d.id] || 1, done = floor > d.maxFloors, ok = player.age >= 10 && pIdx >= ADVENTURER_RANKS.indexOf(d.reqRank);
+      const bossInfo = done ? "" : `${dungeonBossOf(d.id).icon} Хозяин: ${dungeonBossOf(d.id).name}`;
       return `<div class="card" style="margin-bottom:8px;">
         <div style="display:flex; justify-content:space-between;"><b style="font-size:13px;">${d.name}</b><span class="tag badge-rare">Ранг ${d.reqRank}+</span></div>
         <div style="font-size:11px; color:var(--muted); margin:4px 0;">${d.desc}</div>
-        <div style="font-size:11px; color:var(--accent-light);">${done ? "👑 Покорён!" : `Этаж ${floor} из ${d.maxFloors}`}</div>
+        <div style="font-size:11px; color:var(--accent-light);">${done ? "👑 Покорён (обновится через годы)" : `Этаж ${floor} из ${d.maxFloors} • ${bossInfo}`}</div>
         <button ${!ok || done ? "disabled" : ""} onclick="openDungeonExploration('${d.id}')" style="margin-top:6px; background:#4338ca; width:100%;">
           ${done ? "✓ Зачищен" : ok ? "Войти в Лабиринт (⚡ 1 сила)" : `Нужен ранг ${d.reqRank} (с 10 л.)`}
         </button></div>`;
@@ -2285,6 +2522,168 @@ function openDungeonExploration(id) {
   playSound("sword");
 }
 
+
+/* ══════════════════════════════════════════════════════════
+   ЖИВЫЕ ПОДЗЕМЕЛЬЯ
+   Раньше подземелье проходилось один раз и навсегда пустело.
+   Теперь оно обновляется, меняет хозяев и приносит выбор:
+   сокровище или ловушка, пленник или выход.
+   ══════════════════════════════════════════════════════════ */
+
+const DUNGEON_ROOMS = [
+  { id: "r_chest", icon: "💎", title: "Запечатанный сундук",
+    text: "Сундук стоит в нише, и на крышке — свежая пыль. Кто-то закрыл его недавно.",
+    choices: [
+      { text: "Открыть", effect: "gold", result: "Внутри монеты и старая печать. Вы взяли и то, и другое." },
+      { text: "Проверить на ловушку (Знания 40+)", effect: "safe_gold", result: "Вы нашли иглу в замке и обошли её. Монеты ваши, рука цела." },
+      { text: "Не трогать", effect: "nothing", result: "Вы прошли мимо. Через десять шагов услышали, как крышка открылась сама." }
+    ] },
+  { id: "r_prisoner", icon: "🕯️", title: "Пленник в темноте",
+    text: "В клетке сидит человек. Он не просит о помощи — просто смотрит.",
+    choices: [
+      { text: "Освободить", effect: "freed", result: "Он встал, кивнул и ушёл в темноту. Через год вы найдёте в своём дворе подарок без записки." },
+      { text: "Спросить, кто он", effect: "asked", result: "Он назвал имя, которое вы слышали при дворе. Вы ушли, оставив клетку закрытой." },
+      { text: "Пройти мимо", effect: "ignore", result: "Он не окликнул. Это было хуже любого крика." }
+    ] },
+  { id: "r_shrine", icon: "⛩", title: "Алтарь без бога",
+    text: "Каменный алтарь, на котором стёрли лицо. В чаше — вода, которой не должно быть здесь.",
+    choices: [
+      { text: "Выпить", effect: "drink", result: "Вода пахла железом. Вы почувствовали, как тело становится легче." },
+      { text: "Положить монету", effect: "offer", result: "Монета исчезла до того, как вы убрали руку." },
+      { text: "Разбить чашу", effect: "break", result: "Камень треснул, и из трещины пошёл воздух — тёплый, как дыхание." }
+    ] },
+  { id: "r_mirror", icon: "🪞", title: "Зеркало в стене",
+    text: "В зеркале вы выглядите старше. И там, за вашей спиной, стоит кто-то ещё.",
+    choices: [
+      { text: "Обернуться", effect: "turn", result: "За спиной никого. Когда вы снова посмотрели в зеркало, оно было обычным." },
+      { text: "Смотреть в глаза отражению", effect: "stare", result: "Вы стояли так долго, что перестали понимать, кто из вас двигается первым." },
+      { text: "Разбить", effect: "smash", result: "Осколки осыпались, и каждый показывал разное." }
+    ] },
+  { id: "r_merchant", icon: "🎒", title: "Безумный торговец",
+    text: "Он сидит на ящике в глубине лабиринта и торгует. Непонятно, как он сюда попал и как выйдет.",
+    choices: [
+      { text: "Купить зелье (40🪙)", effect: "buy_potion", result: "Он дал склянку и совет, который оказался важнее склянки." },
+      { text: "Спросить дорогу", effect: "ask_way", result: "Он показал вниз. Вы не были уверены, что это помощь." },
+      { text: "Отобрать товар", effect: "rob", result: "Он не сопротивлялся. Смотрел, как вы берёте, и улыбался." }
+    ] }
+];
+
+const DUNGEON_BOSSES = [
+  { id: "b_wyrm", name: "Древний Червь", icon: "🐛", coinMult: 1.0 },
+  { id: "b_king", name: "Король Глубин", icon: "👑", coinMult: 1.4 },
+  { id: "b_twin", name: "Близнецы Бездны", icon: "👥", coinMult: 1.2 },
+  { id: "b_silent", name: "Безмолвный Страж", icon: "🗿", coinMult: 1.1 }
+];
+
+function dungeonIsCleared(id) {
+  return (player.dungeonProgress[id] || 1) > (DUNGEONS.find(d => d.id === id)?.maxFloors || 5);
+}
+
+// Обновление подземелья: раз в несколько лет глубины снова наполняются
+function refreshDungeonIfNeeded(id) {
+  if (!player.dungeonRefresh) player.dungeonRefresh = {};
+  const d = DUNGEONS.find(x => x.id === id);
+  if (!d) return;
+  const clearedYear = player.dungeonRefresh[id];
+  const yearsSince = clearedYear ? worldState.currentWorldYear - clearedYear : 999;
+  if (dungeonIsCleared(id) && yearsSince >= 6) {
+    player.dungeonProgress[id] = 1;
+    player.dungeonBoss = player.dungeonBoss || {};
+    player.dungeonBoss[id] = DUNGEON_BOSSES[Math.floor(Math.random() * DUNGEON_BOSSES.length)].id;
+    delete player.dungeonRefresh[id];
+    log(`🕳️ ${d.name} снова наполнился: новые хозяева, новые глубины.`);
+    return true;
+  }
+  if (dungeonIsCleared(id) && !clearedYear) {
+    player.dungeonRefresh[id] = worldState.currentWorldYear;
+  }
+  return false;
+}
+
+function dungeonBossOf(id) {
+  player.dungeonBoss = player.dungeonBoss || {};
+  if (!player.dungeonBoss[id]) {
+    player.dungeonBoss[id] = DUNGEON_BOSSES[Math.floor(Math.random() * DUNGEON_BOSSES.length)].id;
+  }
+  return DUNGEON_BOSSES.find(b => b.id === player.dungeonBoss[id]) || DUNGEON_BOSSES[0];
+}
+
+// Особенная комната: встречается на каждом 2–3 этаже
+function maybeDungeonRoom() {
+  if (!activeDungeon) return false;
+  const d = activeDungeon.obj, floor = player.dungeonProgress[d.id];
+  if (floor < 2 || floor % 3 !== 0) return false;
+  if (Math.random() > 0.55) return false;
+  const room = DUNGEON_ROOMS[Math.floor(Math.random() * DUNGEON_ROOMS.length)];
+  const box = $("dung-modal-actions");
+  if ($("dung-modal-body")) $("dung-modal-body").innerHTML = `<b>${room.icon} ${room.title}</b><br><br>${room.text}`;
+  if (box) {
+    box.innerHTML = room.choices.map((c, i) =>
+      `<button style="background:#4c1d95;" onclick="resolveDungeonRoom('${room.id}', ${i})">${c.text}</button>`).join("")
+      + `<button class="action-danger" onclick="closeDungeonModal()">🏃 Выйти наружу</button>`;
+  }
+  return true;
+}
+
+function resolveDungeonRoom(roomId, idx) {
+  const room = DUNGEON_ROOMS.find(r => r.id === roomId);
+  if (!room) return;
+  if (!activeDungeon) return showActionModal("Пусто", "Здесь уже ничего нет.", "🕳️");
+  const ch = room.choices[idx];
+  let txt = ch.result;
+  const floor = activeDungeon ? player.dungeonProgress[activeDungeon.obj.id] : 1;
+
+  switch (ch.effect) {
+    case "gold": {
+      const g = Math.floor(30 + Math.random() * 60 + floor * 8);
+      player.coins += g; txt += ` (+${g}🪙)`;
+      if (Math.random() < 0.25) { player.hp -= 12; txt += " Но игла в замке всё-таки достала вас (−12 HP)."; }
+      break;
+    }
+    case "safe_gold": {
+      if ((player.intellect || 0) >= 40) { const g = Math.floor(50 + Math.random() * 50 + floor * 10); player.coins += g; txt += ` (+${g}🪙)`; }
+      else { player.hp -= 25; txt += " Знаний не хватило: игла вошла в ладонь (−25 HP)."; }
+      break;
+    }
+    case "freed": player.reputation += 8; player.squadFame += 10; break;
+    case "asked": player.intellect += 5; break;
+    case "ignore": player.reputation -= 3; break;
+    case "drink": player.maxHp += 12; player.hp = player.maxHp; txt += " (+12 макс. HP)"; break;
+    case "offer": if (player.coins >= 5) { player.coins -= 5; player.maxMana += 10; txt += " (+10 макс. маны)"; } break;
+    case "break": player.hp -= 15; player.intellect += 8; txt += " (−15 HP, +8 Знаний)"; break;
+    case "turn": player.intellect += 4; break;
+    case "stare": player.hp -= 10; player.intellect += 12; txt += " (−10 HP, +12 Знаний)"; break;
+    case "smash": player.hp -= 8; player.reputation -= 5; txt += " (−8 HP)"; break;
+    case "buy_potion": if (player.coins >= 40) { player.coins -= 40; player.potionsCount++; txt += " (зелье в рюкзаке)"; } else txt += " Но у вас не нашлось сорока монет."; break;
+    case "ask_way": player.dungeonProgress[activeDungeon.obj.id]++; txt += " Вы спустились на этаж ниже."; break;
+    case "rob": player.coins += 60; player.reputation -= 12; txt += " (+60🪙, −12 репутации)"; break;
+  }
+
+  player.dungeonProgress[activeDungeon.obj.id]++;
+  if (player.dungeonProgress[activeDungeon.obj.id] > activeDungeon.obj.maxFloors) {
+    finishDungeonWithBoss();
+    return;
+  }
+  updateDungeonModalUI(txt); updateUI();
+  if (player.hp <= 0) { closeDungeonModal(); handleDeath("Погиб в лабиринте"); }
+}
+
+function finishDungeonWithBoss() {
+  const d = activeDungeon.obj;
+  const boss = dungeonBossOf(d.id);
+  const drop = SHOP_ITEMS.find(i => i.id === d.dropArtifact);
+  if (drop) player.inventory.push({ ...drop, forgeLevel: 0 });
+  const gold = Math.round(320 * boss.coinMult);
+  player.coins += gold; player.guildExp += 140; player.squadFame += 120; player.reputation += 15;
+  player.dungeonRefresh = player.dungeonRefresh || {};
+  player.dungeonRefresh[d.id] = worldState.currentWorldYear;
+  const txt = `👑 <b>ПОБЕДА!</b> ${boss.icon} ${boss.name} повержен. ${d.name} зачищен!\n\nНаграда: <b>${drop?.name || "трофей"}</b> (+${gold}🪙, +140 GP).\n\nЧерез несколько лет глубины снова наполнятся.`;
+  log(txt); playSound("win");
+  if ($("dung-modal-body")) $("dung-modal-body").innerHTML = txt.replace(/\n/g, "<br>");
+  if ($("dung-modal-actions")) $("dung-modal-actions").innerHTML = `<button class="btn-main" onclick="closeDungeonModal()">👑 Покинуть лабиринт</button>`;
+  updateUI();
+}
+
 function updateDungeonModalUI(text) {
   if (!activeDungeon) return;
   const d = activeDungeon.obj, floor = player.dungeonProgress[d.id];
@@ -2334,6 +2733,8 @@ function dungeonTurn(choice) {
       txt = `💎 В тайнике найден клад (+${gold}🪙)!`; playSound("coin");
     }
   } else {
+    // Особенная комната вместо обычной драки — выбор, а не цифра
+    if (typeof maybeDungeonRoom === "function" && maybeDungeonRoom()) { updateUI(); return; }
     const mCp = Math.floor(d.cpBase * (1 + floor * 0.42)), dmg = Math.max(6, Math.floor(mCp / (calcSquadCombatPower(player) + 80) * 18) + 8);
     player.hp -= dmg;
     if (dmg > 32 && Math.random() < 0.20 && !player.injuries.some(i => i.id === "lost_arm")) {
@@ -2343,11 +2744,8 @@ function dungeonTurn(choice) {
     player.dungeonProgress[d.id]++;
   }
   if (player.dungeonProgress[d.id] > d.maxFloors) {
-    const drop = SHOP_ITEMS.find(i => i.id === d.dropArtifact);
-    if (drop) player.inventory.push({ ...drop, forgeLevel: 0 });
-    player.coins += 320; player.guildExp += 140; player.squadFame += 120; player.reputation += 15;
-    txt = `👑 <b>ПОБЕДА!</b> ${d.name} зачищен! Награда: <b>${drop?.name}</b> (+320🪙, +140 GP)!`;
-    log(txt); playSound("win");
+    finishDungeonWithBoss();
+    return;
   }
   updateDungeonModalUI(txt); updateUI();
   if (player.hp <= 0) { closeDungeonModal(); handleDeath(`Сгинул в недрах: ${d.name}`); }
@@ -2465,6 +2863,16 @@ function getBestBattleTech(p) {
 }
 
 function openBattleModal(battleCfg) {
+  // Сложность меняет силу врага: на суровой те же твари злее
+  const diff = typeof currentDifficulty === "function" ? currentDifficulty() : { enemyMult: 1, coinsMult: 1 };
+  if (!battleCfg.skipDifficulty) {
+    battleCfg = {
+      ...battleCfg,
+      enemyHp: Math.round((battleCfg.enemyHp || 100) * diff.enemyMult),
+      enemyMaxHp: Math.round((battleCfg.enemyMaxHp || 100) * diff.enemyMult),
+      reward: battleCfg.reward ? Math.round(battleCfg.reward * diff.coinsMult) : battleCfg.reward
+    };
+  }
   currentBattle = { ...battleCfg, techCd: 0, enemyStunned: false };
   setText("battle-enemy-name", battleCfg.enemyName);
   setText("battle-enemy-cp", `БМ: ${battleCfg.enemyCp.toLocaleString()}`);
@@ -2520,8 +2928,104 @@ function startFactionEndgameRaid() {
   playSound("calamity");
 }
 
+
+/* ══════════════════════════════════════════════════════════
+   НАЁМНИКИ В БОЮ
+   Раньше отряд был просто прибавкой к силе. Теперь каждый
+   наёмник — человек со своим характером, который может
+   закрыть вас собой или продать за деньги.
+   ══════════════════════════════════════════════════════════ */
+
+// Характер решает, как наёмник поведёт себя в опасный момент
+function squadMemberMoment(member) {
+  const trait = SQUAD_TRAITS.find(t => t.id === member.traitId) || SQUAD_TRAITS[0];
+  const roll = Math.random();
+  const loyalty = (member.loyalty ?? 50);
+
+  // 1. Может закрыть собой при смертельном ударе
+  if (roll < (trait.protect || 0) * (0.5 + loyalty / 100)) {
+    return { kind: "protect", trait };
+  }
+  // 2. Может предать: ударить в спину или забрать долю
+  if (roll > 0.93 && Math.random() < (trait.betrayal || 0.1) * (1.6 - loyalty / 100)) {
+    return { kind: "betray", trait };
+  }
+  // 3. Может отличиться — сильный удар
+  if (roll > 0.55) return { kind: "hero", trait };
+  return { kind: "normal", trait };
+}
+
+function applySquadMoment(ally, moment, logBox) {
+  const t = moment.trait;
+  switch (moment.kind) {
+    case "protect": {
+      const saved = Math.floor(player.hp * 0.25) + 10;
+      player.hp = Math.min(player.maxHp, player.hp + saved);
+      ally.loyalty = Math.min(100, (ally.loyalty || 50) + 12);
+      if (logBox) logBox.innerHTML += `<div style="color:#34d399;">🛡️ <b>${esc(ally.name)}</b> закрыл(а) вас собой (+${saved} HP)! «${esc(t.protectLine || "Ещё рано умирать.")}»</div>`;
+      addSquadStory(ally, "protect");
+      return 0;
+    }
+    case "betray": {
+      const dmg = Math.floor((ally.cp || 100) * 0.06) + 8;
+      player.hp -= dmg;
+      if (logBox) logBox.innerHTML += `<div style="color:#f87171;">🗡️ <b>${esc(ally.name)}</b> ударил(а) в спину (−${dmg} HP)! «${esc(t.betrayLine || "Прости, но твоя доля больше моей.")}»</div>`;
+      ally.loyalty = Math.max(0, (ally.loyalty || 50) - 40);
+      addSquadStory(ally, "betray");
+      return -dmg;
+    }
+    case "hero": {
+      const bonus = Math.floor((ally.cp || 100) * 0.04) + 6;
+      if (logBox) logBox.innerHTML += `<div style="color:#fbbf24;">⚡ <b>${esc(ally.name)}</b> отличился и добил(а) врага (+${bonus} урона)!</div>`;
+      ally.loyalty = Math.min(100, (ally.loyalty || 50) + 3);
+      return bonus;
+    }
+    default: return 0;
+  }
+}
+
+function addSquadStory(ally, kind) {
+  if (!ally.stories) ally.stories = [];
+  const pool = SQUAD_STORIES.filter(s => s.kind === kind);
+  if (!pool.length) { if (ally.story) ally.stories.push(ally.story); return; }
+  const story = pool[Math.floor(Math.random() * pool.length)];
+  if (ally.stories.includes(story.id)) return;
+  ally.stories.push(story.id);
+}
+
+// После боя: кто-то может уйти, кто-то — стать ближе
+function afterBattleSquad() {
+  if (!player.squad || !player.squad.length) return;
+  const leaving = [];
+  player.squad.forEach(m => {
+    if ((m.loyalty ?? 50) < 15 && Math.random() < 0.35) leaving.push(m);
+  });
+  if (leaving.length) {
+    player.squad = player.squad.filter(m => !leaving.includes(m));
+    leaving.forEach(m => {
+      log(`🚶 <b>${esc(m.name)}</b> ушёл из отряда: «${esc(SQUAD_TRAITS.find(t => t.id === m.traitId)?.leaveLine || "Дальше без меня.")}»`);
+      queueYearExtra("Отряд", `${m.name} покинул вас.`, "🚶");
+    });
+    playSound("calamity");
+  }
+  // Верность растёт у довольных
+  player.squad.forEach(m => {
+    if ((m.loyalty ?? 50) > 60) m.loyalty = Math.min(100, (m.loyalty ?? 50) + 2);
+  });
+}
+
+// Наёмники становятся участниками драки: их характер определяет исход
+function squadReactionInBattle(logBox) {
+  if (!player.squad || !player.squad.length) return;
+  const ally = player.squad[Math.floor(Math.random() * player.squad.length)];
+  const moment = squadMemberMoment(ally);
+  applySquadMoment(ally, moment, logBox);
+}
+
 function combatAction(type) {
   if (!currentBattle) return;
+  // Враг уже мёртв — кнопки не должны досчитывать удары
+  if (currentBattle.enemyHp <= 0) return;
   const logBox = $("battle-log"), squadCp = currentBattle.isDuel ? calcCombatPower(player) : calcSquadCombatPower(player);
   const hasForesight = player.demonEyes.left?.id === "foresight" || player.demonEyes.right?.id === "foresight";
   const hasAppraisal = player.demonEyes.left?.id === "appraisal" || player.demonEyes.right?.id === "appraisal";
@@ -2602,7 +3106,9 @@ function combatAction(type) {
     const ally = player.squad[Math.floor(Math.random() * player.squad.length)];
     const allyDmg = Math.max(8, Math.floor((ally.cp / (currentBattle.enemyCp + 150)) * 40));
     myDmg += allyDmg;
-    if (logBox) logBox.innerHTML += `<div style="color:#a78bfa;">🛡️ ${ally.name} наносит <b>-${allyDmg} HP</b>!</div>`;
+    if (logBox) logBox.innerHTML += `<div style="color:#a78bfa;">🛡️ ${esc(ally.name)} наносит <b>-${allyDmg} HP</b>!</div>`;
+    // Характер наёмника может перевернуть бой
+    if (typeof squadReactionInBattle === "function") squadReactionInBattle(logBox);
   }
 
   currentBattle.enemyHp -= myDmg;
@@ -2610,6 +3116,7 @@ function combatAction(type) {
   if (currentBattle.enemyHp <= 0) {
     if (logBox) logBox.innerHTML += `<div style="color:var(--gold); font-weight:700;">🏆 ПОБЕДА!</div>`;
     player.wins = (player.wins || 0) + 1;
+    if (typeof afterBattleSquad === "function") afterBattleSquad();
     checkAchievements();
     playSound("win");
     if (currentBattle.isEndgame) {
@@ -2689,16 +3196,22 @@ function checkGuildRankUp(force) {
    ══════════════════════════════════════════════════════════ */
 
 const SQUAD_TRAITS = [
-  { id: "loyal", icon: "🤝", name: "Верный", desc: "Не предаст никогда. Защитит вас в бою собой.", betrayal: 0, protect: 0.5 },
-  { id: "greedy", icon: "💰", name: "Жадный", desc: "Держится за золото. Может уйти, если платят мало.", betrayal: 0.12, protect: 0.1 },
-  { id: "proud", icon: "🦁", name: "Гордый", desc: "Не терпит приказов и насмешек.", betrayal: 0.16, protect: 0.2 },
-  { id: "quiet", icon: "🌙", name: "Молчаливый", desc: "Говорит редко, но по делу. Держится ровно.", betrayal: 0.05, protect: 0.3 },
-  { id: "broken", icon: "🩹", name: "Сломленный", desc: "Видел слишком много. Иногда срывается.", betrayal: 0.2, protect: 0.15 },
-  { id: "young", icon: "🌱", name: "Зелёный", desc: "Молод, горяч, хочет доказать. Учится быстро.", betrayal: 0.02, protect: 0.35 }
+  { id: "loyal", icon: "🤝", name: "Верный", desc: "Не предаст никогда. Защитит вас в бою собой.", betrayal: 0, protect: 0.5,
+    protectLine: "Ещё рано умирать. Я шёл не за этим.", betrayLine: "Нет. Я так не могу.", leaveLine: "Мне нечего делать среди тех, кто не держит слово." },
+  { id: "greedy", icon: "💰", name: "Жадный", desc: "Держится за золото. Может уйти, если платят мало.", betrayal: 0.12, protect: 0.1,
+    protectLine: "Ты мне ещё должен, если умрёшь — не отдашь.", betrayLine: "Прости, но твоя доля больше моей.", leaveLine: "Платили мало. Я ухожу туда, где платят." },
+  { id: "proud", icon: "🦁", name: "Гордый", desc: "Не терпит приказов и насмешек.", betrayal: 0.16, protect: 0.2,
+    protectLine: "Умирать передо мной — моя привилегия.", betrayLine: "Ты меня унизил один раз слишком много.", leaveLine: "Я не слуга. Найди себе другого." },
+  { id: "quiet", icon: "🌙", name: "Молчаливый", desc: "Говорит редко, но по делу. Держится ровно.", betrayal: 0.05, protect: 0.3,
+    protectLine: "…", betrayLine: "Ты знал, что я умею молчать. Не думал, что умею и это.", leaveLine: "Здесь слишком много слов." },
+  { id: "broken", icon: "🩹", name: "Сломленный", desc: "Видел слишком много. Иногда срывается.", betrayal: 0.2, protect: 0.15,
+    protectLine: "Я уже видел, как это кончается. Не в этот раз.", betrayLine: "Руки сами. Я не хотел.", leaveLine: "Я слышу то, чего нет. Мне надо уйти." },
+  { id: "young", icon: "🌱", name: "Зелёный", desc: "Молод, горяч, хочет доказать. Учится быстро.", betrayal: 0.02, protect: 0.35,
+    protectLine: "Я ещё не сделал ничего, о чём стоило бы помнить. Дай мне шанс.", betrayLine: "Мне сказали, что так будет правильно.", leaveLine: "Мне ещё рано умирать в чужих войнах." }
 ];
 
 const SQUAD_STORIES = [
-  { id: "st_debt", title: "Долг, который не отдал", text: "Он говорит об этом только ночью, у костра.\n\n— Я взял деньги у человека, который не прощает. Теперь он ищет меня, и не один.\n\nОн смотрит на вас, будто спрашивая — но не решаясь спросить.",
+  { id: "st_debt", kind: "betray", title: "Долг, который не отдал", text: "Он говорит об этом только ночью, у костра.\n\n— Я взял деньги у человека, который не прощает. Теперь он ищет меня, и не один.\n\nОн смотрит на вас, будто спрашивая — но не решаясь спросить.",
     choices: [
       { text: "Заплатить его долг (120🪙)", effect: "pay",
         result: "Вы кладёте кошель на бревно. Он долго молчит. «Я этого не забуду» — и он действительно не забудет." },
@@ -2707,7 +3220,7 @@ const SQUAD_STORIES = [
       { text: "Ничего не отвечать", effect: "ignore",
         result: "Он кивает, будто и не ждал другого. С той ночи спит отдельно." }
     ] },
-  { id: "st_family", title: "Сестра в чужом городе", text: "Он просит отпуск на месяц — поискать сестру, которую продали в услужение.\n\nОтряд без него слабее. Но он всё равно поедет, с вами или без.",
+  { id: "st_family", kind: "protect", title: "Сестра в чужом городе", text: "Он просит отпуск на месяц — поискать сестру, которую продали в услужение.\n\nОтряд без него слабее. Но он всё равно поедет, с вами или без.",
     choices: [
       { text: "Отпустить и дать денег (80🪙)", effect: "help",
         result: "Он возвращается через месяц — с сестрой. Она остаётся жить при вашем доме." },
@@ -2716,7 +3229,7 @@ const SQUAD_STORIES = [
       { text: "Отказать: сейчас не время", effect: "refuse",
         result: "Он не спорит. Уходит в тот же день, один, и возвращается другим человеком." }
     ] },
-  { id: "st_old", title: "Он слишком стар для дороги", text: "Ему за пятьдесят, и колено не гнётся по утрам.\n\nОн этого не говорит. Вы видите сами.",
+  { id: "st_old", kind: "hero", title: "Он слишком стар для дороги", text: "Ему за пятьдесят, и колено не гнётся по утрам.\n\nОн этого не говорит. Вы видите сами.",
     choices: [
       { text: "Оставить при доме, платить как бойцу", effect: "keep",
         result: "Он чинит крышу и учит молодых. Волосы у него седые, а глаза — спокойные." },
@@ -2725,7 +3238,7 @@ const SQUAD_STORIES = [
       { text: "Сказать правду: вы видите, что ему тяжело", effect: "truth",
         result: "Он злится. Потом плачет. Потом остаётся — но уже как наставник, а не как меч." }
     ] },
-  { id: "st_drink", title: "Он пьёт", text: "Третье утро подряд он не встаёт. В таверне уже говорят, что ваш отряд — сброд.\n\nОн не оправдывается. Смотрит в стену.",
+  { id: "st_drink", kind: "betray", title: "Он пьёт", text: "Третье утро подряд он не встаёт. В таверне уже говорят, что ваш отряд — сброд.\n\nОн не оправдывается. Смотрит в стену.",
     choices: [
       { text: "Выбить дурь силой", effect: "force",
         result: "Драка, кровь, слёзы. Через неделю он трезв. Не благодарит, но и не пьёт." },
@@ -2734,7 +3247,7 @@ const SQUAD_STORIES = [
       { text: "Выгнать", effect: "kick",
         result: "Он уходит молча. Через год вы услышите, что он погиб в драке за пару монет." }
     ] },
-  { id: "st_gift", title: "Он принёс вам подарок", text: "Кинжал с костяной рукоятью. Не дорогой, но явно не купленный.\n\n— Это моего отца. Он мне больше не нужен. Пусть будет у тебя.",
+  { id: "st_gift", kind: "hero", title: "Он принёс вам подарок", text: "Кинжал с костяной рукоятью. Не дорогой, но явно не купленный.\n\n— Это моего отца. Он мне больше не нужен. Пусть будет у тебя.",
     choices: [
       { text: "Принять и поблагодарить", effect: "accept",
         result: "Вы носите его с тех пор. Он замечает это каждый раз и отводит взгляд." },
@@ -3171,6 +3684,116 @@ function checkAchievements() {
   if (player.survivedCalamity) unlockAchievement("a_calamity");
 }
 
+
+/* ══════════════════════════════════════════════════════════
+   ДНЕВНИК РОДА
+   Летопись писалась, но читать её было нельзя: она лежала
+   строками в общем логе вместе с боями и покупками.
+   Теперь это отдельная книга жизни — по поколениям.
+   ══════════════════════════════════════════════════════════ */
+
+function renderDynastyDiary() {
+  const box = $("diary-box");
+  if (!box) return;
+  const hist = (worldState.dynastyHistory || []).slice().reverse();
+  if (!hist.length) {
+    box.innerHTML = `<div class="diary-empty">Здесь будет история вашего рода. Пока написана только первая страница.</div>`;
+    return;
+  }
+  box.innerHTML = hist.map((h, i) => {
+    const titles = (h.titles || []).map(id => {
+      const t = TITLES.find(x => x.id === id);
+      return t ? `<span class="diary-title">${t.icon} ${esc(t.name)}</span>` : "";
+    }).filter(Boolean).join(" ");
+    return `<div class="diary-entry">
+      <div class="diary-gen">${hist.length - i}-е поколение</div>
+      <div class="diary-name">${esc(h.name || "Безымянный")}</div>
+      <div class="diary-life">${h.race ? esc(h.race) + " • " : ""}прожито ${h.maxAge || h.age || "?"} лет • пик силы ${(h.peakCp || 0).toLocaleString()}</div>
+      <div class="diary-death">${esc(h.deathReason || "Судьба неизвестна")}</div>
+      ${titles ? `<div class="diary-titles">${titles}</div>` : ""}
+      ${h.powersSeat ? `<div class="diary-seat">👑 Трон #${h.powersSeat} Семи Сил</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+// Живая часть: эта жизнь
+function renderCurrentLifeDiary() {
+  const box = $("diary-current");
+  if (!box || !player) return;
+  const cp = calcCombatPower(player);
+  const years = player.age;
+  const titles = (player.titles || []).map(id => {
+    const t = TITLES.find(x => x.id === id);
+    return t ? `<span class="diary-title">${t.icon} ${esc(t.name)}</span>` : "";
+  }).filter(Boolean).join(" ");
+  const ach = (player.achievements || []).length;
+
+  const chapters = [];
+  if (years < 6) chapters.push("Детство. Мир пока маленький — двор, дом, чужие лица.");
+  else if (years < 13) chapters.push("Отрочество. Первые уроки и первые синяки.");
+  else if (years < 20) chapters.push("Юность. Уже можно выбирать, кем быть.");
+  else if (years < 35) chapters.push("Лучшие годы. Силы есть, время есть, ошибки дорогие.");
+  else if (years < 50) chapters.push("Зрелость. Всё, что построено, начинает держаться само — или рушиться.");
+  else if (years < 65) chapters.push("Осень. Дети выросли, тело помнит больше, чем хотело бы.");
+  else chapters.push("Поздние годы. Каждый год — подарок, и вы это знаете.");
+
+  const stats = [
+    ["Возраст", `${years} из ${player.maxAge}`],
+    ["Сила", cp.toLocaleString()],
+    ["Золото", `${fmtNum(player.coins)}🪙`],
+    ["Репутация", player.reputation > 0 ? `+${player.reputation}` : String(player.reputation)],
+    ["Знакомых", (player.relations || []).filter(r => !r.isDead).length],
+    ["Детей", (player.children || []).filter(c => !c.isDead).length],
+    ["Достижений", `${ach} из ${ACHIEVEMENTS.length}`],
+    ["Прозвищ", (player.titles || []).length]
+  ];
+
+  box.innerHTML = `<div class="diary-live">
+    <div class="diary-gen">Эта жизнь</div>
+    <div class="diary-name">${esc(heroFullName ? heroFullName(player) : player.name)}</div>
+    <div class="diary-chapter">${esc(chapters[0])}</div>
+    ${titles ? `<div class="diary-titles">${titles}</div>` : ""}
+    <div class="diary-stats">${stats.map(([k, v]) => `<div class="diary-stat"><span>${k}</span><b>${v}</b></div>`).join("")}</div>
+  </div>`;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   НАГРАДЫ ЗА ДОСТИЖЕНИЯ
+   Достижение, которое ничего не даёт, — просто галочка.
+   Каждые пять — весомая награда, и у каждого своя.
+   ══════════════════════════════════════════════════════════ */
+
+const ACHIEVEMENT_REWARDS = [
+  { need: 5,  icon: "🪙", title: "Первый успех",   text: "За пять достижений: +500🪙 в казну.", effect: (p) => { p.coins += 500; } },
+  { need: 10, icon: "📖", title: "Признание",       text: "За десять: +20 Знаний и +10 репутации.", effect: (p) => { p.intellect += 20; p.reputation += 10; } },
+  { need: 15, icon: "🗡️", title: "Мастерство",     text: "За пятнадцать: +60 ко всем боевым школам.", effect: (p) => { p.swordGodExp += 60; p.waterGodExp += 60; p.northGodExp += 60; p.magicExp += 60; } },
+  { need: 20, icon: "🏰", title: "Опора рода",     text: "За двадцать: +1 500🪙 и +30 макс. HP.", effect: (p) => { p.coins += 1500; p.maxHp += 30; } },
+  { need: 25, icon: "👑", title: "Легенда",         text: "За двадцать пять: +40 репутации и +5 к влиянию в Асуре.", effect: (p) => { p.reputation += 40; p.asuraInfluence = (p.asuraInfluence || 0) + 5; } },
+  { need: 31, icon: "🌟", title: "Всё пройдено",   text: "Все достижения: +5 000🪙 и +50 макс. маны.", effect: (p) => { p.coins += 5000; p.maxMana += 50; } }
+];
+
+function checkAchievementRewards() {
+  ensureAchievements();
+  if (!player.achRewardsGiven) player.achRewardsGiven = [];
+  const count = player.achievements.length;
+  ACHIEVEMENT_REWARDS.forEach(r => {
+    if (count >= r.need && !player.achRewardsGiven.includes(r.need)) {
+      player.achRewardsGiven.push(r.need);
+      r.effect(player);
+      log(`🎁 <b>Награда за достижения:</b> ${r.icon} ${r.title} — ${r.text}`);
+      queueYearExtra(`Награда: ${r.title}`, r.text, r.icon);
+      playSound("win");
+    }
+  });
+}
+
+function nextAchievementReward() {
+  ensureAchievements();
+  const given = player.achRewardsGiven || [];
+  return ACHIEVEMENT_REWARDS.find(r => !given.includes(r.need)) || null;
+}
+
 function renderAchievements() {
   const box = $("achievements-box");
   if (!box) return;
@@ -3201,6 +3824,12 @@ function renderAchievements() {
     });
   });
 
+  const next = typeof nextAchievementReward === "function" ? nextAchievementReward() : null;
+  if (next) {
+    html += `<div class="ach-next">${next.icon} <b>Следующая награда</b> — за ${next.need} достижений: ${esc(next.text)}</div>`;
+  } else {
+    html += `<div class="ach-next done">🌟 Все награды получены. Дальше — только слава.</div>`;
+  }
   html += `<div class="ach-note">Достижения общие для всего рода: они не пропадают при смене поколения.</div>`;
   box.innerHTML = html;
 }
@@ -3775,6 +4404,205 @@ function childAge(c) {
   return Math.max(0, worldState.currentWorldYear - (c.birthYear || worldState.currentWorldYear - 1));
 }
 
+
+/* ══════════════════════════════════════════════════════════
+   ВЫРОСШИЕ ДЕТИ
+   Раньше после 18 лет ребёнок превращался в строку списка.
+   Теперь он выбирает путь, приходит за советом, может уйти
+   из дома, погибнуть или стать опорой в старости.
+   ══════════════════════════════════════════════════════════ */
+
+const CHILD_PATHS = [
+  { id: "sword", icon: "⚔️", name: "Меч", desc: "Стал бойцом: гильдия, дорога, шрамы.",
+    stat: "swordGodExp", gain: 320, cp: 900, trait: "боец" },
+  { id: "magic", icon: "🔮", name: "Магия", desc: "Пошёл в академию: книги, круги, башня.",
+    stat: "magicExp", gain: 320, cp: 850, trait: "маг" },
+  { id: "craft", icon: "🔨", name: "Ремесло", desc: "Остался при деле: кузница, деньги, уважение.",
+    stat: "intellect", gain: 120, cp: 400, coins: 180, trait: "мастер" },
+  { id: "court", icon: "👑", name: "Двор", desc: "Ушёл в столицу: интриги, положение, долги.",
+    stat: "intellect", gain: 150, cp: 500, influence: 25, trait: "придворный" },
+  { id: "road", icon: "🧭", name: "Дорога", desc: "Уехал искать что-то своё. Пишет редко.",
+    stat: "northGodExp", gain: 200, cp: 600, away: true, trait: "странник" },
+  { id: "home", icon: "🏠", name: "Дом", desc: "Остался с вами: хозяйство, семья, спокойствие.",
+    stat: "hp", gain: 60, cp: 300, stays: true, trait: "хранитель" }
+];
+
+// События взрослой жизни ребёнка — по одному раз в несколько лет
+const GROWN_CHILD_EVENTS = [
+  { id: "cg_ask_money", icon: "🪙", title: "Просит денег",
+    text: (c) => `${c.name} стоит в дверях и не сразу говорит, зачем пришёл.\n\n— Мне нужно двести. Я верну. Наверное.\n\nВидно, что врёт про «наверное».`,
+    choices: [
+      { text: "Дать 200🪙", coins: -200, rel: 15, result: "Он взял и ушёл быстро. Через год вернул — вдвое больше, чем просил." },
+      { text: "Спросить, на что", coins: 0, rel: 8, result: "Он рассказал. Вы помогли советом, а не деньгами. Это оказалось лучше." },
+      { text: "Отказать", coins: 0, rel: -18, result: "Он ушёл, не простившись. Больше не просил никогда." }
+    ] },
+  { id: "cg_wedding", icon: "💍", title: "Свадьба",
+    text: (c) => `${c.name} привёл(а) кого-то знакомить.\n\nОни держатся за руки и смотрят на вас так, будто ждут разрешения, которого уже не нужно.`,
+    choices: [
+      { text: "Сыграть свадьбу (250🪙)", coins: -250, rel: 25, result: "Гуляли три дня. Ваш род вырос ещё на одну ветвь." },
+      { text: "Благословить скромно", coins: 0, rel: 12, result: "Они уехали на рассвете. Письма приходят дважды в год." },
+      { text: "Сказать, что против", coins: 0, rel: -30, result: "Они всё равно поженились. И перестали приезжать." }
+    ] },
+  { id: "cg_trouble", icon: "⚖️", title: "Попал в беду",
+    text: (c) => `Гонец привёз записку от ${c.name}: «Меня держат. Приди сам, иначе будет хуже».\n\nПочерк торопливый.`,
+    choices: [
+      { text: "Пойти и заплатить (300🪙)", coins: -300, rel: 20, result: "Вы заплатили и забрали его. Он молчал всю дорогу домой." },
+      { text: "Пойти и решить силой", hp: -25, rel: 30, result: "Вы разнесли ту комнату. О нём теперь ходят слухи, и они ему нравятся." },
+      { text: "Не ехать", rel: -40, result: "Он выбрался сам. И запомнил, что вы не пришли." }
+    ] },
+  { id: "cg_proud", icon: "🏆", title: "Он добился своего",
+    text: (c) => `${c.name} вернулся(ась) с грамотой: его (её) признали.\n\nОн держит её так, будто боится, что вы отберёте.`,
+    choices: [
+      { text: "Сказать, что гордитесь", rel: 22, result: "Он расплывается в улыбке. Впервые с детства вы видите в нём того ребёнка." },
+      { text: "Сказать, что можно и больше", rel: -8, result: "Он кивает. Улыбка гаснет. Вы всегда хотели лучше — и он всегда знал это." }
+    ] },
+  { id: "cg_grandkid", icon: "👶", title: "Внук",
+    text: (c) => `${c.name} кладёт вам на руки свёрток.\n\n— Его назвали в твою честь. Не спорь.`,
+    choices: [
+      { text: "Взять на руки", rel: 25, hp: 20, result: "Вы держите его и чувствуете, как род идёт дальше, чем вы." },
+      { text: "Отшутиться", rel: 5, result: "Вы пошутили. Все смеялись. Что-то важное прошло мимо." }
+    ] },
+  { id: "cg_farewell", icon: "🕯️", title: "Уезжает навсегда",
+    text: (c) => `${c.name} продал(а) дом и берёт только один сундук.\n\n— Я не вернусь. Не потому что не люблю. Потому что здесь я не стану собой.`,
+    choices: [
+      { text: "Отпустить с миром", rel: 15, result: "Вы обняли его на дороге. Он писал дважды в год — и это было больше, чем вы ждали." },
+      { text: "Просить остаться", rel: -12, result: "Он остался. На год. И каждый день был отдалением." }
+    ] }
+];
+
+function ensureChildAdult(c) {
+  if (!c) return false;
+  const age = childAge(c);
+  if (age < 18 || c.path) return false;
+  // Выбор пути — один раз в жизни ребёнка
+  c.path = "pending";
+  setTimeout(() => openChildPathChoice(c.id), 60);
+  return true;
+}
+
+function openChildPathChoice(childId) {
+  const c = player.children.find(x => x.id === childId);
+  if (!c) return;
+  // «pending» ставится очередью года, но окно может открыться и раньше
+  if (c.path && c.path !== "pending") return;
+  c.path = "pending";
+  const trait = childTraitById(c.traitId);
+  // Характер подталкивает, но не решает за него
+  const hinted = { stubborn: "sword", kind: "home", cruel: "road", dreamer: "magic", tactician: "court", quiet: "craft" }[trait?.id] || "sword";
+  const html = `<div style="text-align:left;">
+    <div style="font-size:12px; color:#94a3b8;">${trait?.icon || "👤"} ${esc(trait?.name || "Характер")} • ${childAge(c)} лет</div>
+    <div style="margin:8px 0; line-height:1.55;">${esc(c.name)} вырос(ла) и стоит на пороге. Он(а) сам(а) не решит — точнее, решит, но не без вашего слова.</div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${CHILD_PATHS.map(p => `<button onclick="chooseChildPath('${childId}', '${p.id}')" style="background:${p.id === hinted ? "#4c1d95" : "#1e3a5f"}; text-align:left; padding:9px;">
+        <b>${p.icon} ${p.name}</b>${p.id === hinted ? " <span style='font-size:9px; color:#c4b5fd;'>склонность</span>" : ""}<br>
+        <span style="font-size:10.5px; color:#c7d2fe;">${esc(p.desc)}</span>
+      </button>`).join("")}
+    </div>
+  </div>`;
+  showActionModal(`${c.name} выбирает путь`, html, "🌱");
+}
+
+function chooseChildPath(childId, pathId) {
+  const c = player.children.find(x => x.id === childId);
+  const p = CHILD_PATHS.find(x => x.id === pathId);
+  if (!c || !p) return;
+  if (c.path && c.path !== "pending") return;
+  closeActionModal();
+  c.path = p.id;
+  c.pathName = p.name;
+  c.pathIcon = p.icon;
+  c.adultSince = worldState.currentWorldYear;
+  c.cp = (c.cp || 400) + p.cp;
+  c.rel = c.rel || {};
+  if (p.coins) player.coins += p.coins;
+  if (p.influence) player.asuraInfluence = (player.asuraInfluence || 0) + p.influence;
+  if (p.stat === "hp") { player.maxHp += p.gain; }
+  if (p.away) c.isAway = true;
+  if (p.stays) c.isHome = true;
+
+  c.relation = Math.min(100, (c.relation || 70) + 10);
+  const line = `${p.icon} <b>${esc(c.name)}</b> выбрал(а) путь: ${p.name.toLowerCase()}. ${p.desc}`;
+  log(line); queueYearExtra(`${c.name}: путь`, `${p.name} — ${p.desc}`, p.icon);
+  playSound("win");
+  showActionModal(`${p.icon} ${c.name}`, `${p.desc}\n\n${p.coins ? `Он приносит в дом ${p.coins}🪙 в год. ` : ""}${p.away ? "Он будет писать редко." : p.stays ? "Он остался с вами." : ""}`, p.icon);
+  updateUI();
+}
+
+// Раз в год: взрослые дети живут своей жизнью
+function advanceGrownChildren() {
+  if (!player?.children?.length) return null;
+  const grown = player.children.filter(c => !c.isDead && c.path && c.path !== "pending");
+  if (!grown.length) return null;
+
+  for (const c of grown) {
+    const age = childAge(c);
+    // доход от детей при доме или ремесле
+    if (c.isHome || c.path === "craft") {
+      const inc = Math.round(20 + (c.cp || 400) * 0.05);
+      player.coins += inc;
+      c.contribution = inc;
+    }
+    // далёкие дети присылают деньги изредка
+    if (c.isAway && Math.random() < 0.3) {
+      const inc = Math.round(15 + Math.random() * 40);
+      player.coins += inc;
+      log(`✉️ ${c.name} прислал(а) ${inc}🪙 и короткое письмо.`);
+    }
+    // дети умирают от старости, если сами уже стары
+    if (age > 62 && Math.random() < 0.05) {
+      c.isDead = true;
+      log(`🕯️ Ваш(а) ${c.name} умер(ла) в возрасте ${age} лет.`);
+      queueYearExtra("Утрата", `${c.name} умер(ла) в возрасте ${age} лет. Вы пережили своего ребёнка.`, "🕯️");
+      player.reputation -= 0;
+      continue;
+    }
+    // событие взрослой жизни
+    if (!c.grownEvents) c.grownEvents = [];
+    const avail = GROWN_CHILD_EVENTS.filter(e => !c.grownEvents.includes(e.id));
+    if (avail.length && Math.random() < 0.13) {
+      const ev = avail[Math.floor(Math.random() * avail.length)];
+      c.grownEvents.push(ev.id);
+      return { child: c, ev };
+    }
+  }
+  return null;
+}
+
+function showGrownChildEvent(childId, evId) {
+  const c = player.children.find(x => x.id === childId);
+  const ev = GROWN_CHILD_EVENTS.find(e => e.id === evId);
+  if (!c || !ev) return;
+  const text = typeof ev.text === "function" ? ev.text(c) : ev.text;
+  const html = `<div style="text-align:left;">
+    <div style="margin:8px 0; line-height:1.55; white-space:pre-line;">${esc(text)}</div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${ev.choices.map((ch, i) => `<button onclick="resolveGrownChildEvent('${childId}','${evId}',${i})" style="background:#1e3a5f; text-align:left; padding:9px;">
+        ${esc(ch.text)}${ch.coins && ch.coins > 0 ? "" : ""}
+      </button>`).join("")}
+    </div>
+  </div>`;
+  showActionModal(`${ev.icon} ${c.name}: ${ev.title}`, html, ev.icon);
+}
+
+function resolveGrownChildEvent(childId, evId, idx) {
+  const c = player.children.find(x => x.id === childId);
+  const ev = GROWN_CHILD_EVENTS.find(e => e.id === evId);
+  if (!c || !ev) return;
+  const ch = ev.choices[idx];
+  if (ch.coins && ch.coins < 0 && player.coins < -ch.coins) {
+    closeActionModal();
+    return showActionModal("Нет золота", `Нужно ${-ch.coins}🪙.`, "🪙");
+  }
+  if (ch.coins) player.coins = Math.max(0, player.coins + ch.coins);
+  if (ch.hp) player.hp = Math.max(1, Math.min(player.maxHp, player.hp + ch.hp));
+  if (ch.rel) c.relation = Math.max(0, Math.min(100, (c.relation || 70) + ch.rel));
+  closeActionModal();
+  log(`👨‍👩‍👧 <b>${esc(c.name)}</b>: ${esc(ch.result)}`);
+  queueYearExtra(c.name, ch.result, ev.icon);
+  showActionModal(c.name, ch.result, ev.icon);
+  updateUI();
+}
+
 // Раз в год: дети растут, характер сказывается, приходят просьбы
 function advanceChildrenYear() {
   if (!player?.children) return;
@@ -3783,20 +4611,30 @@ function advanceChildrenYear() {
     if (c.isDead) return;
     const age = childAge(c);
     const trait = childTraitById(c.traitId);
-    if (!trait) return;
 
     // Дело жестокого: отношение тает само
-    if (trait.id === "cruel" && age < 18) c.relation = Math.max(0, (c.relation || 70) - 2);
+    if (trait?.id === "cruel" && age < 18) c.relation = Math.max(0, (c.relation || 70) - 2);
 
     // Ребёнок с хорошей памятью находит тёплые слова каждый год
     if ((c.memory || 0) > 20 && age < 18) c.relation = Math.min(100, (c.relation || 70) + 1);
 
+    // Выросший ребёнок выбирает свой путь — один раз и навсегда
+    if (age >= 18 && !c.path) {
+      if (!c.pathQueued) {
+        c.pathQueued = true;
+        queueYearExtra(`${c.name} вырос(ла)`, "Пришло время выбрать путь.", "🌱");
+        // Показываем сразу после текущего окна, а не внутри него
+        setTimeout(() => openChildPathChoice(c.id), 250);
+      }
+      return;
+    }
+
     // Просьба приходит в свой возраст — и только один раз
-    const reqs = CHILD_REQUESTS[trait.id] || [];
+    const reqs = (trait && CHILD_REQUESTS[trait.id]) || [];
     const due = reqs.find(r => r.age === age && !c.askedAges.includes(r.age));
     if (due) {
       c.askedAges.push(due.age);
-      queueYearExtra(`${trait.icon} ${c.name}`, due.text, "👶");
+      queueYearExtra(`${trait?.icon || "👶"} ${c.name}`, due.text, "👶");
       // Сразу покажем окно: это не то, что можно отложить
       if (!yearFlowActive && !storyQueue.length) setTimeout(() => showChildRequest(c.id, due.age), 50);
     }
@@ -3860,6 +4698,10 @@ function resolveChildRequest(childId, reqAge, choiceIdx) {
 // Карточка ребёнка в списке связей: характер, память, что из него выйдет
 function childTraitBadge(npc) {
   if (!npc.isChild) return "";
+  // Выросший ребёнок: показываем выбранный путь
+  if (npc.path && npc.path !== "pending") {
+    return `<span class="child-path-badge">${npc.pathIcon || "🌱"} ${esc(npc.pathName || "Путь")}</span>`;
+  }
   const trait = childTraitById(npc.traitId);
   if (!trait) return "";
   const mem = npc.memory || 0;
@@ -4227,10 +5069,23 @@ function renderStoryScene() {
   if (!node.choices && !node.effect) {
     html += `<button class="story-choice" data-story-choice="-1" style="background:#312e81;">Продолжить</button>`;
   }
+  // Кнопки, приходящие из текста сцены, тоже должны работать
+  html = html.replace(/<button(?![^>]*data-story-choice)/g, '<button data-story-choice="-1"');
   box.innerHTML = html;
-  box.querySelectorAll("[data-story-choice]").forEach(btn => {
-    btn.onclick = () => resolveStoryScene(node, parseInt(btn.dataset.storyChoice, 10));
-  });
+  if (!box._storyBound) {
+    // Один обработчик на всю доску: кнопки меняются, обработчик остаётся
+    box._storyBound = true;
+    box.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const entry = storyQueue[0];
+      const curNode = entry ? entry.node : null;
+      if (!curNode) return;
+      if (btn.closest("#story-foot")) return;
+      const idx = btn.dataset.storyChoice !== undefined ? parseInt(btn.dataset.storyChoice, 10) : -1;
+      resolveStoryScene(curNode, idx);
+    });
+  }
 
   const foot = $("story-foot");
   if (foot) {
@@ -4536,7 +5391,8 @@ function ageUp() {
 
   if (player.age > player.maxAge - BALANCE.hp.oldAgeYears && player.trait.id !== "god_mode") {
     const span = BALANCE.hp.newAgeDecayMax - BALANCE.hp.newAgeDecayMin;
-    const decay = BALANCE.hp.newAgeDecayMin + Math.floor(Math.random() * (span + 1));
+    const decayBase = BALANCE.hp.newAgeDecayMin + Math.floor(Math.random() * (span + 1));
+    const decay = Math.max(1, Math.round(decayBase * currentDifficulty().decayMult));
     player.hp -= decay; log(`Старость даёт о себе знать (-${decay} HP).`);
   }
   if (player.hp <= 0 || player.age >= player.maxAge) {
@@ -4550,6 +5406,34 @@ function ageUp() {
     const priceEv = RANDOM_EVENTS.find(e => e.id === "hitogami_dream_price");
     if (priceEv) { triggerRandomEvent(priceEv); return; }
   }
+
+  // Страховка: если окно пути закрыли, ребёнок всё равно выберет дорогу сам
+  if (player.children) {
+    player.children.forEach(c => {
+      if (c.isDead || !c.isChild) return;
+      if (childAge(c) < 18) return;
+      if (c.path && c.path !== "pending") return;
+      c.pathWaitYears = (c.pathWaitYears || 0) + 1;
+      if (c.pathWaitYears > 1) {
+        const fallback = { stubborn: "sword", kind: "home", cruel: "road", dreamer: "magic", tactician: "court", quiet: "craft" }[c.traitId] || "home";
+        const p2 = CHILD_PATHS.find(x => x.id === fallback);
+        c.path = fallback; c.pathName = p2 ? p2.name : "Свой путь"; c.pathIcon = p2 ? p2.icon : "🌱";
+        c.cp = (c.cp || 400) + (p2 ? p2.cp : 100);
+        log(`🌱 ${c.name} сам(а) выбрал(а) путь: ${c.pathName}.`);
+      }
+    });
+  }
+
+  // Взрослые дети живут своей жизнью: приходят за деньгами, женятся, попадают в беду
+  if (typeof advanceGrownChildren === "function") {
+    const grownEv = advanceGrownChildren();
+    if (grownEv && !yearFinalized) {
+      setTimeout(() => showGrownChildEvent(grownEv.child.id, grownEv.ev.id), 80);
+      return;
+    }
+  }
+
+  if (typeof maybeInheritedBurden === "function" && maybeInheritedBurden()) return;
 
   if (typeof maybeMoralEcho === "function" && maybeMoralEcho()) return;
 
@@ -4579,7 +5463,7 @@ function ageUp() {
 // Небольшой рост за прожитый год
 function applyYearlyGrowth() {
   const g = BALANCE.growth;
-  const perExp = player.age < 16 ? g.expPerYearUntilAdult : g.expPerYearAfterAdult;
+  const perExp = Math.round((player.age < 16 ? g.expPerYearUntilAdult : g.expPerYearAfterAdult) * currentDifficulty().xpMult);
   if (perExp > 0) {
     player.magicExp += perExp;
     player.swordGodExp += perExp;
@@ -4640,6 +5524,18 @@ function handleDeath(reason) {
     titles: (player.titles || []).slice()
   });
 
+  if (typeof recordDeathLegacy === "function") recordDeathLegacy(reason);
+
+  // Архив смерти: последняя жизнь героя сохраняется отдельно,
+  // чтобы её можно было пережить заново или показать в дневнике рода
+  try {
+    localStorage.setItem(slotKey(activeSlot()) + "_deatharchive", JSON.stringify({
+      name: player.name, age: player.age, years: player.age, gen: dynastyGeneration,
+      reason, cp: calcCombatPower(player), year: worldState.currentWorldYear,
+      titles: (player.titles || []).slice()
+    }));
+  } catch {}
+
   setText("death-reason", `${reason} в возрасте ${player.age} лет.`);
   if ($("death-summary")) $("death-summary").innerHTML = `
     <div>🎖️ <b>${esc(heroFullName(player))}</b> (${player.race}) • Прожито: <b>${player.age} л.</b></div>
@@ -4667,6 +5563,109 @@ function handleDeath(reason) {
   }
   saveGameNow();
   if ($("death-overlay")) $("death-overlay").style.display = "flex";
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   СМЕРТЬ С ПОСЛЕДСТВИЯМИ
+   Раньше смерть была экраном и наследником. Теперь остаются
+   долги, недосказанное и люди, которые придут к детям
+   с тем, что вы не успели закрыть.
+   ══════════════════════════════════════════════════════════ */
+
+const INHERITED_BURDENS = [
+  { id: "ib_debt", icon: "💰", title: "Долг покойного",
+    text: (prev) => `К вам пришли двое с бумагой. На ней почерк вашего ${prev}а.\n\n— Он занял у нас триста. Срок вышел.\n\nБумага настоящая. Вы это видите.`,
+    choices: [
+      { text: "Заплатить 300🪙", coins: -300, rep: 10, result: "Вы заплатили. Один из них снял шляпу — этого не делают с должниками." },
+      { text: "Отказаться: это не мой долг", rep: -12, result: "Они ушли. Через год ваш дом обнесли, и все знали, кто это сделал." },
+      { text: "Предложить отработать", hp: -20, rep: 6, result: "Вы работали на них месяц. Долг закрыт потом и кровью — буквально." }
+    ] },
+  { id: "ib_enemy", icon: "🗡️", title: "Враг, который ждал",
+    text: () => `Он ждал смерти вашего предка двадцать лет и дождался.\n\n— Теперь ты за него.\n\nОн не нападает. Он просто стоит и смотрит, давая вам выбор.`,
+    choices: [
+      { text: "Драться", hp: -45, rep: 15, cp: 200, result: "Вы выстояли. Теперь он уважает род — и это дороже денег." },
+      { text: "Попросить прощения за него", rep: 8, result: "Он долго молчал. Потом ушёл. Месть ему больше не нужна." },
+      { text: "Заплатить отступные (200🪙)", coins: -200, rep: -5, result: "Он взял деньги. Вражда закончилась там, где началась." }
+    ] },
+  { id: "ib_promise", icon: "📜", title: "Невыполненное обещание",
+    text: () => `В бумагах предка — письмо, которое он не отправил.\n\nВ нём обещание: вернуть землю, которую забрали. Адресат ещё жив.`,
+    choices: [
+      { text: "Выполнить обещание", coins: -250, rep: 20, influence: 15, result: "Земля вернулась к тем, кому была обещана. Вас запомнят не за то, что вы взяли, а за то, что отдали." },
+      { text: "Сжечь письмо", rep: -8, result: "Бумага горела быстро. Вы смотрели в огонь и думали, что так проще." },
+      { text: "Найти потомков и объяснить", rep: 10, intellect: 10, result: "Они поняли. Не простили, но поняли — и это оказалось важнее." }
+    ] },
+  { id: "ib_orphan", icon: "👶", title: "Ребёнок, о котором не знали",
+    text: () => `Женщина привела мальчика лет семи и сказала, что он — крови вашего предка.\n\nОна не просит денег. Она просит, чтобы его научили держать меч.`,
+    choices: [
+      { text: "Взять в дом", rep: 12, family: true, result: "Он остался. Через десять лет он называл вас братом и не помнил другой жизни." },
+      { text: "Дать денег и отпустить (150🪙)", coins: -150, rep: 4, result: "Они уехали. Мальчик оглянулся один раз." },
+      { text: "Отказать", rep: -15, result: "Она ушла молча. Вы долго не могли уснуть." }
+    ] }
+];
+
+// При смерти записываем «наследство» — что осталось нерешённым
+function recordDeathLegacy(reason) {
+  player.deathLegacy = {
+    reason,
+    debts: (player.coins || 0) < 0 ? Math.abs(player.coins) : 0,
+    unpaidTitles: (player.titles || []).length,
+    hasBurdens: true,
+    year: worldState.currentWorldYear,
+    unresolved: []
+  };
+  // Если игрок кому-то не заплатил или кого-то бросил — это вернётся
+  const abandoned = player.relations.filter(r => !r.isDead && (r.relation || 0) < 20).map(r => r.name);
+  if (abandoned.length) player.deathLegacy.unresolved.push(...abandoned.slice(0, 2));
+}
+
+// Наследник разгребает это в первые годы своей жизни
+function maybeInheritedBurden() {
+  if (!player.inheritedFrom) return false;
+  if (player.inheritedBurdenDone) return false;
+  if (worldState.currentWorldYear - (player.inheritedFrom.year || 0) < 3) return false;
+  if (Math.random() > 0.3) return false;
+
+  const b = INHERITED_BURDENS[Math.floor(Math.random() * INHERITED_BURDENS.length)];
+  player.inheritedBurdenDone = true;
+  const text = typeof b.text === "function" ? b.text(player.inheritedFrom.name || "предка") : b.text;
+  const html = `<div style="text-align:left;">
+    <div style="margin:8px 0; line-height:1.55; white-space:pre-line;">${esc(text)}</div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${b.choices.map((ch, i) => `<button onclick="resolveInheritedBurden('${b.id}',${i})" style="background:#7c2d12; text-align:left; padding:9px;">
+        ${esc(ch.text)}
+      </button>`).join("")}
+    </div>
+  </div>`;
+  showActionModal(`${b.icon} ${b.title}`, html, b.icon);
+  return true;
+}
+
+function resolveInheritedBurden(bid, idx) {
+  const b = INHERITED_BURDENS.find(x => x.id === bid);
+  if (!b) return;
+  const ch = b.choices[idx];
+  if (ch.coins && ch.coins < 0 && player.coins < -ch.coins) {
+    closeActionModal();
+    return showActionModal("Нет золота", `Нужно ${-ch.coins}🪙.`, "🪙");
+  }
+  if (ch.coins) player.coins = Math.max(0, player.coins + ch.coins);
+  if (ch.hp) player.hp = Math.max(1, Math.min(player.maxHp, player.hp + ch.hp));
+  if (ch.rep) player.reputation = Math.max(-100, Math.min(200, (player.reputation || 0) + ch.rep));
+  if (ch.cp) player.swordGodExp += ch.cp;
+  if (ch.intellect) player.intellect += ch.intellect;
+  if (ch.influence) player.asuraInfluence = (player.asuraInfluence || 0) + ch.influence;
+  if (ch.family) {
+    player.children = player.children || [];
+    player.children.push({ id: "orphan_" + Date.now(), name: "Найдёныш", gender: "male", race: player.race,
+      birthYear: worldState.currentWorldYear - 7, relation: 60, cp: 300, isChild: true, isFamily: true,
+      traitId: "kind", askedAges: [], grownEvents: [] });
+  }
+  closeActionModal();
+  log(`📜 <b>Долг предка:</b> ${esc(ch.result)}`);
+  queueYearExtra("Наследство предка", ch.result, b.icon);
+  showActionModal(b.title, ch.result, b.icon);
+  updateUI();
 }
 
 function continueAsHeir(childId, realAge) {
@@ -4697,6 +5696,10 @@ function continueAsHeir(childId, realAge) {
   if ($("death-overlay")) $("death-overlay").style.display = "none";
   const heirFirstName = String(child.name).replace(/<[^>]*>/g, "").replace(/[<>]/g, "").trim().split(" ")[0] || "Наследник";
   initCharacter(heirFirstName, prev.surname, child.gender, raceObj, prev.currentRegionKey, originMock, prev.trait, prev.familyStatus, realAge, familyRels);
+  // Наследство и долги предка переходят вместе с именем
+  player.inheritedFrom = { name: prev.firstName || "Предок", year: worldState.currentWorldYear, titles: (prev.titles || []).slice(), cp: calcCombatPower(prev) };
+  player.inheritedBurdenDone = false;
+  if (prev.deathLegacy) player.deathLegacyOf = prev.deathLegacy;
 
   // Характер и воспитание переходят в наследника — это его стартовый капитал
   const inherit = childInheritanceSummary(child);
@@ -4784,8 +5787,33 @@ function generateYearlyGuildQuests() {
   player.guildQuestsThisYear = [...pool].sort(() => 0.5 - Math.random()).slice(0, 5);
 }
 
-const SAVE_KEY = "bit_tensei_save";
-const SAVE_BACKUP_KEY = "bit_tensei_save_backup";
+// Ключ сохранения теперь зависит от выбранного слота (1–3).
+// Старое одиночное сохранение автоматически становится слотом 1.
+const SAVE_KEY_LEGACY = "bit_tensei_save";
+var SAVE_KEY = "bit_tensei_save_s1";
+const SAVE_BACKUP_KEY_LEGACY = "bit_tensei_save_backup";
+var SAVE_BACKUP_KEY = "bit_tensei_save_s1_backup";
+
+function syncSaveKeys() {
+  const n = typeof activeSlot === "function" ? activeSlot() : 1;
+  SAVE_KEY = slotKey(n);
+  SAVE_BACKUP_KEY = slotBackupKey(n);
+}
+
+// Первый запуск новой версии: старое сохранение переезжает в слот 1
+function migrateLegacySave() {
+  try {
+    const legacy = localStorage.getItem(SAVE_KEY_LEGACY);
+    if (!legacy) return false;
+    if (localStorage.getItem(SAVE_SLOT_KEYS[1])) return false;
+    localStorage.setItem(SAVE_SLOT_KEYS[1], legacy);
+    const lb = localStorage.getItem(SAVE_BACKUP_KEY_LEGACY);
+    if (lb) localStorage.setItem(SAVE_SLOT_KEYS[1] + "_backup", lb);
+    setActiveSlot(1);
+    console.log("[BitTensei] Старое сохранение перенесено в слот 1.");
+    return true;
+  } catch { return false; }
+}
 
 function buildSavePayload() {
   return JSON.stringify({
@@ -4964,6 +5992,167 @@ function loadGame() {
   return false;
 }
 
+
+/* ══════════════════════════════════════════════════════════
+   ТРИ СЛОТА СОХРАНЕНИЙ
+   Раньше было одно сохранение: сломалось — и весь род пропал.
+   Теперь три независимых слота и автосейв смерти.
+   ══════════════════════════════════════════════════════════ */
+
+const SAVE_SLOTS = [1, 2, 3];
+const SAVE_SLOT_KEYS = { 1: "bit_tensei_save_s1", 2: "bit_tensei_save_s2", 3: "bit_tensei_save_s3" };
+const SAVE_SLOT_META = "bit_tensei_slots_meta";
+
+function activeSlot() {
+  const s = Number(localStorage.getItem("bit_tensei_active_slot") || 1);
+  return SAVE_SLOTS.includes(s) ? s : 1;
+}
+function setActiveSlot(n) {
+  if (!SAVE_SLOTS.includes(Number(n))) return;
+  localStorage.setItem("bit_tensei_active_slot", String(Number(n)));
+}
+function slotKey(n) { return SAVE_SLOT_KEYS[n] || SAVE_SLOT_KEYS[1]; }
+function slotBackupKey(n) { return slotKey(n) + "_backup"; }
+
+// Метаданные слота для экрана выбора: кто, сколько лет, какое поколение
+function readSlotInfo(n) {
+  try {
+    const raw = localStorage.getItem(slotKey(n));
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    const p = d.player || {};
+    return {
+      slot: n,
+      name: p.name || "Безымянный",
+      age: p.age || 0,
+      gen: d.dynastyGeneration || 1,
+      year: d.worldState?.currentWorldYear || START_YEAR,
+      coins: p.coins || 0,
+      cp: p.cp || 0,
+      savedAt: d.savedAt || 0,
+      dead: !!p.isDead
+    };
+  } catch { return null; }
+}
+
+function allSlotInfos() {
+  return SAVE_SLOTS.map(n => ({ slot: n, info: readSlotInfo(n) }));
+}
+
+function deleteSlot(n) {
+  try {
+    localStorage.removeItem(slotKey(n));
+    localStorage.removeItem(slotBackupKey(n));
+  } catch {}
+}
+
+function copySlot(from, to) {
+  try {
+    const raw = localStorage.getItem(slotKey(from));
+    if (!raw) return false;
+    localStorage.setItem(slotKey(to), raw);
+    return true;
+  } catch { return false; }
+}
+
+function fmtSaveDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return sameDay ? `сегодня, ${hm}` : `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}, ${hm}`;
+}
+
+// Экран выбора слота
+function openSlotScreen(mode) {
+  const box = $("slot-list");
+  if (!box) return;
+  currentSlotMode = mode || "load";
+  const title = $("slot-screen-title");
+  if (title) title.textContent = currentSlotMode === "new" ? "Где начать новую жизнь?" : "Чью историю продолжить?";
+  const sub = $("slot-screen-sub");
+  if (sub) sub.textContent = currentSlotMode === "new"
+    ? "Каждый слот — отдельный род. Их можно вести параллельно."
+    : "Выберите сохранение. Слоты не мешают друг другу.";
+
+  const active = activeSlot();
+  box.innerHTML = allSlotInfos().map(({ slot, info }) => {
+    if (!info) {
+      return `<div class="slot-card empty" onclick="pickSlot(${slot})">
+        <div class="slot-num">${slot}</div>
+        <div class="slot-body">
+          <div class="slot-name">Пустой слот</div>
+          <div class="slot-sub">Начать здесь новую жизнь</div>
+        </div>
+        <div class="slot-active-mark">${slot === active ? "●" : ""}</div>
+      </div>`;
+    }
+    return `<div class="slot-card${slot === active ? " current" : ""}" onclick="pickSlot(${slot})">
+      <div class="slot-num">${slot}</div>
+      <div class="slot-body">
+        <div class="slot-name">${esc(info.name)}</div>
+        <div class="slot-sub">${info.age} лет • ${info.gen}-е поколение • ${info.year} г. К.Д.</div>
+        <div class="slot-sub2">${fmtNum(info.coins)}🪙 • ${fmtSaveDate(info.savedAt)}</div>
+      </div>
+      <div class="slot-actions">
+        <button class="slot-mini" onclick="event.stopPropagation(); exportSlot(${slot})" title="Экспорт">📤</button>
+        <button class="slot-mini danger" onclick="event.stopPropagation(); confirmDeleteSlot(${slot})" title="Удалить">🗑</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  if ($("slot-screen")) $("slot-screen").style.display = "flex";
+  const nav = document.querySelector(".bottom-nav");
+  if (nav) nav.style.display = "none";
+}
+
+function closeSlotScreen() {
+  if ($("slot-screen")) $("slot-screen").style.display = "none";
+}
+
+function confirmDeleteSlot(n) {
+  askConfirm(`Удалить слот ${n}?`, "Сохранение будет стёрто безвозвратно.", () => {
+    deleteSlot(n);
+    openSlotScreen(currentSlotMode);
+    showActionModal("Удалено", `Слот ${n} очищен.`, "🗑");
+  });
+}
+
+function exportSlot(n) {
+  try {
+    const raw = localStorage.getItem(slotKey(n));
+    if (!raw) return;
+    const b64 = btoa(unescape(encodeURIComponent(raw)));
+    navigator.clipboard?.writeText(b64);
+    showActionModal("Экспорт", "Код сохранения скопирован. Сохраните его в надёжном месте.", "📤");
+  } catch { showActionModal("Экспорт", "Не удалось скопировать код.", "❌"); }
+}
+
+function pickSlot(n) {
+  setActiveSlot(n);
+  if (currentSlotMode === "new") {
+    closeSlotScreen();
+    if (typeof menuFreeModeNew === "function") menuFreeModeNew();
+    return;
+  }
+  // загрузка
+  closeSlotScreen();
+  if (loadGame()) { menuOpen ? menuOpen(null) : null; }
+  else {
+    showActionModal("Пустой слот", "Здесь пока никто не жил. Начните новую жизнь.", "📖");
+    if (typeof menuFreeModeNew === "function") menuFreeModeNew();
+  }
+}
+
+// Переключение слота при игре: сохраняем текущий и предлагаем выбрать другой
+function switchSlot() {
+  saveGameNow();
+  openSlotScreen("load");
+}
+
+let currentSlotMode = "load";
+
 function openSaveModal() {
   try {
     const b64 = btoa(unescape(encodeURIComponent(buildSavePayload())));
@@ -5087,9 +6276,16 @@ function refreshResumeButton() {
   choiceBox.parentNode.insertBefore(btn, choiceBox);
 }
 
+// Вход в песочницу теперь через выбор слота
 function menuFreeMode() {
+  openSlotScreen("load");
+}
+
+// Новая жизнь в выбранном слоте
+function menuFreeModeNew() {
   menuOpen(null);
-  if (!loadGame()) showCreation();
+  syncSaveKeys();
+  showCreation();
 }
 
 function menuSettings() {
@@ -5287,6 +6483,9 @@ function loadCampaign() {
 
 // Титульный экран: меню или сразу в игру
 function startAtMenu() {
+  migrateLegacySave();
+  setActiveSlot(activeSlot());
+  syncSaveKeys();
   const nav = document.querySelector(".bottom-nav");
   if (nav) nav.style.display = "none";
   menuOpen("main-menu");

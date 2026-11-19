@@ -667,11 +667,31 @@ const ACTIVITIES = [
     desc: "Травы и опыт вместо денег: люди приходят к вам, а не к лекарю.",
     action: (p) => { p.reputation += 14; p.hp = Math.min(p.maxHp, p.hp + 10); p.intellect += 3; return "Вы приняли шестерых за неделю. Одна женщина назвала ребёнка вашим именем (+14 репутации)."; } },
 
+  { id: "elder_memoirs", category: "elder", name: "📖 Писать мемуары", minAge: 45, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Записать всё, что было. Наследники будут читать это, когда вас не станет.",
+    action: (p) => {
+      const pages = 20 + Math.floor((p.intellect || 0) / 4);
+      p.intellect += 6; p.reputation += 10; p.memoirPages = (p.memoirPages || 0) + pages;
+      // Наследник получит знания из книги
+      if (p.children) p.children.forEach(c => { c.memoirBonus = (c.memoirBonus || 0) + 3; });
+      return `Вы исписали ${pages} страниц. Про чужую войну — половину. Про себя — всю (+6 Знаний, +10 репутации, глава добавлена в книгу рода).`;
+    } },
+
+  { id: "elder_pass_trade", category: "elder", name: "🏛️ Передать дело", minAge: 45, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Отдать имение или ремесло в руки детей — и получать с этого долю.",
+    action: (p) => {
+      const heir = (p.children || []).find(c => !c.isDead && (c.age || childAge(c)) >= 16);
+      if (!heir) { p.reputation += 2; return "Передавать пока некому. Вы посидели в кресле и подумали, кому вообще это нужно."; }
+      heir.cp = (heir.cp || 0) + 250;
+      const income = 60 + Math.floor((p.coins || 0) * 0.02);
+      p.coins += income; p.reputation += 8;
+      return `${heir.name} принял(а) дела и сразу нашёл(ла) лишние траты. Дело работает без вас (+${income}🪙, +250 БМ наследнику).`;
+    } },
+
   { id: "elder_watch_sunset", category: "elder", name: "🌇 Смотреть на закат", minAge: 50, maxAge: 120, cost: 0, apCost: 1,
     desc: "Ничего не делать. Иногда это самое важное.",
     action: (p) => { p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.2)); return "Год прошёл тихо. Вы никуда не спешили и всё успели (+20% HP)."; } },
 
-  { id: "write_memoirs", category: "elder", name: "✍️ Родовые хроники", minAge: 45, maxAge: 100, cost: 0, apCost: 1, desc: "Мудрость для потомков.", action: (p) => { p.intellect += 12; return "Мемуары занесены в архив (+12 Знаний)."; } },
   { id: "mentor_young", category: "elder", name: "🥋 Наставлять учеников", minAge: 40, maxAge: 100, cost: 0, apCost: 1, desc: "Передача секретов клинка.", action: (p) => { p.squadFame += 20; p.coins += 25; return "Ученики внимали урокам (+20 Славы, +25🪙)."; } }
 ];
 

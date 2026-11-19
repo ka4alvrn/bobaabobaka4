@@ -52,6 +52,20 @@
     </div>
   </div>
 
+  <!-- ═══ ВЫБОР СЛОТА СОХРАНЕНИЯ ═══ -->
+  <div id="slot-screen" style="display:none;">
+    <div class="mm-bg"></div>
+    <div class="mm-inner mm-wide">
+      <div class="mm-step">Сохранения</div>
+      <h2 class="mm-h2" id="slot-screen-title">Чью историю продолжить?</h2>
+      <div class="mm-sub" id="slot-screen-sub" style="margin-bottom:14px;">Выберите сохранение.</div>
+      <div class="slot-list" id="slot-list"></div>
+      <div class="mm-foot" style="margin-top:16px;">
+        <button class="mm-mini" onclick="closeSlotScreen(); backToMenu()">← В меню</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ ВЫБОР РОЖДЕНИЯ (сюжетный режим) ═══ -->
   <div id="origin-screen" style="display:none;">
     <div class="mm-bg"></div>
@@ -142,6 +156,21 @@
     <div class="input-group">
       <label>Родословная Ветвь</label>
       <select id="select-origin"></select>
+    </div>
+
+    <div class="input-group">
+      <label>Сложность</label>
+      <div class="diff-row" id="diff-row">
+        <button type="button" class="diff-btn" onclick="setDifficulty('easy')" data-diff="easy">
+          <b>🌿 Спокойная</b><span>Щедрее золото, добрее враги, медленнее старость</span>
+        </button>
+        <button type="button" class="diff-btn active" onclick="setDifficulty('normal')" data-diff="normal">
+          <b>⚖️ Обычная</b><span>Так, как задумано</span>
+        </button>
+        <button type="button" class="diff-btn" onclick="setDifficulty('hard')" data-diff="hard">
+          <b>🔥 Суровая</b><span>Меньше золота, злее враги, быстрее старость</span>
+        </button>
+      </div>
     </div>
 
     <button class="btn-main" id="btn-confirm-creation" onclick="confirmCreation()">✨ Воплотиться в новом теле</button>
@@ -496,6 +525,9 @@
     <div class="section-title" style="margin-top: 14px;">🔨 Кузница Заточки Артефактов</div>
     <div id="forge-container"></div>
 
+    <div class="section-title" style="margin-top: 14px;">⚗️ Зельеварение и травы</div>
+    <div id="alchemy-box"></div>
+
     <div class="section-title" style="margin-top: 14px;">📜 Фамильное Завещание, Наследник и Реликвия</div>
     <div id="testament-container"></div>
 
@@ -568,6 +600,7 @@
       <button class="sub-tab-btn" onclick="setWorldSubTab('tablets', this)">📜 Скрижали</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('politics', this)">👑 Асура</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('tree', this)">🌳 Древо & Хроники</button>
+      <button class="sub-tab-btn" onclick="setWorldSubTab('diary', this)">📖 Дневник</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('achieve', this)">🏆 Достижения</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('languages', this)">🗣️ Языки</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('schools', this)">🏛️ Академии</button>
@@ -606,6 +639,13 @@
     <div id="world-sub-politics" style="display: none;">
       <div class="section-title">👑 Борьба за Престол Королевства Асура</div>
       <div id="politics-container"></div>
+    </div>
+
+    <div id="world-sub-diary" style="display: none;">
+      <div class="section-title">📖 Дневник рода</div>
+      <div id="diary-current"></div>
+      <div class="section-title" style="margin-top:14px;">Прошлые жизни</div>
+      <div id="diary-box"></div>
     </div>
 
     <div id="world-sub-achieve" style="display: none;">

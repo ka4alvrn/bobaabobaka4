@@ -22,7 +22,7 @@ const STORY_LINES = [
         title: "Сборщики у ворот",
         text: "Заимодавец не пришёл сам — пришли его люди. «Долг вашего отца — 300 золотых. Отдайте до зимы, иначе мы возьмём вдвое — домом.»",
         choices: [
-          { text: "Заплатить из казны (300🪙)", cost: 300, flags: { debt_paid: true }, effect: (p) => { p.coins -= 300; p.reputation += 5; return "Вы отдали долг сполна. Люди ушли молча — но запомнили, что вы платите."; } },
+          { text: "Заплатить из казны (300🪙)", cost: 300, flags: { debt_paid: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation += 5; return "Вы отдали долг сполна. Люди ушли молча — но запомнили, что вы платите."; } },
           { text: "Взять долг на себя (позже отдадите 450🪙)", flags: { debt_owned: true }, effect: () => "Вы подписали бумагу своим именем. Долг теперь ваш — и он растёт." },
           { text: "Прогнать их силой", flags: { debt_defied: true }, effect: (p) => { p.reputation -= 10; p.swordGodExp += 15; return "Вы выставили сборщиков за ворота. Соседи одобрили, заимодавец — нет."; } },
           { text: "Взяться за подпольную работу", flags: { debt_underground: true }, effect: (p) => { p.coins += 120; p.reputation -= 15; return "Вы заработали сотню-другую грязным трудом. Долг не закрыт, но отсрочка куплена."; } }
@@ -33,7 +33,7 @@ const STORY_LINES = [
         title: "Долг растёт",
         text: "Проценты съели вашу отсрочку. «450 золотых. Или подпишите, что отработаете — пять лет на рудниках.»",
         choices: [
-          { text: "Отдать 450🪙", cost: 450, flags: { debt_paid: true }, effect: (p) => { p.coins -= 450; p.intellect += 5; return "Вы расплатились и поклялись больше никогда не подписывать бумаг не читая (+5 Знаний)."; } },
+          { text: "Отдать 450🪙", cost: 450, flags: { debt_paid: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 450); p.intellect += 5; return "Вы расплатились и поклялись больше никогда не подписывать бумаг не читая (+5 Знаний)."; } },
           { text: "Пойти на рудники (5 ударов к HP, но честно)", flags: { debt_paid: true, debt_mines: true }, effect: (p) => { p.maxHp = Math.max(20, p.maxHp - 40); p.northGodExp += 40; return "Пять лет под землёй. Долг закрыт, тело изношено, воля — закалена."; } },
           { text: "Сжечь контору заимодавца", flags: { debt_burned: true }, effect: (p) => { p.reputation -= 25; p.northGodExp += 20; return "Огонь забрал и бумаги, и чью-то жизнь. Долга больше нет. Врагов — прибавилось."; } }
         ]
@@ -43,7 +43,7 @@ const STORY_LINES = [
         title: "Ночь расплаты",
         text: "Они подожгли амбар и увели двух лошадей. Старший из них ждёт вас у околицы: «Ты смелый. Откупишься — или будем резать друг друга до последнего?»",
         choices: [
-          { text: "Откупиться (400🪙)", cost: 400, flags: { debt_paid: true }, effect: (p) => { p.coins -= 400; p.intellect += 4; return "Вы заплатили вдвое и научились считать врагов заранее (+4 Знаний)."; } },
+          { text: "Откупиться (400🪙)", cost: 400, flags: { debt_paid: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.intellect += 4; return "Вы заплатили вдвое и научились считать врагов заранее (+4 Знаний)."; } },
           { text: "Драться насмерть", flags: { debt_kill: true }, effect: (p) => { p.hp = Math.max(15, p.hp - 40); p.swordGodExp += 45; p.reputation -= 8; return "Вы убили старшего. Остальные разбежались — но у него была родня."; } }
         ]
       },
@@ -88,7 +88,7 @@ const STORY_LINES = [
         text: "На обелиске пропавших вы находите знакомое имя — младшая. Ниже, чужой рукой, нацарапано: «видели на юге, с людьми в серых плащах».",
         choices: [
           { text: "Идти по следу", flags: { sis_searching: true }, effect: (p) => { p.northGodExp += 20; p.intellect += 4; return "Вы бросили всё и ушли на юг. След холодный, но он есть."; } },
-          { text: "Заплатить искателям (150🪙)", cost: 150, flags: { sis_hired: true }, effect: (p) => { p.coins -= 150; return "Вы наняли людей, которые умеют искать. Они вернутся с ответом — рано или поздно."; } },
+          { text: "Заплатить искателям (150🪙)", cost: 150, flags: { sis_hired: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); return "Вы наняли людей, которые умеют искать. Они вернутся с ответом — рано или поздно."; } },
           { text: "Отложить: сначала выжить", flags: { sis_delayed: true }, effect: (p) => { p.intellect += 6; return "Вы похоронили надежду в кармане и занялись собой. Она осталась там — ждать."; } }
         ]
       },
@@ -98,7 +98,7 @@ const STORY_LINES = [
         text: "Лагерь в лесу. Двадцать детей, двое надзирателей, и среди них — она. Не узнаёт вас. «Она не помнит, — говорит надзиратель. — Так проще. Уходи, или мы запомним твоё лицо.»",
         choices: [
           { text: "Забрать силой", flags: { sis_rescued: true }, effect: (p) => { p.hp = Math.max(10, p.hp - 50); p.swordGodExp += 40; p.reputation -= 15; return "Вы вынесли сестру на руках. За вами теперь охотятся."; } },
-          { text: "Купить её свободу (500🪙)", cost: 500, flags: { sis_bought: true }, effect: (p) => { p.coins -= 500; p.intellect += 8; return "Заплатили и ушли тихо. Она всё ещё не помнит вас — но она жива."; } },
+          { text: "Купить её свободу (500🪙)", cost: 500, flags: { sis_bought: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.intellect += 8; return "Заплатили и ушли тихо. Она всё ещё не помнит вас — но она жива."; } },
           { text: "Остаться и учить детей", flags: { sis_camp_joined: true }, effect: (p) => { p.intellect += 12; p.reputation += 12; return "Вы остались на год. Дети начали говорить. Она — первая назвала ваше имя."; } }
         ]
       },
@@ -147,7 +147,7 @@ const STORY_LINES = [
         choices: [
           { text: "Отречься", flags: { her_denied: true }, effect: (p) => { p.reputation += 8; p.intellect += 5; return "Вы сказали то, что от вас хотели. Старик не осудил бы — но вы себя осудили."; } },
           { text: "Встать на его защиту", flags: { her_defended: true }, effect: (p) => { p.hp = Math.max(10, p.hp - 40); p.reputation -= 20; p.intellect += 15; return "Вы говорили час. Половина площади слушала. Вас избили, но не сломали."; } },
-          { text: "Подкупить писца (250🪙)", cost: 250, flags: { her_bribed: true }, effect: (p) => { p.coins -= 250; return "Бумага исчезла из архива. Никто ничего не докажет."; } }
+          { text: "Подкупить писца (250🪙)", cost: 250, flags: { her_bribed: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 250); return "Бумага исчезла из архива. Никто ничего не докажет."; } }
         ]
       },
       {
@@ -233,7 +233,7 @@ const STORY_LINES = [
         text: "Очередь длиной в улицу. Пекарь закрывает ставни: «Зерна нет. Кто заплатит втрое — тому есть.» За вашей спиной уже начинают драться.",
         choices: [
           { text: "Заступиться за слабых", flags: { bread_hero: true }, effect: (p) => { p.reputation += 15; p.hp = Math.max(10, p.hp - 15); return "Вы удержали толпу от крови. Вас запомнили на этой улице."; } },
-          { text: "Купить хлеб втридорога (60🪙)", cost: 60, flags: { bread_bought: true }, effect: (p) => { p.coins -= 60; p.hp = Math.min(p.maxHp, p.hp + 20); return "Вы наелись. Рядом с вами — нет."; } },
+          { text: "Купить хлеб втридорога (60🪙)", cost: 60, flags: { bread_bought: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 60); p.hp = Math.min(p.maxHp, p.hp + 20); return "Вы наелись. Рядом с вами — нет."; } },
           { text: "Взять силой", flags: { bread_riot: true }, effect: (p) => { p.reputation -= 10; p.coins += 30; p.northGodExp += 10; return "Вы вынесли мешок из разбитой лавки. Он был тяжёлый и почему-то казался чужим."; } }
         ]
       },
@@ -243,7 +243,7 @@ const STORY_LINES = [
         text: "Три улицы выбирают, кто пойдёт к наместнику. Все смотрят на вас.",
         choices: [
           { text: "Идти и требовать", flags: { bread_leader: true }, effect: (p) => { p.reputation += 25; p.asuraInfluence += 20; return "Вы говорили во дворе. Наместник слушал — хотя бы из страха."; } },
-          { text: "Организовать подвоз зерна", flags: { bread_logistics: true }, effect: (p) => { p.coins -= 100; p.intellect += 15; p.reputation += 20; return "Вы нашли обоз и сговорились с купцами. Голод отступил на месяц — и этого хватило."; } },
+          { text: "Организовать подвоз зерна", flags: { bread_logistics: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 100); p.intellect += 15; p.reputation += 20; return "Вы нашли обоз и сговорились с купцами. Голод отступил на месяц — и этого хватило."; } },
           { text: "Отказаться: это не ваша война", flags: { bread_declined: true }, effect: (p) => { p.intellect += 8; return "Вы ушли. Через неделю наместник прислал солдат. Вас не тронули — вы ведь не участвовали."; } }
         ]
       },
@@ -273,7 +273,7 @@ const STORY_LINES = [
         text: "Дочь рассказывает за завтраком, где вы будете через год. Потом — где умрёте. Она улыбается и просит ещё хлеба.",
         choices: [
           { text: "Скрывать от всех", flags: { sh_hidden: true }, effect: (p) => { p.intellect += 10; return "Слухи поползли сами. Вы заперли их внутри стен — и внутри стен стало тесно."; } },
-          { text: "Искать целителя душ", flags: { sh_seeking: true }, effect: (p) => { p.coins -= 150; return "Вы наняли всех, кто хоть что-то знает о Снах. Никто не знал."; } },
+          { text: "Искать целителя душ", flags: { sh_seeking: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); return "Вы наняли всех, кто хоть что-то знает о Снах. Никто не знал."; } },
           { text: "Принять как есть", flags: { sh_accept: true }, effect: (p) => { p.hitogamiTrust += 20; p.intellect += 8; return "Вы сели рядом и приготовили ей чай. Она заплакала — первый раз за год."; } }
         ]
       },
@@ -284,7 +284,7 @@ const STORY_LINES = [
         choices: [
           { text: "Запретить ему приближаться", flags: { sh_banned: true }, effect: (p) => { p.hitogamiTrust -= 25; p.intellect += 15; return "Вы запретили. Она слушалась. Год. Потом начала слушать его снова — во сне, куда вы не могли прийти."; } },
           { text: "Позволить и слушать вместе", flags: { sh_bargain: true }, effect: (p) => { p.hitogamiTrust += 30; p.maxMana += 60; return "Вы стали разговаривать с богом через собственного ребёнка. Он дал вам силу. Вы не спросили, что дала она."; } },
-          { text: "Отправить её далеко из мира богов", flags: { sh_saved_child: true }, effect: (p) => { p.coins -= 400; p.reputation -= 5; return "Вы отвезли её в лес к травнице. Она перестала слышать Сны. И разучилась вам улыбаться."; } }
+          { text: "Отправить её далеко из мира богов", flags: { sh_saved_child: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation -= 5; return "Вы отвезли её в лес к травнице. Она перестала слышать Сны. И разучилась вам улыбаться."; } }
         ]
       },
       {
@@ -314,7 +314,7 @@ const STORY_LINES = [
         choices: [
           { text: "Пойти к ним и говорить", flags: { rev_talked: true }, effect: (p) => { p.intellect += 12; p.reputation -= 5; return "Вы прожили у них месяц. Они не звери, о которых рассказывают солдаты."; } },
           { text: "Донести во дворец", flags: { rev_reported: true }, effect: (p) => { p.asuraInfluence += 15; p.reputation += 5; return "Дворец выслал наблюдателей. Улица назвала вас соглядатаем."; } },
-          { text: "Дать им зерна и уйти", flags: { rev_helped: true }, effect: (p) => { p.coins -= 120; p.reputation += 10; return "Вы отдали половину обоза. Они запомнили вас как единственного человека, который отдал."; } }
+          { text: "Дать им зерна и уйти", flags: { rev_helped: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 120); p.reputation += 10; return "Вы отдали половину обоза. Они запомнили вас как единственного человека, который отдал."; } }
         ]
       },
       {
@@ -343,7 +343,7 @@ const STORY_LINES = [
         text: "Сын возвращается с тренировки с пустыми руками: «Я не буду воином. Я хочу рисовать. Или считать звёзды. Не бей меня больше на полигоне.»",
         choices: [
           { text: "Заставить продолжать", flags: { hp_forced: true }, effect: (p) => { p.swordGodExp += 20; p.children.forEach(c => c.relation = Math.max(0, (c.relation || 80) - 30)); return "Он вернулся на полигон. И перестал с вами разговаривать."; } },
-          { text: "Отпустить и нанять учителей", flags: { hp_freed: true }, effect: (p) => { p.coins -= 200; p.children.forEach(c => c.relation = Math.min(100, (c.relation || 80) + 20)); p.intellect += 10; return "Вы наняли ему математика и художника. Он впервые за год улыбнулся за ужином."; } },
+          { text: "Отпустить и нанять учителей", flags: { hp_freed: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.children.forEach(c => c.relation = Math.min(100, (c.relation || 80) + 20)); p.intellect += 10; return "Вы наняли ему математика и художника. Он впервые за год улыбнулся за ужином."; } },
           { text: "Учить и мечу, и наукам", flags: { hp_balanced: true }, effect: (p) => { p.children.forEach(c => c.relation = Math.min(100, (c.relation || 80) + 10)); p.castleUpgrades.includes("training_yard") ? p.swordGodExp += 25 : p.intellect += 15; return "Два часа меча, два часа счёта. Он вырос упрямым и умелым — как вы."; } }
         ]
       },
@@ -371,7 +371,7 @@ const STORY_LINES = [
         title: "Корзина на крыльце",
         text: "Утром под дверью нашли плетёную корзину. Внутри — младенец, завёрнутый в чужую шерсть, и записка одним словом: «Прости». На шее — шнурок с зубом какого-то зверя.",
         choices: [
-          { text: "Взять в семью", flags: { orp_taken: true }, effect: (p) => { p.coins -= 60; p.reputation += 12; p.intellect += 4; return "Вы назвали его своим. Слуги шептались, но молоко нашлось для всех."; } },
+          { text: "Взять в семью", flags: { orp_taken: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 60); p.reputation += 12; p.intellect += 4; return "Вы назвали его своим. Слуги шептались, но молоко нашлось для всех."; } },
           { text: "Отдать в храм", flags: { orp_temple: true }, effect: (p) => { p.reputation += 4; p.intellect += 6; return "Жрица взяла ребёнка и записала ваше имя в книгу дарителей. Вы ушли с пустыми руками и странным осадком."; } },
           { text: "Оставить на дороге", flags: { orp_abandoned: true }, effect: (p) => { p.reputation -= 14; p.intellect += 8; return "Вы унесли корзину к тракту и не оглядывались. Через год вы всё ещё иногда оглядывались."; } }
         ]
@@ -382,8 +382,8 @@ const STORY_LINES = [
         text: "На рынке к вам подошёл охотник и побледнел, увидев шнурок на шее вашего приёмыша. «Это зуб варга. Такие носят только в клане Медвежьей Пади. Откуда у тебя их ребёнок?»",
         choices: [
           { text: "Сказать правду и пойти к клану", flags: { orp_clan: true }, effect: (p) => { p.intellect += 10; p.reputation += 10; return "Вы рассказали всё. Охотник ушёл с вашим именем в голове — и вернулся через месяц с приглашением."; } },
-          { text: "Соврать и уехать", flags: { orp_hidden: true }, effect: (p) => { p.coins -= 80; p.intellect += 8; return "Вы сожгли шнурок и сняли дом у дороги. Ребёнок до сих пор спрашивает, почему вы боитесь слова «варг»."; } },
-          { text: "Продать охотнику молчание", flags: { orp_bribe: true }, effect: (p) => { p.coins -= 150; p.reputation -= 6; return "Он взял деньги и ушёл. Вы поняли, что молчание покупают только один раз."; } }
+          { text: "Соврать и уехать", flags: { orp_hidden: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 80); p.intellect += 8; return "Вы сожгли шнурок и сняли дом у дороги. Ребёнок до сих пор спрашивает, почему вы боитесь слова «варг»."; } },
+          { text: "Продать охотнику молчание", flags: { orp_bribe: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.reputation -= 6; return "Он взял деньги и ушёл. Вы поняли, что молчание покупают только один раз."; } }
         ]
       },
       {
@@ -402,8 +402,8 @@ const STORY_LINES = [
         text: "Вы узнали его сразу — по зубу на шнурке. Он вырос в храме, метёт двор и хорошо поёт. Увидев вас, он приветливо кланяется: «Господин, я помню вас. Вы принесли меня сюда.»",
         choices: [
           { text: "Признаться, что это были вы", flags: { orp_confessed: true }, effect: (p) => { p.intellect += 12; p.reputation += 8; return "Он кивнул: «Значит, вы всё-таки вернулись». И это было хуже любого упрёка."; } },
-          { text: "Промолчать", flags: { orp_silent: true }, effect: (p) => { p.coins -= 40; p.intellect += 6; return "Вы опустили монету в кружку и ушли. Он смотрел вслед очень долго."; } },
-          { text: "Забрать его в свой дом", flags: { orp_returned: true }, effect: (p) => { p.coins -= 120; p.reputation += 10; p.intellect += 8; return "Жрица спорила, но отдала. Дом стал шумнее, а вы — спокойнее."; } }
+          { text: "Промолчать", flags: { orp_silent: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 40); p.intellect += 6; return "Вы опустили монету в кружку и ушли. Он смотрел вслед очень долго."; } },
+          { text: "Забрать его в свой дом", flags: { orp_returned: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 120); p.reputation += 10; p.intellect += 8; return "Жрица спорила, но отдала. Дом стал шумнее, а вы — спокойнее."; } }
         ]
       },
       {
@@ -411,7 +411,7 @@ const STORY_LINES = [
         title: "Он хочет знать, кто он",
         text: "«Я не прошу тайну. Я прошу правду. Почему я здесь и почему у меня на шее зуб, который я боюсь снимать?»",
         choices: [
-          { text: "Искать его родню вместе", flags: { orp_search: true }, effect: (p) => { p.coins -= 100; p.intellect += 20; p.reputation += 10; return "Вы собирали слухи три года. Нашли клан, имя матери и причину, по которой его оставили."; } },
+          { text: "Искать его родню вместе", flags: { orp_search: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 100); p.intellect += 20; p.reputation += 10; return "Вы собирали слухи три года. Нашли клан, имя матери и причину, по которой его оставили."; } },
           { text: "Сказать: «Ты мой сын, и это всё»", flags: { orp_claimed: true }, effect: (p) => { p.children.forEach(c => c.relation = 100); p.reputation += 15; return "Он долго молчал и потом обнял вас. Иногда правда — это выбор, а не факт."; } },
           { text: "Отдать ему зуб и отпустить", flags: { orp_released: true }, effect: (p) => { p.intellect += 15; p.reputation += 5; return "Он ушёл налегке. Вы остались с пустым кольцом на крыльце, где когда-то стояла корзина."; } }
         ]
@@ -421,8 +421,8 @@ const STORY_LINES = [
         title: "Кто-то помнит дорогу",
         text: "Ночью в окно постучали. На крыльце стоял юноша с зубом на шее: «Вы несли меня по этой дороге. Я вернулся сам.»",
         choices: [
-          { text: "Принять его обратно", flags: { orp_begged: true }, effect: (p) => { p.reputation += 12; p.intellect += 15; p.coins -= 100; return "Вы не спали всю ночь. Утром он сказал: «Я не прощаю. Я просто хочу посмотреть, каким вы стали.»"; } },
-          { text: "Заплатить, чтобы он ушёл", flags: { orp_paid_off: true }, effect: (p) => { p.coins -= 200; p.reputation -= 12; return "Он взял монеты и ушёл, не поворачиваясь. Вы заперли дверь на два оборота."; } },
+          { text: "Принять его обратно", flags: { orp_begged: true }, effect: (p) => { p.reputation += 12; p.intellect += 15; p.coins = Math.max(0, p.coins - 100); return "Вы не спали всю ночь. Утром он сказал: «Я не прощаю. Я просто хочу посмотреть, каким вы стали.»"; } },
+          { text: "Заплатить, чтобы он ушёл", flags: { orp_paid_off: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.reputation -= 12; return "Он взял монеты и ушёл, не поворачиваясь. Вы заперли дверь на два оборота."; } },
           { text: "Сказать всю правду", flags: { orp_absolved: true }, effect: (p) => { p.intellect += 25; p.reputation += 6; p.hitogamiTrust += 5; return "Вы рассказали всё — и про холод на тракте, и про то, как не оглядывались. Он ушёл другим человеком. Вы — тоже."; } }
         ]
       }
@@ -442,7 +442,7 @@ const STORY_LINES = [
         text: "В городе говорят: старик в конце улицы когда-то ковал клинки для самих Семи Сил. Теперь он пьёт и не смотрит на огонь. Дверь кузницы приоткрыта.",
         choices: [
           { text: "Войти и заговорить", flags: { sm_talk: true }, effect: (p) => { p.intellect += 8; return "«Уходи. Молот мёртв, и я вместе с ним. Иди.» Вы ушли, но запомнили, как дрожали его руки."; } },
-          { text: "Принести ему еды", flags: { sm_bread: true }, effect: (p) => { p.coins -= 20; p.reputation += 6; p.intellect += 4; return "Он ел молча и долго. Потом сказал: «Ты не глуп. Вернись лет через пять.»"; } },
+          { text: "Принести ему еды", flags: { sm_bread: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 20); p.reputation += 6; p.intellect += 4; return "Он ел молча и долго. Потом сказал: «Ты не глуп. Вернись лет через пять.»"; } },
           { text: "Уйти и не оборачиваться", flags: { sm_left: true }, effect: (p) => { p.intellect += 3; return "Вы прошли мимо. Через десять лет вы вспомнили эту дверь и не смогли простить себя."; } }
         ]
       },
@@ -451,7 +451,7 @@ const STORY_LINES = [
         title: "Он ждал",
         text: "Дверь была вымыта, огонь — разожжён. «Пять лет. Ты пришёл. Тогда слушай: я не могу ковать, потому что мой последний клинок убил того, кого я любил больше ремесла.»",
         choices: [
-          { text: "Сказать: «Куйте для меня»", flags: { sm_forge: true }, effect: (p) => { p.swordGodExp += 45; p.coins -= 150; return "Он взял молот. Первые три заготовки он сломал, четвёртая — стала вашим клинком."; } },
+          { text: "Сказать: «Куйте для меня»", flags: { sm_forge: true }, effect: (p) => { p.swordGodExp += 45; p.coins = Math.max(0, p.coins - 150); return "Он взял молот. Первые три заготовки он сломал, четвёртая — стала вашим клинком."; } },
           { text: "Сказать: «Куйте для себя»", flags: { sm_self: true }, effect: (p) => { p.intellect += 20; p.reputation += 10; return "Он ковал год — не оружие, а ограду для кладбища. Умер с молотом в руках."; } },
           { text: "Попросить рассказать о нём", flags: { sm_story: true }, effect: (p) => { p.intellect += 15; p.hitogamiTrust += 5; return "Он рассказал всё. Имя, которое он произнёс, вы потом найдёте в старых хрониках."; } }
         ]
@@ -491,7 +491,7 @@ const STORY_LINES = [
         title: "Восьмой ветер",
         text: "Старый караванщик чертит на песке круг с восемью лучами. «Семь — известные тракты. Восьмой — тот, по которому ходят, когда нельзя, чтобы видели. Проводник берёт дорого и не торгуется.»",
         choices: [
-          { text: "Нанять проводника", flags: { rd_hired: true }, effect: (p) => { p.coins -= 200; p.intellect += 10; return "Он взял монеты, не считая. «Спать будешь в седле. Не задавай вопросов о третьей ночи.»"; } },
+          { text: "Нанять проводника", flags: { rd_hired: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.intellect += 10; return "Он взял монеты, не считая. «Спать будешь в седле. Не задавай вопросов о третьей ночи.»"; } },
           { text: "Запомнить дорогу и пойти самому", flags: { rd_alone: true }, effect: (p) => { p.intellect += 15; p.northGodExp += 20; return "Вы запомнили изгибы. Первый раз вы вышли к морю, которого не должно быть на этой широте."; } },
           { text: "Донести страже", flags: { rd_reported: true }, effect: (p) => { p.asuraInfluence += 10; p.reputation -= 5; return "Стража взяла караванщика. Ночью кто-то сжёг вашу повозку — и это были не разбойники."; } }
         ]
@@ -531,9 +531,9 @@ const STORY_LINES = [
         title: "Тот, кто сжёг повозку",
         text: "Он пришёл сам, без оружия: «Ты убил мой промысел. Двести семей жили с этой дороги. Теперь они живут с чего придётся — угадай, с чего.»",
         choices: [
-          { text: "Взять их под своё покровительство", flags: { rd_patron: true }, effect: (p) => { p.coins -= 300; p.reputation += 20; p.asuraInfluence += 20; return "Вы выкупили их долги. Теперь у вас есть люди, которые знают все восемь ветров."; } },
+          { text: "Взять их под своё покровительство", flags: { rd_patron: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation += 20; p.asuraInfluence += 20; return "Вы выкупили их долги. Теперь у вас есть люди, которые знают все восемь ветров."; } },
           { text: "Сдать его страже", flags: { rd_handed: true }, effect: (p) => { p.asuraInfluence += 15; p.reputation -= 10; return "Его повесили на площади. Вы смотрели. Двести семей смотрели тоже."; } },
-          { text: "Дать ему золото и уйти молча", flags: { rd_silent: true }, effect: (p) => { p.coins -= 150; p.intellect += 12; return "Он не взял. «Мне не нужно твоё золото. Мне нужно, чтобы ты помнил.»"; } }
+          { text: "Дать ему золото и уйти молча", flags: { rd_silent: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.intellect += 12; return "Он не взял. «Мне не нужно твоё золото. Мне нужно, чтобы ты помнил.»"; } }
         ]
       }
     ]
@@ -552,7 +552,7 @@ const STORY_LINES = [
         text: "Рыбаки клянутся: в безветренную ночь под водой горят ровные огни — не меньше сотни. Никто не нырял. Верёвки, привязанные к грузу, возвращаются обрезанными ровно.",
         choices: [
           { text: "Нырнуть самому", flags: { sn_dive: true }, effect: (p) => { p.waterGodExp += 50; p.hp = Math.max(10, p.hp - 45); p.maxMana += 40; return "Вы ныряли, пока в ушах не запело. Успели коснуться порога — и всплыли с чужой молитвой на губах."; } },
-          { text: "Нанять лучшего пловца", flags: { sn_hired: true }, effect: (p) => { p.coins -= 250; p.intellect += 10; return "Он вернулся через час — седым и молчаливым. На вопрос ответил только: «Там не пусто.»"; } },
+          { text: "Нанять лучшего пловца", flags: { sn_hired: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 250); p.intellect += 10; return "Он вернулся через час — седым и молчаливым. На вопрос ответил только: «Там не пусто.»"; } },
           { text: "Запретить рыбакам выходить в озеро", flags: { sn_banned: true }, effect: (p) => { p.reputation -= 8; p.asuraInfluence += 15; return "Вы лишили деревню промысла. Огни под водой в ту ночь погасли. Все сразу."; } }
         ]
       },
@@ -581,8 +581,8 @@ const STORY_LINES = [
         title: "Деревня без промысла",
         text: "Через шесть лет деревня обнищала. Староста пришёл с пустыми руками: «Мы не спорим. Мы просим. Верните нам озеро — или хотя бы объясните, чего мы не должны видеть.»",
         choices: [
-          { text: "Объяснить всё", flags: { sn_explained: true }, effect: (p) => { p.intellect += 20; p.reputation += 18; p.coins -= 150; return "Вы рассказали про огни и про молитву. Староста долго молчал: «Значит, мы жили над чужой могилой.»"; } },
-          { text: "Дать денег на новый промысел", flags: { sn_paid: true }, effect: (p) => { p.coins -= 400; p.reputation += 25; p.asuraInfluence += 15; return "Вы выкупили им пахотную землю. Через год на берегу озера выросла мельница."; } },
+          { text: "Объяснить всё", flags: { sn_explained: true }, effect: (p) => { p.intellect += 20; p.reputation += 18; p.coins = Math.max(0, p.coins - 150); return "Вы рассказали про огни и про молитву. Староста долго молчал: «Значит, мы жили над чужой могилой.»"; } },
+          { text: "Дать денег на новый промысел", flags: { sn_paid: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 25; p.asuraInfluence += 15; return "Вы выкупили им пахотную землю. Через год на берегу озера выросла мельница."; } },
           { text: "Снять запрет", flags: { sn_lifted: true }, effect: (p) => { p.reputation -= 5; p.intellect += 10; return "Рыбаки вышли в озеро через неделю. Через месяц пропал первый. Через год о деревне говорили в прошедшем времени."; } }
         ]
       }
@@ -601,7 +601,7 @@ const STORY_LINES = [
         title: "Разговор без звука",
         text: "На рынке двое переговариваются пальцами — быстро, экономно, красиво. Вы поняли одно слово из десяти: «осторожно». Они заметили ваш взгляд и сразу исчезли в толпе.",
         choices: [
-          { text: "Найти их", flags: { sl_seek: true }, effect: (p) => { p.intellect += 8; p.coins -= 30; return "Вы искали месяц и нашли одного — на базаре, торгующим рыбой. Он притворился глухим."; } },
+          { text: "Найти их", flags: { sl_seek: true }, effect: (p) => { p.intellect += 8; p.coins = Math.max(0, p.coins - 30); return "Вы искали месяц и нашли одного — на базаре, торгующим рыбой. Он притворился глухим."; } },
           { text: "Скопировать жесты и попробовать", flags: { sl_copy: true }, effect: (p) => { p.intellect += 12; return "Вы показали этот жест торговке. Она отшатнулась и перестала с вами здороваться."; } },
           { text: "Забыть", flags: { sl_forgot: true }, effect: (p) => { p.intellect += 4; return "Вы забыли лицо, но не слова. Оно всплыло через двадцать лет, в самый неподходящий момент."; } }
         ]
@@ -611,7 +611,7 @@ const STORY_LINES = [
         title: "Рыбак, который не глухой",
         text: "«Это не тайный язык, — сказал он наконец. — Это язык тех, кто пережил Белое Пространство. Мы говорим руками, потому что Оно слышит голоса.»",
         choices: [
-          { text: "Учиться у него", flags: { sl_learn: true }, effect: (p) => { p.intellect += 30; p.coins -= 100; return "Полтора года он учил вас при свече. Вы до сих пор иногда думаете жестами."; } },
+          { text: "Учиться у него", flags: { sl_learn: true }, effect: (p) => { p.intellect += 30; p.coins = Math.max(0, p.coins - 100); return "Полтора года он учил вас при свече. Вы до сих пор иногда думаете жестами."; } },
           { text: "Записать и продать знание", flags: { sl_sell: true }, effect: (p) => { p.coins += 400; p.reputation -= 20; return "Вы продали список жестов в Милисскую академию. Через три месяца рыбака нашли утонувшим."; } },
           { text: "Поклясться никому не рассказывать", flags: { sl_oath: true }, effect: (p) => { p.intellect += 20; p.reputation += 10; p.hitogamiTrust -= 10; return "Вы дали слово и держали его всю жизнь. Изредка вы ловили себя на том, что говорите руками с пустотой."; } }
         ]
@@ -633,7 +633,7 @@ const STORY_LINES = [
         choices: [
           { text: "Признаться публично", flags: { sl_confessed: true }, effect: (p) => { p.reputation -= 40; p.intellect += 30; return "Вы встали на площади и рассказали всё. Вас не побили камнями — но перестали здороваться."; } },
           { text: "Скрыть и искать убийц самому", flags: { sl_revenge: true }, effect: (p) => { p.swordGodExp += 45; p.hitogamiTrust -= 20; return "Вы нашли троих и пережили их всех. Это не вернуло семерых."; } },
-          { text: "Уйти из города навсегда", flags: { sl_fled: true }, effect: (p) => { p.coins -= 200; p.reputation -= 10; p.intellect += 15; return "Вы сменили имя и город. На новом месте никто не говорил руками — и это было хуже всего."; } }
+          { text: "Уйти из города навсегда", flags: { sl_fled: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.reputation -= 10; p.intellect += 15; return "Вы сменили имя и город. На новом месте никто не говорил руками — и это было хуже всего."; } }
         ]
       }
     ]
@@ -652,7 +652,7 @@ const STORY_LINES = [
         text: "Вас вызывают в Асуру. Не на награждение. В бумаге три слова: «О превышении полномочий». За спиной — десяток людей, которым вы помогли. Ни один не смотрит вам в глаза.",
         choices: [
           { text: "Поехать и отвечать", flags: { tr_go: true }, effect: (p) => { p.asuraInfluence += 10; p.intellect += 10; return "Вы поехали один, без охраны. Толпа у дворца была молчаливой."; } },
-          { text: "Послать вместо себя нанятого законника", flags: { tr_lawyer: true }, effect: (p) => { p.coins -= 300; p.intellect += 15; return "Он говорил красиво. Корона запомнила, что вы не приехали."; } },
+          { text: "Послать вместо себя нанятого законника", flags: { tr_lawyer: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 15; return "Он говорил красиво. Корона запомнила, что вы не приехали."; } },
           { text: "Отказаться и остаться в своём городе", flags: { tr_refuse: true }, effect: (p) => { p.reputation += 10; p.asuraInfluence -= 20; return "Ваш город встал у ворот. Корона отступила — и записала это отдельной строкой."; } }
         ]
       },
@@ -662,7 +662,7 @@ const STORY_LINES = [
         text: "Судей пятеро. Один спит. Второй уже подписал приговор. Третий смотрит на вас так, будто вы его единственная надежда. Вам дают одно слово.",
         choices: [
           { text: "Говорить о людях, которых спасли", flags: { tr_people: true }, effect: (p) => { p.reputation += 30; p.asuraInfluence += 15; return "Вы назвали их по именам. Четверо судей повернулись к спящему. Он проснулся."; } },
-          { text: "Признать вину и просить кары", flags: { tr_guilty: true }, effect: (p) => { p.reputation += 20; p.hp = Math.max(10, p.hp - 40); p.coins -= 200; return "Вас приговорили к штрафу и году изгнания. Народ называл вас честным. Корона — удобным."; } },
+          { text: "Признать вину и просить кары", flags: { tr_guilty: true }, effect: (p) => { p.reputation += 20; p.hp = Math.max(10, p.hp - 40); p.coins = Math.max(0, p.coins - 200); return "Вас приговорили к штрафу и году изгнания. Народ называл вас честным. Корона — удобным."; } },
           { text: "Напомнить, кто на самом деле их защищает", flags: { tr_threat: true }, effect: (p) => { p.asuraInfluence += 25; p.reputation -= 15; p.swordGodExp += 20; return "Вы говорили тихо и очень точно. Зал затих. Приговор так и не зачитали."; } }
         ]
       },
@@ -672,7 +672,7 @@ const STORY_LINES = [
         text: "Вас оправдали. Через месяц умер тот судья, который спал. Через два — второй. Кто-то методично убирает всех, кто был на вашей стороне.",
         choices: [
           { text: "Найти заказчика", flags: { tr_hunt: true }, effect: (p) => { p.intellect += 25; p.swordGodExp += 30; return "Вы нашли его. Это был человек, которому вы однажды спасли жизнь. Он не стал отрицать."; } },
-          { text: "Уйти из политики навсегда", flags: { tr_retired: true }, effect: (p) => { p.coins -= 200; p.reputation += 10; p.intellect += 15; return "Вы продали всё в столице и вернулись туда, где вас любили. Двое судей остались живы."; } },
+          { text: "Уйти из политики навсегда", flags: { tr_retired: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.reputation += 10; p.intellect += 15; return "Вы продали всё в столице и вернулись туда, где вас любили. Двое судей остались живы."; } },
           { text: "Самому занять место в суде", flags: { tr_seat: true }, effect: (p) => { p.asuraInfluence += 50; p.reputation -= 10; return "Вы получили кресло. Первым делом вы закрыли дело о трёх смертях. Никто не удивился."; } }
         ]
       },
@@ -682,7 +682,7 @@ const STORY_LINES = [
         text: "В ваш город прислали «представителя». Формально — налоги. Фактически — людей с приказом, который они не показывают. Горожане начали носить ножи.",
         choices: [
           { text: "Сражаться с короной", flags: { tr_war: true }, effect: (p) => { p.reputation += 25; p.asuraInfluence -= 40; p.swordGodExp += 60; p.hp = Math.max(10, p.hp - 70); return "Город выстоял. Корона назвала это мятежом, а через год — переговорами."; } },
-          { text: "Договориться и заплатить", flags: { tr_deal: true }, effect: (p) => { p.coins -= 500; p.asuraInfluence += 20; return "Вы заплатили двойной налог и вписали своё имя в чужую книгу. Город не потерял ни одного человека."; } },
+          { text: "Договориться и заплатить", flags: { tr_deal: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.asuraInfluence += 20; return "Вы заплатили двойной налог и вписали своё имя в чужую книгу. Город не потерял ни одного человека."; } },
           { text: "Уйти, оставив город", flags: { tr_left: true }, effect: (p) => { p.reputation -= 20; p.coins += 200; p.intellect += 20; return "Вы ушли ночью. Горожане держались ещё год, потом приняли представителя. Вам этого не забыли."; } }
         ]
       }
@@ -701,9 +701,9 @@ const STORY_LINES = [
         title: "Первый кашель",
         text: "В порту кашляют. Сначала докеры, потом трактирщик, потом дети. Через неделю — двадцать гробов в день. Лекари говорят: «Это не чума. Это хуже — она не убивает сразу.»",
         choices: [
-          { text: "Закрыть порт", flags: { pl_closed: true }, effect: (p) => { p.coins -= 400; p.reputation += 15; p.asuraInfluence += 20; return "Вы перекрыли оба пирса. Купцы прокляли вас, а через месяц — благодарили."; } },
-          { text: "Открыть лазарет", flags: { pl_ward: true }, effect: (p) => { p.coins -= 250; p.hp = Math.max(10, p.hp - 25); p.reputation += 25; return "Вы сами носили воду. Двое из ваших людей умерли, но лазарет спас сотни."; } },
-          { text: "Уехать из города", flags: { pl_fled: true }, effect: (p) => { p.coins -= 100; p.reputation -= 20; return "Вы уехали в первый же день. Возвращались через три года — и вас помнили."; } }
+          { text: "Закрыть порт", flags: { pl_closed: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 15; p.asuraInfluence += 20; return "Вы перекрыли оба пирса. Купцы прокляли вас, а через месяц — благодарили."; } },
+          { text: "Открыть лазарет", flags: { pl_ward: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 250); p.hp = Math.max(10, p.hp - 25); p.reputation += 25; return "Вы сами носили воду. Двое из ваших людей умерли, но лазарет спас сотни."; } },
+          { text: "Уехать из города", flags: { pl_fled: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 100); p.reputation -= 20; return "Вы уехали в первый же день. Возвращались через три года — и вас помнили."; } }
         ]
       },
       {
@@ -713,7 +713,7 @@ const STORY_LINES = [
         choices: [
           { text: "Встать за них", flags: { pl_defended: true }, effect: (p) => { p.reputation += 25; p.hp = Math.max(10, p.hp - 20); return "Вы легли в лазарете рядом с ними. Через два дня у вас поднялась температура. Через неделю — вы встали."; } },
           { text: "Сделать как советуют лекари", flags: { pl_harsh: true }, effect: (p) => { p.reputation -= 20; p.intellect += 20; return "Семерых вывезли за город. Чума остановилась через месяц. Вы никогда не спрашивали, что с ними стало."; } },
-          { text: "Найти настоящую причину", flags: { pl_science: true }, effect: (p) => { p.intellect += 35; p.coins -= 200; return "Вы проследили путь воды в порту. Чума шла по канализации — и это знание спасло тысячи."; } }
+          { text: "Найти настоящую причину", flags: { pl_science: true }, effect: (p) => { p.intellect += 35; p.coins = Math.max(0, p.coins - 200); return "Вы проследили путь воды в порту. Чума шла по канализации — и это знание спасло тысячи."; } }
         ]
       },
       {
@@ -732,7 +732,7 @@ const STORY_LINES = [
         text: "Порт закрыт. Купцы пересчитали убытки и подали в суд: «Он разорил нас. Корабли гниют, матросы бродяжничают. Пусть отвечает.»",
         choices: [
           { text: "Предъявить счета за гробы", flags: { pl_bills: true }, effect: (p) => { p.asuraInfluence += 30; p.reputation += 20; return "Вы принесли в суд триста счетов за похороны. Купцы вышли молча."; } },
-          { text: "Выплатить компенсации", flags: { pl_paid: true }, effect: (p) => { p.coins -= 600; p.reputation += 10; return "Вы заплатили всё до монеты. Купцы стали вашими должниками — и это оказалось дороже золота."; } },
+          { text: "Выплатить компенсации", flags: { pl_paid: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 600); p.reputation += 10; return "Вы заплатили всё до монеты. Купцы стали вашими должниками — и это оказалось дороже золота."; } },
           { text: "Предложить им концессию на новый порт", flags: { pl_deal: true }, effect: (p) => { p.coins += 300; p.asuraInfluence += 25; return "Вы отдали им пустой берег. Через пять лет там стояли склады — и ваша доля в них."; } }
         ]
       }
@@ -752,7 +752,7 @@ const STORY_LINES = [
         text: "Каждый день, в одно и то же время, у ратуши сидит нищий и ест хлеб. Горожане кланяются ему. Стража не замечает. Вы смотрите слишком долго — и он кивает вам, как старому знакомому.",
         choices: [
           { text: "Подойти и сесть рядом", flags: { bg_met: true }, effect: (p) => { p.intellect += 12; p.reputation += 5; return "Вы сели на холодный камень. Он поделился хлебом: «Ты первый за год, кто сел. Остальные кланяются.»"; } },
-          { text: "Дать монету и уйти", flags: { bg_coin: true }, effect: (p) => { p.coins -= 5; p.reputation += 2; return "Он положил монету в рот и проглотил. Вы услышали, как она звякнула о зубы."; } },
+          { text: "Дать монету и уйти", flags: { bg_coin: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 5); p.reputation += 2; return "Он положил монету в рот и проглотил. Вы услышали, как она звякнула о зубы."; } },
           { text: "Спросить, почему ему кланяются", flags: { bg_ask: true }, effect: (p) => { p.intellect += 8; return "«Потому что я знаю, кто из них кому врёт. Хочешь, скажу про твоего отца?» Вы не решились."; } }
         ]
       },
@@ -762,7 +762,7 @@ const STORY_LINES = [
         text: "«У меня есть глаза в каждом трактире и уши в каждой спальне. Я дам тебе то, что нужно — но не за золото. За одну услугу, когда позову.»",
         choices: [
           { text: "Согласиться", flags: { bg_debt: true }, effect: (p) => { p.intellect += 20; p.asuraInfluence += 15; return "Через неделю на вашем столе лежал список людей, которые вас обманывали. Восемь имён."; } },
-          { text: "Настаивать на золоте", flags: { bg_gold: true }, effect: (p) => { p.coins -= 300; p.intellect += 10; return "Он взял золото и дал половину нужного. «Услуга дороже. Запомни.»"; } },
+          { text: "Настаивать на золоте", flags: { bg_gold: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 10; return "Он взял золото и дал половину нужного. «Услуга дороже. Запомни.»"; } },
           { text: "Отказаться", flags: { bg_refused: true }, effect: (p) => { p.intellect += 8; p.reputation += 5; return "«Умно, — сказал он. — Мне редко отказывают. Зайди, когда начнут убивать.»"; } }
         ]
       },
@@ -781,7 +781,7 @@ const STORY_LINES = [
         title: "Он вспомнил",
         text: "Через десять лет ваши люди гибнут по одному. Не бандиты — просто невезение. После третьего вы узнаёте почерк и идёте к ратуше. Нищий всё ещё там. Он ест хлеб.",
         choices: [
-          { text: "Заплатить втройне и извиниться", flags: { bg_apology: true }, effect: (p) => { p.coins -= 800; p.intellect += 20; return "Он взял деньги и сказал: «Ты понял разницу между ценой и долгом. Теперь ты мой должник по-хорошему.»"; } },
+          { text: "Заплатить втройне и извиниться", flags: { bg_apology: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 800); p.intellect += 20; return "Он взял деньги и сказал: «Ты понял разницу между ценой и долгом. Теперь ты мой должник по-хорошему.»"; } },
           { text: "Убить его на месте", flags: { bg_killed: true }, effect: (p) => { p.reputation -= 30; p.swordGodExp += 30; p.hitogamiTrust += 10; return "Вы ударили один раз. Он улыбнулся, падая. Через месяц город начал тонуть в мелочной мести без хозяина."; } },
           { text: "Предложить ему место в своём доме", flags: { bg_hired: true }, effect: (p) => { p.reputation += 15; p.asuraInfluence += 40; p.intellect += 15; return "Он стал вашим советником. Ел за вашим столом, спал на полу, знал всё."; } }
         ]
@@ -803,7 +803,7 @@ const STORY_LINES = [
         choices: [
           { text: "Поддерживать легенду", flags: { fm_legend: true }, effect: (p) => { p.reputation += 30; p.asuraInfluence += 15; p.intellect -= 5; return "Вы платили бардам. Через год песня стала длиннее, а вы — менее настоящим."; } },
           { text: "Рассказать правду", flags: { fm_truth: true }, effect: (p) => { p.reputation -= 10; p.intellect += 25; return "Вы рассказали о страхе, крови и трупах. Песня изменилась через десять лет — когда это уже было никому не нужно."; } },
-          { text: "Уехать туда, где вас не знают", flags: { fm_escape: true }, effect: (p) => { p.coins -= 150; p.intellect += 15; return "В новом городе вы прожили три спокойных года. Никто не просил вас убить дракона."; } }
+          { text: "Уехать туда, где вас не знают", flags: { fm_escape: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.intellect += 15; return "В новом городе вы прожили три спокойных года. Никто не просил вас убить дракона."; } }
         ]
       },
       {
@@ -841,7 +841,7 @@ const STORY_LINES = [
         title: "Холм без креста",
         text: "Пастух говорит: за холмом лежат сто семнадцать человек без имени. Каждую весну место цветёт не в срок. «Они не ушли, — говорит он. — Они ждут, когда кто-нибудь назовёт их.»",
         choices: [
-          { text: "Поставить камень с именами", flags: { gv_names: true }, effect: (p) => { p.coins -= 300; p.reputation += 20; p.intellect += 10; return "Вы скупали у стариков имена год. Камень вышел длиной в семь шагов."; } },
+          { text: "Поставить камень с именами", flags: { gv_names: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation += 20; p.intellect += 10; return "Вы скупали у стариков имена год. Камень вышел длиной в семь шагов."; } },
           { text: "Спросить, как они погибли", flags: { gv_history: true }, effect: (p) => { p.intellect += 15; return "Их послали вперёд те, кто потом писал в отчётах «малые потери». Вы узнали почерк одного из них в своей семейной книге."; } },
           { text: "Уйти и не возвращаться", flags: { gv_left: true }, effect: (p) => { p.intellect += 5; return "Вы уехали. С тех пор в ваших снах пастух стоит у холма и ждёт."; } }
         ]
@@ -852,7 +852,7 @@ const STORY_LINES = [
         text: "В семейной книге нашлась строка: дед подписал приказ, который отправил этих людей вперёд. Сто семнадцать погибших — на вашей крови.",
         choices: [
           { text: "Признаться публично", flags: { gv_confessed: true }, effect: (p) => { p.reputation -= 20; p.intellect += 30; p.asuraInfluence -= 10; return "Вы сказали правду на площади. Камни летели в спину, но не в лицо."; } },
-          { text: "Выкупить землю и разделить её между семьями", flags: { gv_bought: true }, effect: (p) => { p.coins -= 800; p.reputation += 25; p.asuraInfluence += 10; return "Семьи получили участки. Холм остался, но больше не цветёт не в срок."; } },
+          { text: "Выкупить землю и разделить её между семьями", flags: { gv_bought: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 800); p.reputation += 25; p.asuraInfluence += 10; return "Семьи получили участки. Холм остался, но больше не цветёт не в срок."; } },
           { text: "Сжечь старую книгу", flags: { gv_burned: true }, effect: (p) => { p.intellect += 10; p.reputation -= 5; return "Книга горела плохо, влажно. Вы смотрели на огонь, пока не осталось ни строки."; } }
         ]
       },
@@ -871,8 +871,8 @@ const STORY_LINES = [
         title: "Последнее имя",
         text: "Одно имя так и не нашлось. Старуха держит его в голове и боится забыть, а умирать ей — до весны. Она просит вас найти хотя бы одно доказательство.",
         choices: [
-          { text: "Искать в архивах год", flags: { gv_seek: true }, effect: (p) => { p.coins -= 200; p.intellect += 30; p.reputation += 15; return "Вы нашли его в списке припасов: «Один мешок овса. Носильщик — мальчик, имя не указано». Вы выбили на камне «Мальчик, нёсший овёс»."; } },
-          { text: "Заплатить архивистам", flags: { gv_bribed: true }, effect: (p) => { p.coins -= 400; p.intellect += 15; return "Они принесли имя — но в бумаге была ошибка, и вы до конца не знали, то ли оно."; } },
+          { text: "Искать в архивах год", flags: { gv_seek: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.intellect += 30; p.reputation += 15; return "Вы нашли его в списке припасов: «Один мешок овса. Носильщик — мальчик, имя не указано». Вы выбили на камне «Мальчик, нёсший овёс»."; } },
+          { text: "Заплатить архивистам", flags: { gv_bribed: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.intellect += 15; return "Они принесли имя — но в бумаге была ошибка, и вы до конца не знали, то ли оно."; } },
           { text: "Придумать имя и сказать старухе", flags: { gv_lied: true }, effect: (p) => { p.intellect += 10; p.reputation += 5; return "Она заплакала и сказала: «Так его и звали». Вы не знали, поверила она или позволила вам."; } }
         ]
       }
@@ -891,9 +891,9 @@ const STORY_LINES = [
         title: "Скрип не на той половице",
         text: "Каждую ночь в три часа скрипит половица на лестнице. Не там, где ходят. Слуги молчат, но один признался: «Там раньше висела верёвка. До вас.»",
         choices: [
-          { text: "Снять половицу", flags: { hs_floor: true }, effect: (p) => { p.intellect += 15; p.coins -= 50; return "Под половицей — детский башмачок и связка писем на языке, которого вы не знали."; } },
-          { text: "Нанять священника", flags: { hs_priest: true }, effect: (p) => { p.coins -= 150; p.reputation += 5; return "Он читал два часа и ушёл, не взяв денег: «Это не то, что я умею. Это просто человек, который не хочет уходить.»"; } },
-          { text: "Снести старую лестницу", flags: { hs_rebuilt: true }, effect: (p) => { p.coins -= 300; p.intellect += 5; return "Новая лестница не скрипит. Скрип переехал в детскую."; } }
+          { text: "Снять половицу", flags: { hs_floor: true }, effect: (p) => { p.intellect += 15; p.coins = Math.max(0, p.coins - 50); return "Под половицей — детский башмачок и связка писем на языке, которого вы не знали."; } },
+          { text: "Нанять священника", flags: { hs_priest: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.reputation += 5; return "Он читал два часа и ушёл, не взяв денег: «Это не то, что я умею. Это просто человек, который не хочет уходить.»"; } },
+          { text: "Снести старую лестницу", flags: { hs_rebuilt: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 5; return "Новая лестница не скрипит. Скрип переехал в детскую."; } }
         ]
       },
       {
@@ -901,7 +901,7 @@ const STORY_LINES = [
         title: "Письма",
         text: "Перевод стоит дорого, но вы его добыли. Это письма матери к сыну, которого отняли по приказу двора. Последнее письмо не дописано. На обороте — адрес в Асуре.",
         choices: [
-          { text: "Поехать по адресу", flags: { hs_go: true }, effect: (p) => { p.coins -= 200; p.intellect += 20; return "Там живёт её внук. Он не знал ни о письмах, ни о том, что у него была семья."; } },
+          { text: "Поехать по адресу", flags: { hs_go: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.intellect += 20; return "Там живёт её внук. Он не знал ни о письмах, ни о том, что у него была семья."; } },
           { text: "Отдать письма в архив", flags: { hs_archive: true }, effect: (p) => { p.asuraInfluence += 20; p.intellect += 15; return "Архив принял их как «документ эпохи». Вы подумали, что это худшее, что можно сделать с криком."; } },
           { text: "Сжечь", flags: { hs_burn: true }, effect: (p) => { p.intellect += 5; p.reputation -= 5; return "Вы сожгли их и вымыли руки. Скрип прекратился в ту же ночь. Вы не спали до утра."; } }
         ]
@@ -911,8 +911,8 @@ const STORY_LINES = [
         title: "Внук",
         text: "Он похож на письма — тот же почерк бровей. «Вы купили дом, где умерла моя бабка. Мне не нужно золото. Мне нужно, чтобы вы дали мне жить в нём.»",
         choices: [
-          { text: "Отдать ему дом", flags: { hs_gave: true }, effect: (p) => { p.coins -= 400; p.reputation += 30; p.intellect += 20; return "Вы отдали дом и уехали. Через год он прислал ключ и запись: «В нём больше никто не скрипит.»"; } },
-          { text: "Продать ему дом по-дешёвке", flags: { hs_sold: true }, effect: (p) => { p.coins -= 150; p.reputation += 15; return "Он заплатил сколько смог. Вы потеряли деньги и получили родню, о которой не подозревали."; } },
+          { text: "Отдать ему дом", flags: { hs_gave: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 30; p.intellect += 20; return "Вы отдали дом и уехали. Через год он прислал ключ и запись: «В нём больше никто не скрипит.»"; } },
+          { text: "Продать ему дом по-дешёвке", flags: { hs_sold: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.reputation += 15; return "Он заплатил сколько смог. Вы потеряли деньги и получили родню, о которой не подозревали."; } },
           { text: "Оставить дом себе и взять его в семью", flags: { hs_family: true }, effect: (p) => { p.reputation += 20; p.intellect += 15; p.children = p.children || []; return "Он переехал на второй этаж. Через год он называл ваших детей братьями."; } }
         ]
       }
@@ -943,7 +943,7 @@ const STORY_LINES = [
         choices: [
           { text: "Взять его с собой", flags: { bd_took: true }, effect: (p) => { p.reputation -= 20; p.intellect += 15; return "Вы укрыли его в своём доме. На границе его ищут до сих пор."; } },
           { text: "Сказать: «Иди и не оглядывайся»", flags: { bd_letgo: true }, effect: (p) => { p.reputation += 10; p.intellect += 20; return "Он ушёл. Через год вы получили письмо на языке жестов, которое сожгли не читая."; } },
-          { text: "Предложить дезертировать вам обоим", flags: { bd_both: true }, effect: (p) => { p.coins -= 300; p.reputation -= 30; p.intellect += 10; return "Вы вместе ушли на север. Там никто не спрашивал о границе, но и работы для двух языков не было."; } }
+          { text: "Предложить дезертировать вам обоим", flags: { bd_both: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation -= 30; p.intellect += 10; return "Вы вместе ушли на север. Там никто не спрашивал о границе, но и работы для двух языков не было."; } }
         ]
       },
       {
@@ -953,7 +953,7 @@ const STORY_LINES = [
         choices: [
           { text: "Прийти обоим", flags: { bd_open: true }, effect: (p) => { p.reputation += 25; p.asuraInfluence += 20; return "Вы стояли рука в руке под тысячей глаз. Список укрывателей зачитали и вслух порвали."; } },
           { text: "Отправить его одного", flags: { bd_alone: true }, effect: (p) => { p.reputation += 10; p.intellect += 10; return "Он пошёл и всё сказал сам. Вас не вызвали. Он больше не вернулся в ваш дом."; } },
-          { text: "Уехать ночью до объявления", flags: { bd_fled: true }, effect: (p) => { p.coins -= 250; p.reputation -= 15; return "Вы уехали к морю. Список зачитали без вас, и это оказалось важнее, чем вы думали."; } }
+          { text: "Уехать ночью до объявления", flags: { bd_fled: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 250); p.reputation -= 15; return "Вы уехали к морю. Список зачитали без вас, и это оказалось важнее, чем вы думали."; } }
         ]
       },
       {
@@ -962,7 +962,7 @@ const STORY_LINES = [
         text: "Пришёл человек с того берега: «Он умер в первом бою. Перед смертью он показал вот это.» Руки гостя повторяют три жеста. Вы знаете все три.",
         choices: [
           { text: "Ответить теми же жестами", flags: { bd_answered: true }, effect: (p) => { p.intellect += 25; p.reputation += 10; p.maxMana += 30; return "Гость запомнил и ушёл. Через год на том берегу умер его отец — и тоже показал три жеста."; } },
-          { text: "Заплатить, чтобы гостя не было", flags: { bd_paid: true }, effect: (p) => { p.coins -= 100; p.intellect += 10; p.reputation -= 10; return "Он взял деньги. Но перед уходом он повторил жесты — громче, чем нужно."; } },
+          { text: "Заплатить, чтобы гостя не было", flags: { bd_paid: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 100); p.intellect += 10; p.reputation -= 10; return "Он взял деньги. Но перед уходом он повторил жесты — громче, чем нужно."; } },
           { text: "Записать жесты в семейную книгу", flags: { bd_remembered: true }, effect: (p) => { p.intellect += 20; p.reputation += 15; return "Теперь их знает ваш род. Через сто лет кто-то из ваших правнуков найдёт их на камне у моста."; } }
         ]
       }
@@ -993,7 +993,7 @@ const STORY_LINES = [
         choices: [
           { text: "Спасти вопреки письму", flags: { fl_defied: true }, effect: (p) => { p.reputation += 20; p.intellect += 15; p.hitogamiTrust += 10; return "Он жив. Через год он предаст вас — но не в том месте, которое было указано."; } },
           { text: "Послушаться письма", flags: { fl_obeyed: true }, effect: (p) => { p.intellect += 30; p.reputation -= 15; return "Вы прошли мимо. Он умер в срок, указанный в письме. Вы помните его голос."; } },
-          { text: "Искать третье решение", flags: { fl_third: true }, effect: (p) => { p.intellect += 40; p.coins -= 200; return "Вы выкупили его долг и отправили в другой город под чужим именем. Это не было ни тем, ни другим — и письмо после этого стало меняться."; } }
+          { text: "Искать третье решение", flags: { fl_third: true }, effect: (p) => { p.intellect += 40; p.coins = Math.max(0, p.coins - 200); return "Вы выкупили его долг и отправили в другой город под чужим именем. Это не было ни тем, ни другим — и письмо после этого стало меняться."; } }
         ]
       },
       {
@@ -1041,7 +1041,7 @@ const STORY_LINES = [
         title: "Ребёнок, который назвал вас отцом",
         text: "Ваш младший вернулся с прогулки и сказал: «Пап, а я видел человека, который был тобой. Он сказал, что я не должен родиться.» Он говорит это спокойно, как о погоде.",
         choices: [
-          { text: "Защитить любой ценой", flags: { dm_shield: true }, effect: (p) => { p.reputation += 20; p.children.forEach(c => c.relation = 100); p.coins -= 300; return "Вы окружили дом охраной и молитвой. Через год ничего не случилось. Через пять — тоже."; } },
+          { text: "Защитить любой ценой", flags: { dm_shield: true }, effect: (p) => { p.reputation += 20; p.children.forEach(c => c.relation = 100); p.coins = Math.max(0, p.coins - 300); return "Вы окружили дом охраной и молитвой. Через год ничего не случилось. Через пять — тоже."; } },
           { text: "Научить его защищать себя", flags: { dm_train: true }, effect: (p) => { p.swordGodExp += 50; p.intellect += 20; p.children.forEach(c => c.relation = Math.min(100, (c.relation || 80) + 10)); return "Вы учили его четыре года. Он оказался способнее вас — и это тоже было частью пророчества."; } },
           { text: "Отправить его далеко от рода", flags: { dm_sent: true }, effect: (p) => { p.intellect += 25; p.children.forEach(c => c.relation = Math.max(0, (c.relation || 80) - 40)); return "Вы отправили его к морю с чужим именем. Он был жив. Это всё, что вы себе позволили знать."; } }
         ]
@@ -1112,7 +1112,7 @@ const STORY_LINES = [
         text: "Один говорит: там город. Второй: там могила. Третий молчит и не ест. Все трое клянутся, что говорили правду.",
         choices: [
           { text: "Поверить молчащему", flags: { ic_silent: true }, effect: (p) => { p.intellect += 30; p.hitogamiTrust += 10; return "Он рассказал только вам: там не город и не могила. Там то, что было до мира."; } },
-          { text: "Идти по всем трём рассказам", flags: { ic_all: true }, effect: (p) => { p.coins -= 300; p.northGodExp += 40; p.intellect += 20; return "Вы снарядили три отряда. Нашли город. И могилу. И то, о чём молчал третий."; } },
+          { text: "Идти по всем трём рассказам", flags: { ic_all: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.northGodExp += 40; p.intellect += 20; return "Вы снарядили три отряда. Нашли город. И могилу. И то, о чём молчал третий."; } },
           { text: "Запретить любые рассказы", flags: { ic_ban: true }, effect: (p) => { p.asuraInfluence += 15; p.reputation -= 5; return "Историю запретили, но она осталась в трёх головах. Одна из них сошла с ума через год."; } }
         ]
       }
@@ -1143,7 +1143,7 @@ const STORY_LINES = [
         choices: [
           { text: "Отпустить и соврать деревне", flags: { bs_released: true }, effect: (p) => { p.intellect += 20; p.reputation -= 5; return "Вы принесли деревне сердце козла и сказали, что зверь мёртв. Он писал вам два года — с севера."; } },
           { text: "Отдать деревне", flags: { bs_given: true }, effect: (p) => { p.reputation += 20; p.intellect -= 5; return "Его сожгли на площади. Он не кричал и смотрел на вас до конца."; } },
-          { text: "Попробовать снять проклятие", flags: { bs_cursed: true }, effect: (p) => { p.intellect += 30; p.magicExp += 40; p.coins -= 150; return "Вы искали того, кто проклял, три года. Нашли старика, который уже был мёртв — но оставил способ."; } }
+          { text: "Попробовать снять проклятие", flags: { bs_cursed: true }, effect: (p) => { p.intellect += 30; p.magicExp += 40; p.coins = Math.max(0, p.coins - 150); return "Вы искали того, кто проклял, три года. Нашли старика, который уже был мёртв — но оставил способ."; } }
         ]
       },
       {
@@ -1152,7 +1152,7 @@ const STORY_LINES = [
         text: "Снять проклятие можно одной ценой: проклятый должен съесть сердце того, кто его проклял. Единственный, кто остался в живых из рода колдуна, — ребёнок в вашем доме.",
         choices: [
           { text: "Отказаться и оставить всё как есть", flags: { bs_refused_cure: true }, effect: (p) => { p.intellect += 20; p.reputation += 10; return "Вы сказали ему правду. Он ушёл на север и жил как жил — девять лет за раз."; } },
-          { text: "Искать другой путь", flags: { bs_other: true }, effect: (p) => { p.intellect += 35; p.coins -= 400; return "Вы нашли: проклятие можно переложить в одежду, а одежду — отдать огню. Он снова стал человеком. Одежда ещё висит в вашем подвале."; } },
+          { text: "Искать другой путь", flags: { bs_other: true }, effect: (p) => { p.intellect += 35; p.coins = Math.max(0, p.coins - 400); return "Вы нашли: проклятие можно переложить в одежду, а одежду — отдать огню. Он снова стал человеком. Одежда ещё висит в вашем подвале."; } },
           { text: "Сделать, что нужно", flags: { bs_dark: true }, effect: (p) => { p.intellect += 25; p.reputation -= 30; p.hitogamiTrust += 20; return "Он стал человеком. Через год он покончил с собой, и вы понимали почему."; } }
         ]
       },
@@ -1161,7 +1161,7 @@ const STORY_LINES = [
         title: "Обрубленные пальцы",
         text: "Вы нашли его логово: шкуры, кости, аккуратно сложенные ножи. И дневник: «Восемь лет я резал скот. В восьмой год я понял, что начинаю резать людей. Я обрубил то, чем держу нож.»",
         choices: [
-          { text: "Искать его, чтобы помочь", flags: { bs_help: true }, effect: (p) => { p.intellect += 20; p.coins -= 100; return "Вы искали всю зиму. Нашли замёрзшим, с человеческим лицом и руками без пальцев."; } },
+          { text: "Искать его, чтобы помочь", flags: { bs_help: true }, effect: (p) => { p.intellect += 20; p.coins = Math.max(0, p.coins - 100); return "Вы искали всю зиму. Нашли замёрзшим, с человеческим лицом и руками без пальцев."; } },
           { text: "Рассказать деревне всю правду", flags: { bs_true: true }, effect: (p) => { p.reputation += 15; p.intellect += 15; return "Деревня не поверила. Но староста в ту ночь снял со стены вилы."; } },
           { text: "Сжечь дневник и логово", flags: { bs_burn: true }, effect: (p) => { p.intellect += 10; p.reputation -= 5; return "Вы сожгли всё. Деревня спала спокойнее. Вы — нет."; } }
         ]
@@ -1182,7 +1182,7 @@ const STORY_LINES = [
         text: "Задание было простое: разведка лабиринта в три этажа. Прошло две недели. Гильдия уже выплатила компенсации и внесла их в список. Вы хотите проверить сами.",
         choices: [
           { text: "Идти в лабиринт самому", flags: { sq_self: true }, effect: (p) => { p.hp = Math.max(10, p.hp - 40); p.swordGodExp += 35; return "Вы прошли три этажа. На четвёртом нашли их лагерь — брошенный в одну минуту."; } },
-          { text: "Нанять спасателей", flags: { sq_hired: true }, effect: (p) => { p.coins -= 400; p.intellect += 10; return "Они вернулись с половиной снаряжения и рассказами, которые не сходятся."; } },
+          { text: "Нанять спасателей", flags: { sq_hired: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.intellect += 10; return "Они вернулись с половиной снаряжения и рассказами, которые не сходятся."; } },
           { text: "Принять потерю", flags: { sq_accept: true }, effect: (p) => { p.intellect += 12; p.reputation -= 10; return "Вы закрыли дело и выпили с их семьями. Через год один из них вернулся сам."; } }
         ]
       },
@@ -1192,7 +1192,7 @@ const STORY_LINES = [
         text: "Котлы полны, хлеб не засох, оружие на местах. Они не ушли — их забрали. На стене нацарапано: «Он говорит нашим голосом. Не верь, если увидишь нас.»",
         choices: [
           { text: "Идти глубже", flags: { sq_deeper: true }, effect: (p) => { p.hp = Math.max(10, p.hp - 60); p.intellect += 25; p.magicExp += 40; return "Вы нашли их через два этажа. Живых. Шестеро стояли и улыбались, и никто не назвал ваше имя."; } },
-          { text: "Вернуться с подкреплением", flags: { sq_back: true }, effect: (p) => { p.reputation += 15; p.coins -= 300; return "Вы вернулись с двадцатью людьми. Ни лагеря, ни следов, ни стены с надписью."; } },
+          { text: "Вернуться с подкреплением", flags: { sq_back: true }, effect: (p) => { p.reputation += 15; p.coins = Math.max(0, p.coins - 300); return "Вы вернулись с двадцатью людьми. Ни лагеря, ни следов, ни стены с надписью."; } },
           { text: "Закопать вход в лабиринт", flags: { sq_seal: true }, effect: (p) => { p.reputation -= 20; p.intellect += 20; p.northGodExp += 30; return "Вы завалили вход и поставили запрет. Шестеро остались внутри — если они были внутри."; } }
         ]
       },
@@ -1202,7 +1202,7 @@ const STORY_LINES = [
         text: "Он пришёл сам, худой, с чужим шрамом. «Нас было шестеро. Пятеро остались. Я не помню, как вышел. И я не помню, чтобы у нас было шестеро — кажется, пятеро.»",
         choices: [
           { text: "Записать его рассказ дословно", flags: { sq_written: true }, effect: (p) => { p.intellect += 30; return "Вы записали всё, включая противоречия. Через год он перечитал и сказал: «Это писал не я.»"; } },
-          { text: "Отправить его в храм на лечение", flags: { sq_healed: true }, effect: (p) => { p.coins -= 200; p.reputation += 15; return "Жрицы вернули ему сон и имя. Имя оказалось не тем, что вы знали."; } },
+          { text: "Отправить его в храм на лечение", flags: { sq_healed: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.reputation += 15; return "Жрицы вернули ему сон и имя. Имя оказалось не тем, что вы знали."; } },
           { text: "Спросить, как звали его товарищей", flags: { sq_names: true }, effect: (p) => { p.intellect += 25; p.reputation += 10; return "Он назвал пятерых. Вы знали шестерых. Шестое имя он произнести не смог — начинал и сбивался."; } }
         ]
       }
@@ -1221,8 +1221,8 @@ const STORY_LINES = [
         title: "Третья весна без цветов",
         text: "Вы посадили этот сад в память о тех, кто не вернулся. Три весны подряд земля даёт только сорную траву. Садовник разводит руками: «Земля не мёртвая. Она просто не хочет.»",
         choices: [
-          { text: "Копать глубже", flags: { gd_dig: true }, effect: (p) => { p.intellect += 15; p.coins -= 100; return "На полтора локтя — сплошная глина, а под ней слой пепла. Здесь что-то горело задолго до вас."; } },
-          { text: "Позвать жрицу освятить землю", flags: { gd_bless: true }, effect: (p) => { p.coins -= 150; p.reputation += 8; return "Она обошла сад и сказала: «Тут не проклятие. Тут договор. Кто-то обещал этой земле, что на ней не будет цветов.»"; } },
+          { text: "Копать глубже", flags: { gd_dig: true }, effect: (p) => { p.intellect += 15; p.coins = Math.max(0, p.coins - 100); return "На полтора локтя — сплошная глина, а под ней слой пепла. Здесь что-то горело задолго до вас."; } },
+          { text: "Позвать жрицу освятить землю", flags: { gd_bless: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.reputation += 8; return "Она обошла сад и сказала: «Тут не проклятие. Тут договор. Кто-то обещал этой земле, что на ней не будет цветов.»"; } },
           { text: "Засеять обычной пшеницей", flags: { gd_wheat: true }, effect: (p) => { p.coins += 60; p.intellect += 5; return "Пшеница взошла густо и дала урожай втрое. Никто в деревне не захотел её покупать."; } }
         ]
       },
@@ -1232,7 +1232,7 @@ const STORY_LINES = [
         text: "В старом архиве нашлась запись: земля была выкуплена у крестьянской общины на условии «вечного пустоцвета» — в обмен на воду для трёх деревень. Вода до сих пор идёт.",
         choices: [
           { text: "Расторгнуть договор", flags: { gd_break: true }, effect: (p) => { p.intellect += 25; p.reputation -= 20; return "Сад зацвёл к лету. Через год река обмелела, и три деревни остались без полива."; } },
-          { text: "Копать колодец и разорвать договор", flags: { gd_well: true }, effect: (p) => { p.coins -= 600; p.intellect += 30; p.reputation += 20; return "Колодец вышел глубиной в двенадцать саженей. Сад зацвёл, и вода осталась всем."; } },
+          { text: "Копать колодец и разорвать договор", flags: { gd_well: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 600); p.intellect += 30; p.reputation += 20; return "Колодец вышел глубиной в двенадцать саженей. Сад зацвёл, и вода осталась всем."; } },
           { text: "Оставить как есть", flags: { gd_kept: true }, effect: (p) => { p.reputation += 10; p.intellect += 15; return "Сад остался травой. Вы сажали в него новые деревья каждую весну и каждую весну прощались с ними."; } }
         ]
       },
@@ -1241,8 +1241,8 @@ const STORY_LINES = [
         title: "Что было под пеплом",
         text: "Под пеплом вы нашли фундамент — и в нём детскую колыбель, обгоревшую до костей. На балке вырезано: «Прости нас, Аиша.»",
         choices: [
-          { text: "Найти, кто это был", flags: { gd_seek: true }, effect: (p) => { p.intellect += 25; p.coins -= 200; return "Аиша — дочь семьи, чей дом сгорел при первом набеге. Её брат ещё жив и живёт в порту."; } },
-          { text: "Построить часовню на этом месте", flags: { gd_chapel: true }, effect: (p) => { p.coins -= 400; p.reputation += 25; return "Часовня стоит до сих пор. Трава вокруг неё всегда выше, чем в саду."; } },
+          { text: "Найти, кто это был", flags: { gd_seek: true }, effect: (p) => { p.intellect += 25; p.coins = Math.max(0, p.coins - 200); return "Аиша — дочь семьи, чей дом сгорел при первом набеге. Её брат ещё жив и живёт в порту."; } },
+          { text: "Построить часовню на этом месте", flags: { gd_chapel: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 25; return "Часовня стоит до сих пор. Трава вокруг неё всегда выше, чем в саду."; } },
           { text: "Закопать обратно", flags: { gd_again: true }, effect: (p) => { p.intellect += 10; return "Вы закопали. Сад больше не пытался расти — теперь он просто стоял ровным пустым квадратом."; } }
         ]
       }
@@ -1262,7 +1262,7 @@ const STORY_LINES = [
         text: "Ночью на ваших воротах нарисовали косую черту мелом. Служанка побледнела: «Это падальщики. Они метят дома, где есть старики и дети — значит, будет чем поживиться. Утром жди гостей.»",
         choices: [
           { text: "Встретить их с оружием", flags: { rp_armed: true }, effect: (p) => { p.swordGodExp += 18; p.hp = Math.max(10, p.hp - 12); p.reputation += 5; return "Вы стояли на крыльце с отцовским мечом. Они посмотрели на ваши руки и ушли, не сказав ни слова."; } },
-          { text: "Заплатить, чтобы ушли", flags: { rp_paid: true }, effect: (p) => { p.coins -= 80; p.intellect += 5; return "Старший пересчитал монеты, вычертил на воротах косую — уже ровную — и ушёл. Через месяц метка появилась снова."; } },
+          { text: "Заплатить, чтобы ушли", flags: { rp_paid: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 80); p.intellect += 5; return "Старший пересчитал монеты, вычертил на воротах косую — уже ровную — и ушёл. Через месяц метка появилась снова."; } },
           { text: "Выйти поговорить один", flags: { rp_talked: true }, effect: (p) => { p.intellect += 12; p.reputation += 3; return "«Мы не убиваем, — сказал он. — Мы приходим после. Но если дом закрыт для нас при жизни, он может стать открытым после.»"; } }
         ]
       },
@@ -1271,7 +1271,7 @@ const STORY_LINES = [
         title: "Они вернулись",
         text: "Метка снова на воротах, но теперь она двойная. «Ты платил один раз, — говорит старший. — Плата за жизнь — разовая. Плата за то, что мы не тронем твоего отца, — каждый год.»",
         choices: [
-          { text: "Платить каждый год", flags: { rp_tribute: true }, effect: (p) => { p.coins -= 150; p.intellect += 8; return "Вы платили четыре года. На пятый отец сам спросил, куда уходят деньги, и вы соврали."; } },
+          { text: "Платить каждый год", flags: { rp_tribute: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.intellect += 8; return "Вы платили четыре года. На пятый отец сам спросил, куда уходят деньги, и вы соврали."; } },
           { text: "Собрать соседей и покончить с ними", flags: { rp_pogrom: true }, effect: (p) => { p.reputation += 12; p.swordGodExp += 25; p.hp = Math.max(10, p.hp - 25); return "Семеро соседей, вилы и одна ночь. Утром на воротах было пусто — но соседи смотрели на вас иначе."; } },
           { text: "Стать одним из них", flags: { rp_joined: true }, effect: (p) => { p.coins += 120; p.reputation -= 20; p.northGodExp += 20; return "«Умный мальчик. Будешь ходить с нами — плата не нужна.» Вы вернулись через месяц в чужом плаще."; } }
         ]
@@ -1281,8 +1281,8 @@ const STORY_LINES = [
         title: "Суд над посёлком",
         text: "Королевский судья приехал разбирать «самосуд». Семеро падальщиков были людьми заимодавца, а заимодавец — двоюродным братом судьи. Вам грозит штраф, деревне — гарнизон.",
         choices: [
-          { text: "Взять вину на себя одного", flags: { rp_guilty: true }, effect: (p) => { p.coins -= 300; p.reputation += 25; p.asuraInfluence -= 10; return "Вы заплатили штраф и год провели в опале. Деревня выстояла — и с тех пор ходила за вами, как за старостой."; } },
-          { text: "Выкупить дело у судьи", flags: { rp_bribed: true }, effect: (p) => { p.coins -= 500; p.intellect += 15; return "Он взял деньги и написал «несчастный случай». Вы поняли, почему заимодавец был так уверен в себе."; } },
+          { text: "Взять вину на себя одного", flags: { rp_guilty: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation += 25; p.asuraInfluence -= 10; return "Вы заплатили штраф и год провели в опале. Деревня выстояла — и с тех пор ходила за вами, как за старостой."; } },
+          { text: "Выкупить дело у судьи", flags: { rp_bribed: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.intellect += 15; return "Он взял деньги и написал «несчастный случай». Вы поняли, почему заимодавец был так уверен в себе."; } },
           { text: "Поднять посёлок против гарнизона", flags: { rp_uprising: true }, effect: (p) => { p.reputation -= 15; p.asuraInfluence -= 25; p.swordGodExp += 40; return "Гарнизон не пришёл: узнав, что вилы уже были в деле, корона решила не рисковать. Но запись о вас осталась."; } }
         ]
       },
@@ -1293,7 +1293,7 @@ const STORY_LINES = [
         choices: [
           { text: "Пометить дом заимодавца", flags: { rp_target: true }, effect: (p) => { p.intellect += 15; p.reputation += 8; return "Старик умер через неделю. Вы были на похоронах и не могли смотреть на его внучку."; } },
           { text: "Пометить свой дом", flags: { rp_self: true }, effect: (p) => { p.reputation += 20; p.hp = Math.max(10, p.hp - 30); return "Вы нарисовали косую черту на собственных воротах. Отряд долго смеялся, потом бил вас втроём. Вы ушли и больше не возвращались."; } },
-          { text: "Сжечь книгу меток и уйти", flags: { rp_burned: true }, effect: (p) => { p.intellect += 20; p.reputation -= 10; p.coins -= 100; return "В книге были сотни домов. Она горела плохо, влажно, и вы стояли рядом до рассвета."; } }
+          { text: "Сжечь книгу меток и уйти", flags: { rp_burned: true }, effect: (p) => { p.intellect += 20; p.reputation -= 10; p.coins = Math.max(0, p.coins - 100); return "В книге были сотни домов. Она горела плохо, влажно, и вы стояли рядом до рассвета."; } }
         ]
       }
     ]
@@ -1311,9 +1311,9 @@ const STORY_LINES = [
         title: "Молоток и список",
         text: "На площади читают список: имена людей, чьи долги выкупила церковь. Имя можно купить — и человек будет обязан вам, пока не расплатится. «Лот семнадцать: девочка, девять лет, долг триста.»",
         choices: [
-          { text: "Купить имя и отпустить", flags: { nm_freed: true }, effect: (p) => { p.coins -= 300; p.reputation += 20; p.intellect += 8; return "Вы заплатили и вслух отказались от прав. Список на секунду замер — потом пошёл дальше. Про ваше имя написали в листе."; } },
-          { text: "Купить имя и взять в услужение", flags: { nm_bought: true }, effect: (p) => { p.coins -= 300; p.intellect += 5; p.reputation -= 5; return "Она работала у вас шесть лет и ни разу не назвала вас иначе как «господин». На седьмой вы отдали ей бумагу."; } },
-          { text: "Перебить цену из принципа", flags: { nm_hiked: true }, effect: (p) => { p.coins -= 600; p.reputation += 8; return "Вы гнали цену на четыре лота подряд, пока устроители не сняли лот 17 с торгов. Девочку увела жрица."; } }
+          { text: "Купить имя и отпустить", flags: { nm_freed: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation += 20; p.intellect += 8; return "Вы заплатили и вслух отказались от прав. Список на секунду замер — потом пошёл дальше. Про ваше имя написали в листе."; } },
+          { text: "Купить имя и взять в услужение", flags: { nm_bought: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 5; p.reputation -= 5; return "Она работала у вас шесть лет и ни разу не назвала вас иначе как «господин». На седьмой вы отдали ей бумагу."; } },
+          { text: "Перебить цену из принципа", flags: { nm_hiked: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 600); p.reputation += 8; return "Вы гнали цену на четыре лота подряд, пока устроители не сняли лот 17 с торгов. Девочку увела жрица."; } }
         ]
       },
       {
@@ -1321,8 +1321,8 @@ const STORY_LINES = [
         title: "В списке — знакомое имя",
         text: "Через пять лет в том же списке вы увидели имя своего наставника. Старик, который учил вас держать меч, задолжал церкви за похороны жены.",
         choices: [
-          { text: "Выкупить его молча", flags: { nm_teacher: true }, effect: (p) => { p.coins -= 400; p.intellect += 15; return "Он узнал ваш голос на торгах и после не сказал ни слова. Через год он умер, оставив вам свою библиотеку."; } },
-          { text: "Выкупить и сказать об этом при всех", flags: { nm_public: true }, effect: (p) => { p.coins -= 400; p.reputation += 15; p.intellect += 10; return "Старик побагровел и ушёл. Он неделю не разговаривал, а потом принёс три книги: «Держи. И больше не смей меня спасать.»"; } },
+          { text: "Выкупить его молча", flags: { nm_teacher: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.intellect += 15; return "Он узнал ваш голос на торгах и после не сказал ни слова. Через год он умер, оставив вам свою библиотеку."; } },
+          { text: "Выкупить и сказать об этом при всех", flags: { nm_public: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 15; p.intellect += 10; return "Старик побагровел и ушёл. Он неделю не разговаривал, а потом принёс три книги: «Держи. И больше не смей меня спасать.»"; } },
           { text: "Пусть его выкупит кто-то другой", flags: { nm_ignored: true }, effect: (p) => { p.intellect += 8; p.reputation -= 10; return "Его купил ростовщик. Через полгода вы встретили старика на рынке — он нёс чужие корзины и делал вид, что не узнал вас."; } }
         ]
       },
@@ -1333,7 +1333,7 @@ const STORY_LINES = [
         choices: [
           { text: "Принять это", flags: { nm_accepted: true }, effect: (p) => { p.intellect += 25; p.reputation += 10; return "Вы кивнули. Она ушла. Через двадцать лет её дочь пришла к вам учиться — значит, что-то осталось."; } },
           { text: "Объяснить, зачем вы это сделали", flags: { nm_explained: true }, effect: (p) => { p.intellect += 15; return "Она слушала до конца и ответила: «Вы хотели купить себе чистое имя. Не моё.»"; } },
-          { text: "Предложить ей место в доме", flags: { nm_offered: true }, effect: (p) => { p.coins -= 100; p.reputation += 15; return "Она отказалась. Но через год прислала письмо: «Я работаю в порту. Не ищите меня. Просто знайте.»"; } }
+          { text: "Предложить ей место в доме", flags: { nm_offered: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 100); p.reputation += 15; return "Она отказалась. Но через год прислала письмо: «Я работаю в порту. Не ищите меня. Просто знайте.»"; } }
         ]
       }
     ]
@@ -1352,7 +1352,7 @@ const STORY_LINES = [
         text: "В деревне говорят: как родился этот мальчик, так третий год не всходит пшеница. Ласточки падают над его домом. Отец ребёнка сам просит вас «посмотреть и решить».",
         choices: [
           { text: "Осмотреть ребёнка", flags: { hx_looked: true }, effect: (p) => { p.intellect += 12; return "Обычный мальчик, бледный, испуганный. На спине — родимое пятно, похожее на птицу. Он смотрит на вас и говорит: «Я слышу, как трава болит.»"; } },
-          { text: "Позвать жрицу", flags: { hx_priest: true }, effect: (p) => { p.coins -= 60; p.reputation += 5; return "Жрица осмотрела дом и ушла, не взяв денег. «Это не сглаз. Это война, которая уже кончилась, а вы всё ещё бьёте по тем, кто не виноват.»"; } },
+          { text: "Позвать жрицу", flags: { hx_priest: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 60); p.reputation += 5; return "Жрица осмотрела дом и ушла, не взяв денег. «Это не сглаз. Это война, которая уже кончилась, а вы всё ещё бьёте по тем, кто не виноват.»"; } },
           { text: "Держаться в стороне", flags: { hx_passed: true }, effect: (p) => { p.intellect += 5; return "Вы уехали. Через месяц деревня перебила корову ребёнка, а потом ему выбили глаз. Вы узнали об этом в письме."; } }
         ]
       },
@@ -1361,8 +1361,8 @@ const STORY_LINES = [
         title: "Он слышит траву",
         text: "Он вырос. Зовёт вас по имени, хотя вы не представлялись. «Трава говорит, что под вашим домом лежит вода. И что вы умрёте не от старости.» Его выгоняют из деревни.",
         choices: [
-          { text: "Взять его к себе", flags: { hx_took: true }, effect: (p) => { p.reputation -= 10; p.intellect += 20; p.coins -= 80; return "Он жил в вашем доме, копал сады, и всё, что он говорил, сбывалось. Слуги окружили вас заговорами молчания."; } },
-          { text: "Отправить его в академию", flags: { hx_academy: true }, effect: (p) => { p.coins -= 300; p.intellect += 15; p.reputation += 10; return "В Шарии его признали редким даром: он чувствовал воду и живые потоки маны. Он писал вам два года."; } },
+          { text: "Взять его к себе", flags: { hx_took: true }, effect: (p) => { p.reputation -= 10; p.intellect += 20; p.coins = Math.max(0, p.coins - 80); return "Он жил в вашем доме, копал сады, и всё, что он говорил, сбывалось. Слуги окружили вас заговорами молчания."; } },
+          { text: "Отправить его в академию", flags: { hx_academy: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 15; p.reputation += 10; return "В Шарии его признали редким даром: он чувствовал воду и живые потоки маны. Он писал вам два года."; } },
           { text: "Сказать ему правду о деревне", flags: { hx_truth: true }, effect: (p) => { p.intellect += 15; p.reputation -= 5; return "Он выслушал и сказал: «Значит, я был прав. Трава действительно болит — она помнит их руки.»"; } }
         ]
       },
@@ -1373,7 +1373,7 @@ const STORY_LINES = [
         choices: [
           { text: "Спросить имя того, кто убьёт", flags: { hx_ask: true }, effect: (p) => { p.intellect += 25; return "Он долго молчал: «Никого нет. Это будет дом.»"; } },
           { text: "Прогнать его", flags: { hx_expelled: true }, effect: (p) => { p.intellect += 10; p.reputation -= 10; return "Он ушёл в ту же ночь. Весной в доме упал каменный свод в кабинете — там, где вы обычно сидели."; } },
-          { text: "Перестроить дом", flags: { hx_rebuilt: true }, effect: (p) => { p.coins -= 600; p.intellect += 20; return "Вы выстроили дом заново на другом основании. В нужную весну рухнул старый остов — пустой."; } }
+          { text: "Перестроить дом", flags: { hx_rebuilt: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 600); p.intellect += 20; return "Вы выстроили дом заново на другом основании. В нужную весну рухнул старый остов — пустой."; } }
         ]
       }
     ]
@@ -1441,7 +1441,7 @@ const STORY_LINES = [
         title: "Карта, которой нет",
         text: "Слепой старик продаёт карты. На его листах — города, которых не существует, и реки, текущие против правил. Каждый покупатель клянётся: дойдя до места, он найдёт всё точно так, как нарисовано.",
         choices: [
-          { text: "Купить карту своей земли", flags: { cr_bought: true }, effect: (p) => { p.coins -= 50; p.intellect += 12; return "Он начертил ваш дом, сад и колодец — и тайник под лестницей, о котором вы сами не знали."; } },
+          { text: "Купить карту своей земли", flags: { cr_bought: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 50); p.intellect += 12; return "Он начертил ваш дом, сад и колодец — и тайник под лестницей, о котором вы сами не знали."; } },
           { text: "Спросить, как он это делает", flags: { cr_asked: true }, effect: (p) => { p.intellect += 18; return "«Я не вижу. Мне показывают. Иногда они ошибаются — тогда я рисую как показывают, и мир потом подстраивается.»"; } },
           { text: "Сдать его как шарлатана", flags: { cr_reported: true }, effect: (p) => { p.reputation += 5; p.asuraInfluence += 10; return "Стража нашла у него сорок карт и ни одной краденой вещи. Его отпустили, а ваше имя внесли в книгу доносчиков."; } }
         ]
@@ -1452,7 +1452,7 @@ const STORY_LINES = [
         text: "Тайник был на месте. Внутри — детский рисунок и монета трёхсотлетней давности. И записка почерком вашей матери: «Если ты это нашёл, значит, я была права.»",
         choices: [
           { text: "Спросить мать", flags: { cr_mother: true }, effect: (p) => { p.intellect += 20; p.reputation += 5; return "Мать долго молчала: «Твоя бабка умела видеть. Я надеялась, что это тебя обойдёт.»"; } },
-          { text: "Вернуться к картографу", flags: { cr_back: true }, effect: (p) => { p.coins -= 100; p.intellect += 25; return "Он ждал вас. «Наконец. Теперь я нарисую карту того, чего ещё нет. Это твой дом через сорок лет.»"; } },
+          { text: "Вернуться к картографу", flags: { cr_back: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 100); p.intellect += 25; return "Он ждал вас. «Наконец. Теперь я нарисую карту того, чего ещё нет. Это твой дом через сорок лет.»"; } },
           { text: "Сжечь записку", flags: { cr_burned: true }, effect: (p) => { p.intellect += 10; return "Бумага вспыхнула мгновенно, как будто ждала. Монету вы оставили себе."; } }
         ]
       },
@@ -1461,7 +1461,7 @@ const STORY_LINES = [
         title: "Карта, которая сбывается",
         text: "На карте будущего — ваш дом, вдвое больше нынешнего, и рядом могила с вашим именем. Дата выбита. Она через двенадцать лет.",
         choices: [
-          { text: "Построить дом точно по карте", flags: { cr_build: true }, effect: (p) => { p.coins -= 500; p.intellect += 20; p.reputation += 10; return "Вы построили — один в один. Могилы на месте не было. Вы поставили на этом месте скамью."; } },
+          { text: "Построить дом точно по карте", flags: { cr_build: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.intellect += 20; p.reputation += 10; return "Вы построили — один в один. Могилы на месте не было. Вы поставили на этом месте скамью."; } },
           { text: "Попробовать изменить карту", flags: { cr_change: true }, effect: (p) => { p.intellect += 30; p.maxMana += 40; return "Вы перерисовали лист — и старик умер в ту же ночь. Карта осталась вашей, но линии на ней двигаются сами."; } },
           { text: "Спросить старика, кто показывает", flags: { cr_askwho: true }, effect: (p) => { p.intellect += 25; p.hitogamiTrust += 10; return "«Те, кого ещё нет. Они торопятся родиться и потому так хорошо знают будущее.»"; } }
         ]
@@ -1482,7 +1482,7 @@ const STORY_LINES = [
         text: "Колокол звонил девятьсот лет и треснул в ту ночь, когда в городе умер нищий старик — без имени, без родни. Кузнецы говорят: колокола так не ломаются.",
         choices: [
           { text: "Найти, кем был старик", flags: { bl_seek: true }, effect: (p) => { p.intellect += 15; p.reputation += 5; return "Его звали Эрхард. Он двадцать лет носил воду в лазарет и ни разу не назвал своего имени — «чтобы не гордиться»."; } },
-          { text: "Заказать новый колокол", flags: { bl_new: true }, effect: (p) => { p.coins -= 400; p.reputation += 12; return "Новый колокол отлили к весне. Он звучал глуше и как будто с обидой."; } },
+          { text: "Заказать новый колокол", flags: { bl_new: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 12; return "Новый колокол отлили к весне. Он звучал глуше и как будто с обидой."; } },
           { text: "Оставить трещину как есть", flags: { bl_crack: true }, effect: (p) => { p.intellect += 10; return "Треснувший колокол звучал странно, но звонил. Через год к нему начали приходить люди — просто слушать."; } }
         ]
       },
@@ -1491,9 +1491,9 @@ const STORY_LINES = [
         title: "Его звали Эрхард",
         text: "В приходской книге три записи о нём: «пришёл», «работал», «умер». Ни родни, ни имущества. Но в лазарете помнят: он умел останавливать кровь руками — и никому об этом не говорил.",
         choices: [
-          { text: "Собрать деньги на памятник", flags: { bl_memorial: true }, effect: (p) => { p.coins -= 250; p.reputation += 20; return "На памятнике написали только «Носил воду». Тысяча человек пришла на открытие и не понимала, почему плачет."; } },
+          { text: "Собрать деньги на памятник", flags: { bl_memorial: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 250); p.reputation += 20; return "На памятнике написали только «Носил воду». Тысяча человек пришла на открытие и не понимала, почему плачет."; } },
           { text: "Учиться его ремеслу", flags: { bl_heal: true }, effect: (p) => { p.intellect += 30; p.maxHp += 40; p.hp += 40; return "Старуха-лекарка показала вам, как он это делал: «Не магия. Просто не бояться чужой крови.»"; } },
-          { text: "Заказать колокол в его честь", flags: { bl_bell: true }, effect: (p) => { p.coins -= 300; p.reputation += 15; return "Колокол отлили с одной надписью внутри, где никто не увидит: «Эрхард, носивший воду»."; } }
+          { text: "Заказать колокол в его честь", flags: { bl_bell: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation += 15; return "Колокол отлили с одной надписью внутри, где никто не увидит: «Эрхард, носивший воду»."; } }
         ]
       },
       {
@@ -1521,7 +1521,7 @@ const STORY_LINES = [
         title: "Вас видели в трёх городах",
         text: "В один месяц вас «видели» в трёх городах одновременно. Один раз — на свадьбе, где вы не были. Дважды — на похоронах, где вы не были. Все говорят об одном: человек с вашим лицом назвался вашим именем.",
         choices: [
-          { text: "Искать двойника", flags: { db_seek: true }, effect: (p) => { p.coins -= 150; p.intellect += 15; return "Вы нашли след: он платил вашим именем и говорил вашим голосом. Но ошибался в одном — не знал, как звали вашу мать."; } },
+          { text: "Искать двойника", flags: { db_seek: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.intellect += 15; return "Вы нашли след: он платил вашим именем и говорил вашим голосом. Но ошибался в одном — не знал, как звали вашу мать."; } },
           { text: "Объявить публично, что это самозванец", flags: { db_public: true }, effect: (p) => { p.reputation += 10; p.asuraInfluence += 10; return "Вы объявили это на площади. Через неделю он сделал то же самое — и сказал, что самозванец вы."; } },
           { text: "Не обращать внимания", flags: { db_ignore: true }, effect: (p) => { p.reputation -= 10; p.intellect += 8; return "Через полгода от вашего имени заняли денег у трёх купцов. Возвращать пришлось вам."; } }
         ]
@@ -1541,9 +1541,9 @@ const STORY_LINES = [
         title: "Последнее, что он не сказал",
         text: "Из его рассказа выпал один год — тот, который наступит через два. «Этого я не помню. Значит, в тот год я перестал быть тобой.»",
         choices: [
-          { text: "Готовиться к этому году", flags: { db_prep: true }, effect: (p) => { p.coins -= 300; p.intellect += 25; return "Вы подготовились ко всему, что смогли вообразить. Год прошёл спокойно — и это было страшнее."; } },
+          { text: "Готовиться к этому году", flags: { db_prep: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 25; return "Вы подготовились ко всему, что смогли вообразить. Год прошёл спокойно — и это было страшнее."; } },
           { text: "Жить как обычно", flags: { db_normal: true }, effect: (p) => { p.reputation += 15; p.intellect += 10; return "В тот год вы женили сына и похоронили друга. Ничего не случилось. Двойник больше не появлялся."; } },
-          { text: "Искать его снова", flags: { db_seek2: true }, effect: (p) => { p.intellect += 20; p.coins -= 200; return "Вы нашли только трактирщика, который сказал: «Он заплатил вперёд за тридцать лет. Сказал, что вернётся.»"; } }
+          { text: "Искать его снова", flags: { db_seek2: true }, effect: (p) => { p.intellect += 20; p.coins = Math.max(0, p.coins - 200); return "Вы нашли только трактирщика, который сказал: «Он заплатил вперёд за тридцать лет. Сказал, что вернётся.»"; } }
         ]
       }
     ]
@@ -1561,7 +1561,7 @@ const STORY_LINES = [
         title: "Отказ в приёме",
         text: "Шария отказала семерым детям из Мигурда: «Иная природа маны, программа не рассчитана». Дети стоят у ворот с вещами. Один из них держит книгу, которую вы ему дали два года назад.",
         choices: [
-          { text: "Открыть свою школу", flags: { sc_school: true }, effect: (p) => { p.coins -= 500; p.reputation += 15; p.intellect += 15; return "Вы сняли дом, наняли двух учителей и назвали школу «Второй Сосуд». Первый набор — семеро."; } },
+          { text: "Открыть свою школу", flags: { sc_school: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.reputation += 15; p.intellect += 15; return "Вы сняли дом, наняли двух учителей и назвали школу «Второй Сосуд». Первый набор — семеро."; } },
           { text: "Добиваться приёма в Шарии", flags: { sc_fight: true }, effect: (p) => { p.asuraInfluence += 25; p.intellect += 20; return "Вы спорили с ректором три дня. Он согласился на пятерых — при условии, что вы заплатите за общежитие."; } },
           { text: "Отправить их домой", flags: { sc_home: true }, effect: (p) => { p.intellect += 8; p.reputation -= 10; return "Они ушли пешком. Книгу вам вернули через год — с запиской на последней странице: «Мы всё равно выучились.»"; } }
         ]
@@ -1573,7 +1573,7 @@ const STORY_LINES = [
         choices: [
           { text: "Устроить их в гильдию", flags: { sc_guild: true }, effect: (p) => { p.asuraInfluence += 20; p.reputation += 15; return "Гильдия взяла пятерых. Через год отряд из Мигурда закрыл три лабиринта, которые не брали мастера."; } },
           { text: "Оставить их учителями", flags: { sc_teachers: true }, effect: (p) => { p.intellect += 30; p.coins += 200; return "Школа выросла до сорока учеников. Никакой казны, но своя крыша и свои правила."; } },
-          { text: "Отправить их учиться дальше на свои деньги", flags: { sc_pay: true }, effect: (p) => { p.coins -= 800; p.reputation += 25; return "Четверо уехали в Милис. Из них вышли два лекаря, судья и один человек, который потом написал книгу о мане демонов."; } }
+          { text: "Отправить их учиться дальше на свои деньги", flags: { sc_pay: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 800); p.reputation += 25; return "Четверо уехали в Милис. Из них вышли два лекаря, судья и один человек, который потом написал книгу о мане демонов."; } }
         ]
       },
       {
@@ -1581,7 +1581,7 @@ const STORY_LINES = [
         title: "Шария хочет закрыть вас",
         text: "Ваша школа стала неудобной: выпускники обходят академиков на экзаменах, а деньги за обучение идут мимо. Вам предлагают «добровольно объединиться» — то есть закрыться.",
         choices: [
-          { text: "Отказаться и держаться", flags: { sc_stand: true }, effect: (p) => { p.reputation += 20; p.asuraInfluence -= 20; p.coins -= 300; return "Вы отказались. Три года вам перекрывали поставки, потом устали. Школа стоит."; } },
+          { text: "Отказаться и держаться", flags: { sc_stand: true }, effect: (p) => { p.reputation += 20; p.asuraInfluence -= 20; p.coins = Math.max(0, p.coins - 300); return "Вы отказались. Три года вам перекрывали поставки, потом устали. Школа стоит."; } },
           { text: "Объединиться на своих условиях", flags: { sc_merge: true }, effect: (p) => { p.asuraInfluence += 30; p.coins += 400; p.intellect += 15; return "В договоре осталась строка: «приём по способности, не по происхождению». Шария её так и не вычеркнула."; } },
           { text: "Передать школу выпускникам и уйти", flags: { sc_handover: true }, effect: (p) => { p.reputation += 25; p.intellect += 20; return "Вы отдали всё семерым и уехали. Через десять лет в трёх странах работали школы по вашей программе."; } }
         ]
@@ -1601,7 +1601,7 @@ const STORY_LINES = [
         title: "Плуг зацепил",
         text: "В поле вывернуло кости: не человеческие и не звериные. Слишком большие, слишком тёмные. Старики говорят — «драконьи», и просят закопать обратно, не считая.",
         choices: [
-          { text: "Раскопать и посчитать", flags: { bn_count: true }, effect: (p) => { p.intellect += 18; p.coins -= 50; return "Сорок семь костей, все от разных существ. Среди них — один человеческий череп с металлической пластиной вместо половины лба."; } },
+          { text: "Раскопать и посчитать", flags: { bn_count: true }, effect: (p) => { p.intellect += 18; p.coins = Math.max(0, p.coins - 50); return "Сорок семь костей, все от разных существ. Среди них — один человеческий череп с металлической пластиной вместо половины лба."; } },
           { text: "Закопать и забыть", flags: { bn_bury: true }, effect: (p) => { p.reputation += 8; p.intellect += 5; return "Вы закопали, прочли простую молитву. Поле в тот год дало урожай вдвое."; } },
           { text: "Сообщить в академию", flags: { bn_report: true }, effect: (p) => { p.asuraInfluence += 10; p.intellect += 12; return "Приехали двое в серых плащах, забрали всё и запретили пахать это поле. Через год поле было вспахано кем-то другим."; } }
         ]
@@ -1612,7 +1612,7 @@ const STORY_LINES = [
         text: "На пластине — гравировка на языке Первой войны: «Не буди того, кто спит в корне». Под костями — корень, уходящий вниз глубже, чем можно копать.",
         choices: [
           { text: "Копать до конца", flags: { bn_root: true }, effect: (p) => { p.hp = Math.max(10, p.hp - 45); p.intellect += 30; p.magicExp += 50; return "На глубине двенадцати саженей корень кончился. Он был живой. Он дёрнулся, когда вы его коснулись."; } },
-          { text: "Залить корень свинцом", flags: { bn_seal: true }, effect: (p) => { p.coins -= 400; p.northGodExp += 40; p.reputation += 10; return "Вы вылили в яму сорок вёдер свинца. Ночью земля в поле была тёплой три дня."; } },
+          { text: "Залить корень свинцом", flags: { bn_seal: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.northGodExp += 40; p.reputation += 10; return "Вы вылили в яму сорок вёдер свинца. Ночью земля в поле была тёплой три дня."; } },
           { text: "Сжечь поле", flags: { bn_burn: true }, effect: (p) => { p.reputation -= 15; p.intellect += 15; return "Поле горело неделю. Через год на нём вырос лес — ровный, как посаженный рукой."; } }
         ]
       },
@@ -1621,7 +1621,7 @@ const STORY_LINES = [
         title: "Под корнем",
         text: "Под корнем — пустота и запах моря. И камень с надписью: «Здесь кончился Третий. Двое остались спать. Когда проснутся — не считайте их драконами.»",
         choices: [
-          { text: "Найти двух остальных", flags: { bn_find: true }, effect: (p) => { p.coins -= 300; p.intellect += 25; return "Вы искали семь лет. Нашли одно место — под озером Раноа. Там уже был кто-то до вас."; } },
+          { text: "Найти двух остальных", flags: { bn_find: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 25; return "Вы искали семь лет. Нашли одно место — под озером Раноа. Там уже был кто-то до вас."; } },
           { text: "Запечатать пустоту", flags: { bn_void: true }, effect: (p) => { p.northGodExp += 50; p.intellect += 20; return "Вы завалили яму камнями и засеяли солью. Сорок лет никто не жаловался на это поле."; } },
           { text: "Рассказать Орстеду", flags: { bn_orsted: true }, effect: (p) => { if (typeof changePowerAttitude === "function") changePowerAttitude(2, 30); p.intellect += 20; return "Он приехал сам. Долго смотрел в яму и сказал: «Значит, уже началось. Спасибо, что позвал.»"; } }
         ]
@@ -1642,8 +1642,8 @@ const STORY_LINES = [
         text: "Королевский указ: каждый, кто владеет магией, обязан раз в год отдавать часть маны короне — «на нужды обороны». Отказ — конфискация имущества. В вашей деревне таких одиннадцать человек.",
         choices: [
           { text: "Платить", flags: { tb_paid: true }, effect: (p) => { p.maxMana = Math.max(10, p.maxMana - 15); p.reputation += 5; return "Вы отдавали ману три года. Каждый раз после этого неделю болела голова. Соседи считали вас трусом."; } },
-          { text: "Отказаться", flags: { tb_refused: true }, effect: (p) => { p.reputation += 15; p.asuraInfluence -= 20; p.coins -= 150; return "Вы отказались. Пришли с описью. Вы успели продать всё, кроме дома, и спрятать книги."; } },
-          { text: "Собрать одиннадцать и уйти вместе", flags: { tb_leave: true }, effect: (p) => { p.reputation += 20; p.coins -= 100; p.magicExp += 30; return "Одиннадцать семей ушли из деревни за три ночи. Из них вернулись потом трое — остальные осели в Милисе."; } }
+          { text: "Отказаться", flags: { tb_refused: true }, effect: (p) => { p.reputation += 15; p.asuraInfluence -= 20; p.coins = Math.max(0, p.coins - 150); return "Вы отказались. Пришли с описью. Вы успели продать всё, кроме дома, и спрятать книги."; } },
+          { text: "Собрать одиннадцать и уйти вместе", flags: { tb_leave: true }, effect: (p) => { p.reputation += 20; p.coins = Math.max(0, p.coins - 100); p.magicExp += 30; return "Одиннадцать семей ушли из деревни за три ночи. Из них вернулись потом трое — остальные осели в Милисе."; } }
         ]
       },
       {
@@ -1651,9 +1651,9 @@ const STORY_LINES = [
         title: "Право на свой сосуд",
         text: "В старых законах Асуры есть строка: «Тело подданного неприкосновенно для короны». Указ о мане ей противоречит — но никто не хочет это говорить вслух.",
         choices: [
-          { text: "Взять дело в суд", flags: { tb_court: true }, effect: (p) => { p.coins -= 400; p.asuraInfluence += 25; p.intellect += 20; return "Суд шёл два года. Вы проиграли, но указ переписали: теперь мана сдаётся добровольно, а отказ не карается конфискацией."; } },
+          { text: "Взять дело в суд", flags: { tb_court: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.asuraInfluence += 25; p.intellect += 20; return "Суд шёл два года. Вы проиграли, но указ переписали: теперь мана сдаётся добровольно, а отказ не карается конфискацией."; } },
           { text: "Собрать подписи по стране", flags: { tb_petition: true }, effect: (p) => { p.reputation += 25; p.intellect += 15; p.asuraInfluence -= 10; return "Вы собрали девять тысяч подписей. Корона приняла их и объявила, что «мнение учтено» — и ничего не изменила."; } },
-          { text: "Устроить побег магов", flags: { tb_escape: true }, effect: (p) => { p.reputation -= 10; p.intellect += 20; p.coins -= 200; return "Вы вывезли через границу сто двенадцать человек. Корона назвала вас вором людей. Люди называли иначе."; } }
+          { text: "Устроить побег магов", flags: { tb_escape: true }, effect: (p) => { p.reputation -= 10; p.intellect += 20; p.coins = Math.max(0, p.coins - 200); return "Вы вывезли через границу сто двенадцать человек. Корона назвала вас вором людей. Люди называли иначе."; } }
         ]
       },
       {
@@ -1681,8 +1681,8 @@ const STORY_LINES = [
         title: "Пришли с бумагой",
         text: "Три человека с печатью: «Дом продан за долги отца. Выселение — через десять дней.» Вы платили налог каждый год. Бумага подлинная.",
         choices: [
-          { text: "Проверить бумагу", flags: { nh_check: true }, effect: (p) => { p.coins -= 100; p.intellect += 20; return "Бумага подлинная, но в ней ошибка: описан не ваш дом, а соседний — тот, что сгорел двенадцать лет назад."; } },
-          { text: "Заплатить и оставить дом", flags: { nh_pay: true }, effect: (p) => { p.coins -= 600; p.reputation += 5; return "Вы заплатили чужой долг. Дом остался. Тот, кто продал, остался в тени — и вы его запомнили."; } },
+          { text: "Проверить бумагу", flags: { nh_check: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 100); p.intellect += 20; return "Бумага подлинная, но в ней ошибка: описан не ваш дом, а соседний — тот, что сгорел двенадцать лет назад."; } },
+          { text: "Заплатить и оставить дом", flags: { nh_pay: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 600); p.reputation += 5; return "Вы заплатили чужой долг. Дом остался. Тот, кто продал, остался в тени — и вы его запомнили."; } },
           { text: "Собрать соседей", flags: { nh_mob: true }, effect: (p) => { p.reputation += 20; p.asuraInfluence -= 15; return "Соседи встали на улице. Люди с бумагой ушли. Через месяц пришли с солдатами."; } }
         ]
       },
@@ -1691,7 +1691,7 @@ const STORY_LINES = [
         title: "Кто продал",
         text: "В бумаге указан продавец — ваш двоюродный брат. Он живёт в Асуре, у него свой дом и чиновничья должность. Он продал то, что не принадлежало ему — и не знал, что вы найдёте ошибку.",
         choices: [
-          { text: "Судиться", flags: { nh_court: true }, effect: (p) => { p.coins -= 300; p.asuraInfluence += 20; p.intellect += 15; return "Суд вернул дом. Брат заплатил штраф и перестал приезжать на похороны. Оба вы считали, что правы."; } },
+          { text: "Судиться", flags: { nh_court: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.asuraInfluence += 20; p.intellect += 15; return "Суд вернул дом. Брат заплатил штраф и перестал приезжать на похороны. Оба вы считали, что правы."; } },
           { text: "Поговорить с ним лично", flags: { nh_talk: true }, effect: (p) => { p.intellect += 20; p.reputation += 10; return "Он заплакал: «Мне нужно было отдать долг за жену». Вы забрали дом и оставили ему денег. Он взял и не поблагодарил."; } },
           { text: "Сжечь бумагу и забыть", flags: { nh_burn: true }, effect: (p) => { p.intellect += 10; p.reputation -= 5; return "Дом остался вашим. Чиновник, составивший бумагу, был уволен без объяснений. Вы никогда не узнали, чья это была рука."; } }
         ]
@@ -1701,7 +1701,7 @@ const STORY_LINES = [
         title: "Солдаты у дома",
         text: "Двадцать солдат и один офицер, который очень не хочет это делать. За вашей спиной — сорок соседей с вилами. Он говорит: «Я приказ исполняю. Я не хочу никого убивать. Помогите мне.»",
         choices: [
-          { text: "Договориться и выкупить", flags: { nh_deal: true }, effect: (p) => { p.coins -= 700; p.asuraInfluence += 15; return "Офицер оформил всё как «добровольную уплату». Соседи разошлись, не подняв вил. Вы заплатили больше, чем стоил дом."; } },
+          { text: "Договориться и выкупить", flags: { nh_deal: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 700); p.asuraInfluence += 15; return "Офицер оформил всё как «добровольную уплату». Соседи разошлись, не подняв вил. Вы заплатили больше, чем стоил дом."; } },
           { text: "Драться", flags: { nh_fight: true }, effect: (p) => { p.reputation += 20; p.hp = Math.max(10, p.hp - 60); p.swordGodExp += 40; p.asuraInfluence -= 30; return "Вы отстояли дом. Четверо соседей и двое солдат остались на улице навсегда. Дом после этого пах иначе."; } },
           { text: "Сдать дом и уйти с соседями", flags: { nh_leave: true }, effect: (p) => { p.reputation += 30; p.coins += 200; p.intellect += 20; return "Вы отдали дом и увели одиннадцать семей на новое место. Через три года там стояло село с вашим именем."; } }
         ]
@@ -1761,7 +1761,7 @@ const STORY_LINES = [
         title: "Третья печать замечают",
         text: "Ваша печать стала известна: к вам идут те, кого не приняли ни Бореас, ни Нотос. Их много — дети двух кровей, изгнанные, забытые. Они хотят свой дом.",
         choices: [
-          { text: "Основать новую ветвь", flags: { grd_new_branch: true }, effect: (p) => { p.coins -= 400; p.reputation += 25; p.asuraInfluence += 20; return "Вы заложили дом, который назвали «Третья Печать». Через двадцать лет о нём говорили в Асуре как о равном."; } },
+          { text: "Основать новую ветвь", flags: { grd_new_branch: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 25; p.asuraInfluence += 20; return "Вы заложили дом, который назвали «Третья Печать». Через двадцать лет о нём говорили в Асуре как о равном."; } },
           { text: "Отправить их к старым ветвям", flags: { grd_redirect: true }, effect: (p) => { p.intellect += 15; p.reputation -= 5; return "Половина ушла. Половина осталась у ваших ворот и жила в палатках до зимы."; } },
           { text: "Возглавить их как силу", flags: { grd_militia: true }, effect: (p) => { p.swordGodExp += 40; p.reputation -= 15; p.asuraInfluence += 30; return "Из них вышел отряд, который не боялся ни Бореас, ни Нотос. Вас стали звать не по имени, а по печати."; } }
         ]
@@ -1901,7 +1901,7 @@ const STORY_LINES = [
         title: "Что значит быть двенадцатым",
         text: "«Хочешь место? Займи. Только помни: духи Хаос Брейкера не умирают в бою. Они умирают, когда перестают быть нужны. Ты готов быть ненужным?»",
         choices: [
-          { text: "Согласиться", flags: { pgm_duty: true }, effect: (p) => { p.reputation += 25; p.maxHp += 100; p.coins -= 200; return "Вы дали клятву. Крепость приняла вас — и с тех пор вам снились чужие сны, сны тех, кто был до вас."; } },
+          { text: "Согласиться", flags: { pgm_duty: true }, effect: (p) => { p.reputation += 25; p.maxHp += 100; p.coins = Math.max(0, p.coins - 200); return "Вы дали клятву. Крепость приняла вас — и с тех пор вам снились чужие сны, сны тех, кто был до вас."; } },
           { text: "Отказаться", flags: { pgm_decline: true }, effect: (p) => { p.intellect += 25; p.reputation += 15; return "«Я хочу быть нужным своим, а не крепости». Он кивнул: «Тогда иди и будь. Это труднее.»"; } },
           { text: "Спросить, кого он потерял", flags: { pgm_loss: true }, effect: (p) => { p.intellect += 30; if (typeof changePowerAttitude === "function") changePowerAttitude(2, 25); return "Он назвал имя. Вы его не запомнили — но запомнили, как он произнёс его: тихо, как будто боялся разбудить."; } }
         ]
@@ -1971,7 +1971,7 @@ const STORY_LINES = [
         title: "Тот, кто поймёт",
         text: "На листе — три имени и три долга. Долги не денежные: «вернуть крыло», «назвать имя», «не забыть мальчика с овсом». Один из долгов, судя по записям, всё ещё не закрыт.",
         choices: [
-          { text: "Закрыть все три", flags: { inh_debts: true }, effect: (p) => { p.coins -= 200; p.reputation += 25; p.intellect += 20; return "Вы потратили шесть лет. Два долга закрыли потомки тех, кто их дал. Третий закрылся сам — на кладбище, где вы поставили камень."; } },
+          { text: "Закрыть все три", flags: { inh_debts: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.reputation += 25; p.intellect += 20; return "Вы потратили шесть лет. Два долга закрыли потомки тех, кто их дал. Третий закрылся сам — на кладбище, где вы поставили камень."; } },
           { text: "Закрыть один, самый важный", flags: { inh_one: true }, effect: (p) => { p.reputation += 15; p.intellect += 15; return "«Не забыть мальчика с овсом». Вы выбили его на камне у дороги. С тех пор на камне всегда лежал колос."; } },
           { text: "Переписать лист для своего наследника", flags: { inh_rewrite: true }, effect: (p) => { p.intellect += 20; return "Вы добавили три своих долга. Теперь их шесть. Ваш правнук однажды прочтёт и поймёт — или нет."; } }
         ]
@@ -1981,8 +1981,8 @@ const STORY_LINES = [
         title: "Дом помнит",
         text: "Старики рассказали: предок, вырезавший печать, умер, не закончив одну вещь — и с тех пор дом ждёт. Каждое поколение что-то начинает и не заканчивает. Вы — четвёртое.",
         choices: [
-          { text: "Найти, что не закончено", flags: { inh_find: true }, effect: (p) => { p.coins -= 250; p.intellect += 25; return "В старом сарае — недостроенная часовня без крыши. На камне внутри: «Здесь будут помнить всех, кого мы потеряли». Список обрывается на середине."; } },
-          { text: "Разобрать дом и построить новый", flags: { inh_rebuild: true }, effect: (p) => { p.coins -= 400; p.reputation += 10; return "Вы разобрали старое и построили новое. Печать переехала сама — вы не прибивали её на новую дверь."; } },
+          { text: "Найти, что не закончено", flags: { inh_find: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 250); p.intellect += 25; return "В старом сарае — недостроенная часовня без крыши. На камне внутри: «Здесь будут помнить всех, кого мы потеряли». Список обрывается на середине."; } },
+          { text: "Разобрать дом и построить новый", flags: { inh_rebuild: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 10; return "Вы разобрали старое и построили новое. Печать переехала сама — вы не прибивали её на новую дверь."; } },
           { text: "Оставить незаконченное незаконченным", flags: { inh_leave: true }, effect: (p) => { p.intellect += 15; p.reputation -= 5; return "Вы решили, что это не ваша ноша. Дом стал тише. Слуги начали уходить."; } }
         ]
       }
@@ -2001,7 +2001,7 @@ const STORY_LINES = [
         title: "Карты устарели",
         text: "Старые карты неверны: три города из пяти исчезли, река ушла на восток, а на месте столицы — озеро. Вы выросли на этих картах и всю жизнь объясняете, что здесь раньше было.",
         choices: [
-          { text: "Составить новую карту", flags: { el_map: true }, effect: (p) => { p.coins -= 150; p.intellect += 25; p.asuraInfluence += 15; return "Вы ходили два года. Вашу карту купила корона — и вы впервые увидели свой род в её бумагах."; } },
+          { text: "Составить новую карту", flags: { el_map: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.intellect += 25; p.asuraInfluence += 15; return "Вы ходили два года. Вашу карту купила корона — и вы впервые увидели свой род в её бумагах."; } },
           { text: "Искать, что осталось", flags: { el_ruins: true }, effect: (p) => { p.intellect += 20; p.coins += 100; return "В старом городе вы нашли монеты, книги и одного старика, который всё ещё ждал сына из той войны."; } },
           { text: "Жить настоящим", flags: { el_live: true }, effect: (p) => { p.reputation += 10; p.intellect += 10; return "Вы не стали копаться в прошлом. Ваши дети выросли, не зная, что здесь когда-то была столица."; } }
         ]
@@ -2021,7 +2021,7 @@ const STORY_LINES = [
         title: "Он всё ещё ждёт",
         text: "Старик умер. В его доме — триста писем, все адресованы сыну, все не отправлены. Последнее написано вчера.",
         choices: [
-          { text: "Найти сына", flags: { el_find: true }, effect: (p) => { p.coins -= 200; p.intellect += 25; p.reputation += 15; return "Сын оказался жив — под чужим именем, в другом городе, изуродован. Он не поехал на похороны. Он попросил письма."; } },
+          { text: "Найти сына", flags: { el_find: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.intellect += 25; p.reputation += 15; return "Сын оказался жив — под чужим именем, в другом городе, изуродован. Он не поехал на похороны. Он попросил письма."; } },
           { text: "Похоронить старика рядом с женщиной, чьё имя повторяется в письмах", flags: { el_bury: true }, effect: (p) => { p.reputation += 20; p.intellect += 15; return "После похорон на доме появилась новая дверь. Никто не знал, кто её поставил."; } },
           { text: "Забрать письма себе", flags: { el_letters: true }, effect: (p) => { p.intellect += 30; return "Вы прочли все триста. И поняли, что этот человек всю жизнь писал одни и те же четыре строки разными словами."; } }
         ]
@@ -2041,8 +2041,8 @@ const STORY_LINES = [
         title: "Корона считает",
         text: "Ваш род — триста человек, четыре крепости, две лицензии на торговлю и своя охрана. Королевский казначей приехал лично: «Вы стали больше, чем позволяют правила. Правила, кстати, писались для вас же.»",
         choices: [
-          { text: "Сократить род официально", flags: { dgb_split: true }, effect: (p) => { p.asuraInfluence -= 15; p.reputation += 15; p.coins -= 400; return "Вы разделили род на четыре дома на бумаге. На деле все четыре ходили к вам за решением."; } },
-          { text: "Купить титул, который разрешает", flags: { dgb_buy: true }, effect: (p) => { p.coins -= 1500; p.asuraInfluence += 40; return "Герцогский патент куплен. Казначей уехал довольным — и вы поняли, что вся «угроза» стоила одной суммы."; } },
+          { text: "Сократить род официально", flags: { dgb_split: true }, effect: (p) => { p.asuraInfluence -= 15; p.reputation += 15; p.coins = Math.max(0, p.coins - 400); return "Вы разделили род на четыре дома на бумаге. На деле все четыре ходили к вам за решением."; } },
+          { text: "Купить титул, который разрешает", flags: { dgb_buy: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 1500); p.asuraInfluence += 40; return "Герцогский патент куплен. Казначей уехал довольным — и вы поняли, что вся «угроза» стоила одной суммы."; } },
           { text: "Сделать так, чтобы правила переписали", flags: { dgb_law: true }, effect: (p) => { p.asuraInfluence += 60; p.reputation -= 10; p.intellect += 25; return "Через три года в законах появилось «право древних домов». Писали его вы. На вас смотрели по-другому."; } }
         ]
       },
@@ -2091,7 +2091,7 @@ const STORY_LINES = [
         title: "Потомки противятся",
         text: "Ваша родня возмущена: «Ты разрушаешь имя рода ради правды, которую никто не просил». Три ветви подали в суд, чтобы остановить печать второй книги.",
         choices: [
-          { text: "Судиться и печатать", flags: { ll_court: true }, effect: (p) => { p.coins -= 500; p.intellect += 30; p.reputation += 10; return "Суд вы признали. Книга вышла с подзаголовком «о том, как легенды лгут». Внуки после этого отвечали на письма через писца."; } },
+          { text: "Судиться и печатать", flags: { ll_court: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.intellect += 30; p.reputation += 10; return "Суд вы признали. Книга вышла с подзаголовком «о том, как легенды лгут». Внуки после этого отвечали на письма через писца."; } },
           { text: "Отдать книгу в академию под замок", flags: { ll_archive: true }, effect: (p) => { p.intellect += 25; p.reputation += 5; return "«Она выйдет через сто лет. Тогда будет нужнее». Академия согласилась. Через сто лет её и правда напечатали."; } },
           { text: "Уступить родне", flags: { ll_yield: true }, effect: (p) => { p.reputation += 10; p.intellect += 10; return "Вы забрали рукопись. Она пролежала в сундуке тридцать лет, и вы перечитывали её каждую зиму."; } }
         ]
@@ -2101,7 +2101,7 @@ const STORY_LINES = [
         title: "Что осталось без статуи",
         text: "Площадь переименовали. Дети играют на пустом постаменте. Старуха каждый день ставит на него свечу — та, чью семью предок когда-то спас и чью землю потом забрал.",
         choices: [
-          { text: "Поставить новый памятник — с двумя сторонами", flags: { ll_new: true }, effect: (p) => { p.coins -= 400; p.reputation += 30; p.intellect += 20; return "На камне выбили две колонки: «спас» и «забрал». Люди спорили у памятника — и это было лучше тишины."; } },
+          { text: "Поставить новый памятник — с двумя сторонами", flags: { ll_new: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 30; p.intellect += 20; return "На камне выбили две колонки: «спас» и «забрал». Люди спорили у памятника — и это было лучше тишины."; } },
           { text: "Отдать постамент старухе", flags: { ll_old: true }, effect: (p) => { p.reputation += 20; p.intellect += 15; return "Она поставила на него кресло. Сидела там до самой смерти и рассказывала детям, что было на самом деле."; } },
           { text: "Разобрать постамент", flags: { ll_clean: true }, effect: (p) => { p.intellect += 15; p.reputation -= 5; return "Камни пошли на кладбищенскую ограду. Вы каждый раз читали на них имена, которые стёрлись."; } }
         ]
@@ -2121,9 +2121,9 @@ const STORY_LINES = [
         title: "Отряд, который вырос",
         text: "Двадцать наёмников, которых нанял ваш отец, стали тремя отрядами по сотне. Они называют себя «Людьми дома». Командир приходит к вам за приказами, но выполняет их по-своему.",
         choices: [
-          { text: "Распустить", flags: { mc_dismiss: true }, effect: (p) => { p.coins -= 600; p.reputation -= 10; p.asuraInfluence -= 20; return "Вы заплатили всем и отпустили. Половина ушла в другие дома. Двое вернулись через месяц и попросили вернуть их."; } },
+          { text: "Распустить", flags: { mc_dismiss: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 600); p.reputation -= 10; p.asuraInfluence -= 20; return "Вы заплатили всем и отпустили. Половина ушла в другие дома. Двое вернулись через месяц и попросили вернуть их."; } },
           { text: "Возглавить лично", flags: { mc_lead: true }, effect: (p) => { p.swordGodExp += 40; p.asuraInfluence += 35; p.reputation -= 5; return "Вы вышли к ним на плац. Первый месяц они проверяли вас каждую ночь — драками, приказами, насмешками. Потом перестали."; } },
-          { text: "Поставить над ними своего человека", flags: { mc_steward: true }, effect: (p) => { p.coins -= 300; p.intellect += 15; p.asuraInfluence += 15; return "Вы поставили над ними писца. Через год он уже не был писцом. Через три — приказы шли через него."; } }
+          { text: "Поставить над ними своего человека", flags: { mc_steward: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.intellect += 15; p.asuraInfluence += 15; return "Вы поставили над ними писца. Через год он уже не был писцом. Через три — приказы шли через него."; } }
         ]
       },
       {
@@ -2131,7 +2131,7 @@ const STORY_LINES = [
         title: "Их прошлое",
         text: "Вы нашли в их лагерных записях список: имена сорока семи человек, которые не могут вернуться в свои города. Один из них — тот, кого вы оплакивали.",
         choices: [
-          { text: "Вернуть их всех домой", flags: { mc_return: true }, effect: (p) => { p.coins -= 800; p.reputation += 30; p.intellect += 20; return "Вы выкупили их прощения. Удалось не всем. Но сорок семь имён перестали быть тайной, и отряд стал другим."; } },
+          { text: "Вернуть их всех домой", flags: { mc_return: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 800); p.reputation += 30; p.intellect += 20; return "Вы выкупили их прощения. Удалось не всем. Но сорок семь имён перестали быть тайной, и отряд стал другим."; } },
           { text: "Сохранить тайну", flags: { mc_secret: true }, effect: (p) => { p.asuraInfluence += 25; p.reputation -= 10; return "Отряд остался сильным и опасным. Вы знали о них всё и потому спали плохо."; } },
           { text: "Отдать список им самим", flags: { mc_given: true }, effect: (p) => { p.intellect += 25; p.reputation += 15; return "Вы отдали список и ушли. Через год половина отряда ушла — к семьям. Остались те, кому возвращаться было некуда."; } }
         ]
@@ -2161,8 +2161,8 @@ const STORY_LINES = [
         title: "Старуха на дороге",
         text: "Вы помогли старухе, которая просила довезти её до поворота и заплатила медной монетой. Через месяц у вас начали болеть руки по ночам. Служанка узнала монету: «Такие дают, когда не хотят платить по-настоящему.»",
         choices: [
-          { text: "Найти её", flags: { ck_seek: true }, effect: (p) => { p.intellect += 15; p.coins -= 80; return "Вы нашли её в деревне за тридцать лиг. Она ждала у забора: «Долго. Я думала, ты не придёшь.»"; } },
-          { text: "Отдать монету жрице", flags: { ck_priest: true }, effect: (p) => { p.coins -= 60; p.intellect += 10; return "Жрица завернула монету в соль и сожгла. Руки перестали болеть через месяц — но иногда ещё ноют на погоду."; } },
+          { text: "Найти её", flags: { ck_seek: true }, effect: (p) => { p.intellect += 15; p.coins = Math.max(0, p.coins - 80); return "Вы нашли её в деревне за тридцать лиг. Она ждала у забора: «Долго. Я думала, ты не придёшь.»"; } },
+          { text: "Отдать монету жрице", flags: { ck_priest: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 60); p.intellect += 10; return "Жрица завернула монету в соль и сожгла. Руки перестали болеть через месяц — но иногда ещё ноют на погоду."; } },
           { text: "Терпеть", flags: { ck_endure: true }, effect: (p) => { p.hp = Math.max(10, p.hp - 25); p.northGodExp += 20; return "Боль стала частью жизни. Вы научились работать левой рукой. Через двадцать лет она стала вашей сильной рукой."; } }
         ]
       },
@@ -2171,9 +2171,9 @@ const STORY_LINES = [
         title: "За что",
         text: "«Мой сын сгорел в доме, который твой род запер, чтобы не пускать заразу. Я не могла проклясть могилу. Я прокляла тебя — и ты помог мне доехать. За это я тебя слушаю.»",
         choices: [
-          { text: "Признать вину рода", flags: { ck_guilt: true }, effect: (p) => { p.reputation += 20; p.intellect += 20; p.coins -= 200; return "Вы поехали с ней на место и поставили на месте дома камень с именем её сына. Проклятие снялось в тот же вечер."; } },
+          { text: "Признать вину рода", flags: { ck_guilt: true }, effect: (p) => { p.reputation += 20; p.intellect += 20; p.coins = Math.max(0, p.coins - 200); return "Вы поехали с ней на место и поставили на месте дома камень с именем её сына. Проклятие снялось в тот же вечер."; } },
           { text: "Сказать, что сожжение было необходимо", flags: { ck_hard: true }, effect: (p) => { p.intellect += 15; p.reputation -= 15; p.hp = Math.max(10, p.hp - 30); return "Она выслушала и сказала: «Тогда я правильно сделала». Боль вернулась в тот же месяц."; } },
-          { text: "Предложить ей место рядом с собой", flags: { ck_place: true }, effect: (p) => { p.coins -= 150; p.reputation += 15; p.intellect += 15; return "Она жила у вас два года и умерла тихо. До конца она называла вас «барин» и всегда держала при себе медную монету."; } }
+          { text: "Предложить ей место рядом с собой", flags: { ck_place: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 150); p.reputation += 15; p.intellect += 15; return "Она жила у вас два года и умерла тихо. До конца она называла вас «барин» и всегда держала при себе медную монету."; } }
         ]
       },
       {
@@ -2202,7 +2202,7 @@ const STORY_LINES = [
         text: "Ваш род живёт в восьми повозках и не помнит, откуда пришёл. Старшие говорят: «Мы идём, потому что кто-то из предков решил, что нам нельзя останавливаться». Никто не помнит почему.",
         choices: [
           { text: "Раскопать причину", flags: { rh_search: true }, effect: (p) => { p.intellect += 15; return "В старой повозке под сиденьем — книга: «Мы ушли, потому что остались бы, а остаться было нельзя. Если кто прочтёт — решайте сами.»"; } },
-          { text: "Остановиться здесь", flags: { rh_stop: true }, effect: (p) => { p.coins -= 200; p.reputation += 15; return "Вы выкупили землю у обочины. Старшие спорили три ночи и остались. Три повозки ушли в ту же неделю."; } },
+          { text: "Остановиться здесь", flags: { rh_stop: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 200); p.reputation += 15; return "Вы выкупили землю у обочины. Старшие спорили три ночи и остались. Три повозки ушли в ту же неделю."; } },
           { text: "Идти дальше, как все", flags: { rh_go: true }, effect: (p) => { p.northGodExp += 15; p.intellect += 8; return "Вы прожили в дороге всю молодость. Знали сто дорог и не знали ни одного дома."; } }
         ]
       },
@@ -2211,7 +2211,7 @@ const STORY_LINES = [
         title: "Те, кто ушёл",
         text: "Через двенадцать лет вернулись трое из ушедших повозок. «Мы дошли до края карты. Там стоят наши же дома — только брошенные триста лет назад. Мы пришли сказать: предок был прав.»",
         choices: [
-          { text: "Собрать всех и идти к тем домам", flags: { rh_return: true }, effect: (p) => { p.coins -= 500; p.reputation += 25; p.intellect += 20; return "Вы привели род к брошенному городу. В нём не было ни одной целой крыши — и ни одного чужого. Через двадцать лет там жили четыреста человек."; } },
+          { text: "Собрать всех и идти к тем домам", flags: { rh_return: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.reputation += 25; p.intellect += 20; return "Вы привели род к брошенному городу. В нём не было ни одной целой крыши — и ни одного чужого. Через двадцать лет там жили четыреста человек."; } },
           { text: "Остаться и записать историю", flags: { rh_record: true }, effect: (p) => { p.intellect += 30; p.reputation += 15; return "Вы записали всё, что смогли, и отдали книгу в храм. Через век её читали как сказку."; } },
           { text: "Отправить туда только желающих", flags: { rh_split: true }, effect: (p) => { p.reputation += 10; p.intellect += 15; return "Девятнадцать человек ушли. Из них вернулись четверо — с семенами, которых здесь не было."; } }
         ]
@@ -2221,7 +2221,7 @@ const STORY_LINES = [
         title: "Почему нельзя было остаться",
         text: "Последняя страница книги: «Нас было восемь семей. Мы продали человека за проезд через мост. Он был последний из рода, и теперь мы не можем остановиться — мы носим его как долг.»",
         choices: [
-          { text: "Найти потомков того человека", flags: { rh_find: true }, effect: (p) => { p.coins -= 400; p.intellect += 25; return "Вы нашли его внучку. Она не знала. Вы рассказали и предложили всё, что у вас было. Она взяла только книгу."; } },
+          { text: "Найти потомков того человека", flags: { rh_find: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.intellect += 25; return "Вы нашли его внучку. Она не знала. Вы рассказали и предложили всё, что у вас было. Она взяла только книгу."; } },
           { text: "Поставить общину перед фактом", flags: { rh_public: true }, effect: (p) => { p.reputation -= 10; p.intellect += 20; return "Вы прочли книгу вслух у костра. Старшие плакали и хотели сжечь её. Молодые сказали: «Теперь мы можем остановиться.»"; } },
           { text: "Сжечь книгу и молчать", flags: { rh_burn: true }, effect: (p) => { p.intellect += 10; p.reputation -= 5; return "Книга горела в костре. Через месяц род всё равно остановился — без всякой причины. Просто устали."; } }
         ]
@@ -2243,7 +2243,7 @@ const STORY_LINES = [
         choices: [
           { text: "Рассматривать портрет", flags: { an_look: true }, effect: (p) => { p.intellect += 18; return "На заднем плане карты — маленькая пометка вашей же рукой. Вы никогда её не ставили и точно знаете этот изгиб."; } },
           { text: "Спросить всё о нём", flags: { an_ask: true }, effect: (p) => { p.intellect += 20; return "«Он ушёл, не закончив карту. Говорят, вернулся через сорок лет и всё исправил. Говорят ещё, что он был в трёх местах одновременно.»"; } },
-          { text: "Купить портрет", flags: { an_buy: true }, effect: (p) => { p.coins -= 250; p.intellect += 12; return "Хозяин не хотел продавать. Вы заплатили вдвое. Портрет теперь висит в вашем доме — и смотрит не в ту сторону."; } }
+          { text: "Купить портрет", flags: { an_buy: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 250); p.intellect += 12; return "Хозяин не хотел продавать. Вы заплатили вдвое. Портрет теперь висит в вашем доме — и смотрит не в ту сторону."; } }
         ]
       },
       {
@@ -2251,7 +2251,7 @@ const STORY_LINES = [
         title: "Карта под краской",
         text: "Под верхним слоем краски — другая карта. На ней отмечены четыре точки, три из которых вы знаете. Четвёртая — в месте, где сейчас море.",
         choices: [
-          { text: "Плыть к четвёртой точке", flags: { an_sail: true }, effect: (p) => { p.coins -= 400; p.hp = Math.max(10, p.hp - 40); p.intellect += 30; return "Там было мелководье и каменный круг под водой. И надпись на языке, который вы знали, но никогда не учили."; } },
+          { text: "Плыть к четвёртой точке", flags: { an_sail: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.hp = Math.max(10, p.hp - 40); p.intellect += 30; return "Там было мелководье и каменный круг под водой. И надпись на языке, который вы знали, но никогда не учили."; } },
           { text: "Проверить три известные точки", flags: { an_three: true }, effect: (p) => { p.intellect += 25; p.coins += 150; return "В каждой — закладка: монеты, семена, кости. Вы оставили на местах такие же — для тех, кто придёт через триста лет."; } },
           { text: "Продать портрет с картой в академию", flags: { an_sell: true }, effect: (p) => { p.coins += 700; p.reputation += 10; p.intellect += 15; return "Шария заплатила щедро. Через год все четыре точки были перекопаны их экспедициями. В двух что-то нашли."; } }
         ]
@@ -2263,7 +2263,7 @@ const STORY_LINES = [
         choices: [
           { text: "Закрыть круг и молчать", flags: { an_seal: true }, effect: (p) => { p.intellect += 30; p.reputation += 15; return "Вы завалили его камнями и отметили место только на своей карте — которую спрячете."; } },
           { text: "Рассказать роду", flags: { an_tell: true }, effect: (p) => { p.reputation += 25; p.intellect += 20; p.children.forEach(c => c.relation = Math.min(100, (c.relation || 80) + 15)); return "Вы собрали всех и показали карту. Ваши дети впервые поняли, что такое род — и это оказалось не про кровь."; } },
-          { text: "Перезахоронить с почестями", flags: { an_rebury: true }, effect: (p) => { p.coins -= 300; p.reputation += 30; p.intellect += 15; return "Вы перевезли его в родовую усыпальницу. На табличке написали только: «Тот, кто начал». Имя вы так и не узнали."; } }
+          { text: "Перезахоронить с почестями", flags: { an_rebury: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 300); p.reputation += 30; p.intellect += 15; return "Вы перевезли его в родовую усыпальницу. На табличке написали только: «Тот, кто начал». Имя вы так и не узнали."; } }
         ]
       }
     ]
@@ -2281,7 +2281,7 @@ const STORY_LINES = [
         title: "Третья сухая весна",
         text: "Три года без дождя. Ваш род держит три амбара. В городе уже едят кору. Староста приходит каждый день и каждый день уходит ни с чем — вы ещё не решили.",
         choices: [
-          { text: "Открыть амбары", flags: { fn_open: true }, effect: (p) => { p.coins -= 400; p.reputation += 35; return "Вы отдали всё. Зимой ваш род ел то же, что и город. Из ваших людей никто не умер — но двое детей не дожили до весны."; } },
+          { text: "Открыть амбары", flags: { fn_open: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 35; return "Вы отдали всё. Зимой ваш род ел то же, что и город. Из ваших людей никто не умер — но двое детей не дожили до весны."; } },
           { text: "Продавать по высокой цене", flags: { fn_sell: true }, effect: (p) => { p.coins += 1200; p.reputation -= 35; return "Вы разбогатели за одну зиму. Ваш дом окружили стеной. Через год у вас было больше денег и меньше людей, готовых на вас работать."; } },
           { text: "Держать в долг под расписку", flags: { fn_debt: true }, effect: (p) => { p.coins += 400; p.reputation += 10; p.asuraInfluence += 20; return "Вы дали зерно под расписки. Через десять лет вам принадлежала треть полей. Вас называли справедливым — и боялись."; } }
         ]
@@ -2293,7 +2293,7 @@ const STORY_LINES = [
         choices: [
           { text: "Поддержать купца", flags: { fn_support: true }, effect: (p) => { p.asuraInfluence += 30; p.reputation -= 15; p.coins += 300; return "Он попал в совет и первым делом провёл указ о «запасах на случай голода». Указ был хороший — и он это знал."; } },
           { text: "Мешать ему", flags: { fn_block: true }, effect: (p) => { p.reputation += 20; p.asuraInfluence -= 15; return "Его не выбрали. Через два года он уехал. Никто не помнил, почему ему не дали места — кроме вас."; } },
-          { text: "Выдвинуться самому", flags: { fn_seat: true }, effect: (p) => { p.asuraInfluence += 45; p.coins -= 300; p.reputation += 15; return "Вы вошли в совет на том же камне, что и ваши амбары. Первый указ — о городских запасах — вы писали сами."; } }
+          { text: "Выдвинуться самому", flags: { fn_seat: true }, effect: (p) => { p.asuraInfluence += 45; p.coins = Math.max(0, p.coins - 300); p.reputation += 15; return "Вы вошли в совет на том же камне, что и ваши амбары. Первый указ — о городских запасах — вы писали сами."; } }
         ]
       },
       {
@@ -2301,9 +2301,9 @@ const STORY_LINES = [
         title: "Счёт за ту зиму",
         text: "Прошло девять лет. В городе новый староста — сын женщины, которая умерла в ту зиму. Он не мстит. Он просто приносит счета: налоги, судебные пошлины, «проверки».",
         choices: [
-          { text: "Заплатить всё", flags: { fn_pay: true }, effect: (p) => { p.coins -= 900; p.reputation += 10; return "Вы заплатили втрое. Он принял и больше не приходил. На похоронах его матери вы стояли в последнем ряду."; } },
-          { text: "Купить его", flags: { fn_buyoff: true }, effect: (p) => { p.coins -= 500; p.reputation -= 10; p.asuraInfluence += 20; return "Он взял деньги и стал вашим должником. Через год его нашли в реке. Вы не были виноваты — и знали, что никто не поверит."; } },
-          { text: "Устроить так, чтобы он стал союзником", flags: { fn_ally: true }, effect: (p) => { p.intellect += 25; p.reputation += 20; p.coins -= 400; return "Вы отдали ему землю под школу и признали вслух, что та зима была вашей виной. Он долго молчал и потом согласился."; } }
+          { text: "Заплатить всё", flags: { fn_pay: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 900); p.reputation += 10; return "Вы заплатили втрое. Он принял и больше не приходил. На похоронах его матери вы стояли в последнем ряду."; } },
+          { text: "Купить его", flags: { fn_buyoff: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.reputation -= 10; p.asuraInfluence += 20; return "Он взял деньги и стал вашим должником. Через год его нашли в реке. Вы не были виноваты — и знали, что никто не поверит."; } },
+          { text: "Устроить так, чтобы он стал союзником", flags: { fn_ally: true }, effect: (p) => { p.intellect += 25; p.reputation += 20; p.coins = Math.max(0, p.coins - 400); return "Вы отдали ему землю под школу и признали вслух, что та зима была вашей виной. Он долго молчал и потом согласился."; } }
         ]
       }
     ]
@@ -2361,7 +2361,7 @@ const STORY_LINES = [
         title: "Соседняя крепость",
         text: "Дом Ксавье держал эту землю триста лет. Теперь у них долги, три смерти за год и наследник двенадцати лет. Они пришли к вам первыми — не с просьбой о помощи, а с предложением долга.",
         choices: [
-          { text: "Дать денег без процентов", flags: { fh_help: true }, effect: (p) => { p.coins -= 600; p.reputation += 25; p.asuraInfluence += 15; return "Через два года они вернули всё до монеты. Через десять их наследник назвал вашего сына братом."; } },
+          { text: "Дать денег без процентов", flags: { fh_help: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 600); p.reputation += 25; p.asuraInfluence += 15; return "Через два года они вернули всё до монеты. Через десять их наследник назвал вашего сына братом."; } },
           { text: "Взять залог — их земли", flags: { fh_land: true }, effect: (p) => { p.coins += 300; p.asuraInfluence += 35; p.reputation -= 15; return "Вы дали денег под залог трёх деревень. Через три года деревни стали вашими — законно, тихо, без единого меча."; } },
           { text: "Отказать", flags: { fh_refuse: true }, effect: (p) => { p.intellect += 10; return "Вы отказали вежливо. Через год их крепость купил купеческий дом, и на вашей границе появились чужие знамёна."; } }
         ]
@@ -2372,8 +2372,8 @@ const STORY_LINES = [
         text: "Наследник Ксавье вырос. Он пришёл без охраны и сказал: «Вы забрали три деревни по бумаге. Я это принимаю. Но мои люди не принимают. Я пришёл предложить работу, а не войну.»",
         choices: [
           { text: "Взять его на службу", flags: { fh_hire: true }, effect: (p) => { p.asuraInfluence += 30; p.swordGodExp += 15; p.reputation += 15; return "Он стал вашим маршалом и служил безупречно. Через двадцать лет он умер, защищая землю, которую у него забрали."; } },
-          { text: "Вернуть деревни", flags: { fh_return: true }, effect: (p) => { p.coins -= 400; p.reputation += 35; p.asuraInfluence -= 15; return "Вы вернули всё. Он не поверил сначала, потом заплакал. Три века вражды закончились в один день — и не вами, а им."; } },
-          { text: "Отказать и усилить границу", flags: { fh_fort: true }, effect: (p) => { p.coins -= 500; p.swordGodExp += 30; p.reputation -= 10; return "Вы построили три сторожевые башни. Через год они пригодились — но не против Ксавье."; } }
+          { text: "Вернуть деревни", flags: { fh_return: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 400); p.reputation += 35; p.asuraInfluence -= 15; return "Вы вернули всё. Он не поверил сначала, потом заплакал. Три века вражды закончились в один день — и не вами, а им."; } },
+          { text: "Отказать и усилить границу", flags: { fh_fort: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.swordGodExp += 30; p.reputation -= 10; return "Вы построили три сторожевые башни. Через год они пригодились — но не против Ксавье."; } }
         ]
       },
       {
@@ -2383,7 +2383,7 @@ const STORY_LINES = [
         choices: [
           { text: "Договориться без боя", flags: { fh_talk: true }, effect: (p) => { p.intellect += 25; p.reputation += 20; p.asuraInfluence += 15; return "Вы говорили шесть часов и разошлись. Налог заплатили пополам. Корона была в ярости — и запомнила, что с вами так можно."; } },
           { text: "Разбить их", flags: { fh_beat: true }, effect: (p) => { p.swordGodExp += 50; p.asuraInfluence += 25; p.reputation -= 20; p.hp = Math.max(10, p.hp - 45); return "Бой был коротким. Мальчик выжил и уехал. Вы выиграли землю, которую когда-то вернули, — и потеряли единственного, кто называл вас другом."; } },
-          { text: "Отступить и отдать спор", flags: { fh_yield: true }, effect: (p) => { p.reputation += 10; p.asuraInfluence -= 25; p.coins -= 500; return "Вы заплатили налог один. Родству это не понравилось. Мальчик пришёл ночью и сказал: «Спасибо». Это было всё."; } }
+          { text: "Отступить и отдать спор", flags: { fh_yield: true }, effect: (p) => { p.reputation += 10; p.asuraInfluence -= 25; p.coins = Math.max(0, p.coins - 500); return "Вы заплатили налог один. Родству это не понравилось. Мальчик пришёл ночью и сказал: «Спасибо». Это было всё."; } }
         ]
       }
     ]
@@ -2403,7 +2403,7 @@ const STORY_LINES = [
         choices: [
           { text: "Назначить из боковой линии", flags: { bf_side: true }, effect: (p) => { p.reputation += 10; p.intellect += 15; return "Мальчик из боковой линии оказался умным и злым. Вы учили его десять лет. Он выучил всё, включая то, чему вы не хотели учить."; } },
           { text: "Отдать дом роду как общине", flags: { bf_commune: true }, effect: (p) => { p.reputation += 30; p.asuraInfluence -= 20; return "Вы отменили наследование. Дом стал общим. Через двадцать лет им управлял совет из семи — и управлял неплохо."; } },
-          { text: "Искать способ продолжить линию", flags: { bf_seek: true }, effect: (p) => { p.coins -= 500; p.intellect += 20; return "Вы ездили по лекарям и храмам шесть лет. В конце вам сказали то, что вы знали с самого начала."; } }
+          { text: "Искать способ продолжить линию", flags: { bf_seek: true }, effect: (p) => { p.coins = Math.max(0, p.coins - 500); p.intellect += 20; return "Вы ездили по лекарям и храмам шесть лет. В конце вам сказали то, что вы знали с самого начала."; } }
         ]
       },
       {
@@ -2421,7 +2421,7 @@ const STORY_LINES = [
         title: "Община решает",
         text: "Совет из семи решает принять в род семью беженцев — чужих по крови. Голоса разделились. Ваш голос решающий.",
         choices: [
-          { text: "Принять", flags: { bf_accept: true }, effect: (p) => { p.reputation += 30; p.coins -= 200; return "Через тридцать лет в доме не осталось ни одной чистой линии крови — и он был крепче, чем когда-либо."; } },
+          { text: "Принять", flags: { bf_accept: true }, effect: (p) => { p.reputation += 30; p.coins = Math.max(0, p.coins - 200); return "Через тридцать лет в доме не осталось ни одной чистой линии крови — и он был крепче, чем когда-либо."; } },
           { text: "Отказать", flags: { bf_deny: true }, effect: (p) => { p.reputation -= 15; p.intellect += 10; return "Вы отказали. Дом сохранил кровь и потерял двух своих лучших людей — они ушли вместе с беженцами."; } },
           { text: "Принять при условии службы", flags: { bf_condition: true }, effect: (p) => { p.intellect += 20; p.asuraInfluence += 15; p.reputation += 5; return "Они согласились и отслужили. Через десять лет их дети уже не помнили, что были чужими. Это и было условие, на самом деле."; } }
         ]

@@ -404,6 +404,8 @@
 
     <div id="injuries-banner" style="display:none; margin-top:6px;"></div>
 
+    <div id="tutorial-hint" style="margin-top:8px;"></div>
+
     <div class="card-divider"></div>
 
     <!-- Здоровье и Мана -->
@@ -566,6 +568,7 @@
       <button class="sub-tab-btn" onclick="setWorldSubTab('tablets', this)">📜 Скрижали</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('politics', this)">👑 Асура</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('tree', this)">🌳 Древо & Хроники</button>
+      <button class="sub-tab-btn" onclick="setWorldSubTab('achieve', this)">🏆 Достижения</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('languages', this)">🗣️ Языки</button>
       <button class="sub-tab-btn" onclick="setWorldSubTab('schools', this)">🏛️ Академии</button>
     </div>
@@ -603,6 +606,11 @@
     <div id="world-sub-politics" style="display: none;">
       <div class="section-title">👑 Борьба за Престол Королевства Асура</div>
       <div id="politics-container"></div>
+    </div>
+
+    <div id="world-sub-achieve" style="display: none;">
+      <div class="section-title">🏆 Достижения</div>
+      <div id="achievements-box"></div>
     </div>
 
     <div id="world-sub-tree" style="display: none;">

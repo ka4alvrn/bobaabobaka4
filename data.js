@@ -7,7 +7,10 @@ const ADVENTURER_RANKS = ["F", "E", "D", "C", "B", "A", "S"];
 const ADVENTURER_REQ = { F: 0, E: 30, D: 80, C: 180, B: 380, A: 750, S: 1400 };
 
 // Плотная шкала БМ: от 100 у младенца до ~100,000 у Богов и эндгейма
-const GENERATION_CP_CAPS = { 1: 8500, 2: 22000, 3: 48000, 4: 80000, 5: 120000 };
+// Потолки мощи по поколениям. Раньше герой 1-го поколения упирался в 8 500 БМ,
+// а испытания Хаос Брейкера требовали 5 000 / 14 000 / 32 000 — пройти их было нельзя.
+// Теперь потолки выше, а сами испытания пересчитаны под реальный рост героя.
+const GENERATION_CP_CAPS = { 1: 16000, 2: 32000, 3: 55000, 4: 85000, 5: 120000 };
 
 const WORLD_ERAS = [
   { maxYear: 416, name: "Мир перед Бурей", desc: "Спокойное десятилетие перед Катаклизмом Маны." },
@@ -93,112 +96,112 @@ const DEMON_EYES = {
 const REGIONAL_JOBS = {
   asura: [
     { id: "asura_guard", name: "Королевская Гвардия Асуры", ranks: [
-      { title: "Новобранец гарнизона", salary: 10, minAge: 14, minSword: 15, desc: "Патрулирование рынков." },
-      { title: "Страж ворот Роа", salary: 22, minAge: 16, minSword: 40, desc: "Охрана ворот." },
-      { title: "Рыцарь Первого круга", salary: 55, minAge: 20, minSword: 95, desc: "Эскорт знати." },
-      { title: "Капитан Гвардии", salary: 130, minAge: 25, minSword: 220, desc: "Батальон Арса." },
-      { title: "Лорд-Командующий Асуры", salary: 280, minAge: 32, minSword: 450, desc: "Высший военный чин." }
+      { title: "Новобранец гарнизона", salary: 25, minAge: 14, minSword: 15, desc: "Патрулирование рынков." },
+      { title: "Страж ворот Роа", salary: 55, minAge: 16, minSword: 40, desc: "Охрана ворот." },
+      { title: "Рыцарь Первого круга", salary: 140, minAge: 20, minSword: 95, desc: "Эскорт знати." },
+      { title: "Капитан Гвардии", salary: 320, minAge: 25, minSword: 220, desc: "Батальон Арса." },
+      { title: "Лорд-Командующий Асуры", salary: 700, minAge: 32, minSword: 450, desc: "Высший военный чин." }
     ]},
     { id: "asura_bureaucrat", name: "Королевское Казначейство", ranks: [
-      { title: "Переписчик свитков", salary: 12, minAge: 14, minInt: 15, desc: "Налоговые свитки." },
-      { title: "Податной инспектор", salary: 28, minAge: 18, minInt: 40, desc: "Сбор податей." },
-      { title: "Аудитор Короны", salary: 70, minAge: 24, minInt: 80, desc: "Ревизия имений." },
-      { title: "Главный Казначей", salary: 190, minAge: 30, minInt: 150, desc: "Золотой запас." }
+      { title: "Переписчик свитков", salary: 30, minAge: 14, minInt: 15, desc: "Налоговые свитки." },
+      { title: "Податной инспектор", salary: 70, minAge: 18, minInt: 40, desc: "Сбор податей." },
+      { title: "Аудитор Короны", salary: 180, minAge: 24, minInt: 80, desc: "Ревизия имений." },
+      { title: "Главный Казначей", salary: 480, minAge: 30, minInt: 150, desc: "Золотой запас." }
     ]},
     { id: "asura_court_mage", name: "Придворная Коллегия Магов", ranks: [
-      { title: "Адепт барьеров", salary: 18, minAge: 15, minMagic: 40, desc: "Глифы дворца." },
-      { title: "Магистр эскорта", salary: 75, minAge: 21, minMagic: 120, desc: "Стража монархов." },
-      { title: "Архимаг Совета", salary: 220, minAge: 28, minMagic: 300, desc: "Верховный маг." }
+      { title: "Адепт барьеров", salary: 45, minAge: 15, minMagic: 40, desc: "Глифы дворца." },
+      { title: "Магистр эскорта", salary: 190, minAge: 21, minMagic: 120, desc: "Стража монархов." },
+      { title: "Архимаг Совета", salary: 550, minAge: 28, minMagic: 300, desc: "Верховный маг." }
     ]}
   ],
   ranoa: [
     { id: "ranoa_researcher", name: "Институт Академии Шарии", ranks: [
-      { title: "Лаборант алхимика", salary: 14, minAge: 13, minMagic: 25, desc: "Кристаллы маны." },
-      { title: "Ассистент кафедры", salary: 35, minAge: 17, minMagic: 60, desc: "Магические круги." },
-      { title: "Профессор боевой магии", salary: 90, minAge: 22, minMagic: 150, desc: "Высшие стихии." },
-      { title: "Декан Академии Шарии", salary: 250, minAge: 30, minMagic: 340, desc: "Глава коллегии Севера." }
+      { title: "Лаборант алхимика", salary: 35, minAge: 13, minMagic: 25, desc: "Кристаллы маны." },
+      { title: "Ассистент кафедры", salary: 85, minAge: 17, minMagic: 60, desc: "Магические круги." },
+      { title: "Профессор боевой магии", salary: 220, minAge: 22, minMagic: 150, desc: "Высшие стихии." },
+      { title: "Декан Академии Шарии", salary: 625, minAge: 30, minMagic: 340, desc: "Глава коллегии Севера." }
     ]},
     { id: "ranoa_winter_scout", name: "Ледяной Дозор Севера", ranks: [
-      { title: "Следопыт снегов", salary: 14, minAge: 14, minNorth: 25, desc: "Патруль буранов." },
-      { title: "Охотник на бегемотов", salary: 55, minAge: 19, minSword: 90, desc: "Защита караванов." },
-      { title: "Капитан Рубежа", salary: 180, minAge: 27, minSword: 260, desc: "Гарнизоны Севера." }
+      { title: "Следопыт снегов", salary: 35, minAge: 14, minNorth: 25, desc: "Патруль буранов." },
+      { title: "Охотник на бегемотов", salary: 140, minAge: 19, minSword: 90, desc: "Защита караванов." },
+      { title: "Капитан Рубежа", salary: 450, minAge: 27, minSword: 260, desc: "Гарнизоны Севера." }
     ]}
   ],
   milis: [
     { id: "milis_templar", name: "Орден Рыцарей Милиса", ranks: [
-      { title: "Послушник Собора", salary: 10, minAge: 13, minInt: 12, desc: "Служба в храме." },
-      { title: "Рыцарь-Храмовник", salary: 32, minAge: 17, minSword: 60, desc: "Охрана паломников." },
-      { title: "Инквизитор Веры", salary: 85, minAge: 23, minSword: 160, desc: "Охота на еретиков." },
-      { title: "Паладин Белого Древа", salary: 230, minAge: 30, minSword: 380, desc: "Верховный меч." }
+      { title: "Послушник Собора", salary: 25, minAge: 13, minInt: 12, desc: "Служба в храме." },
+      { title: "Рыцарь-Храмовник", salary: 80, minAge: 17, minSword: 60, desc: "Охрана паломников." },
+      { title: "Инквизитор Веры", salary: 210, minAge: 23, minSword: 160, desc: "Охота на еретиков." },
+      { title: "Паладин Белого Древа", salary: 575, minAge: 30, minSword: 380, desc: "Верховный меч." }
     ]},
     { id: "milis_healer_seminary", name: "Госпиталь Святого Ранга", ranks: [
-      { title: "Брат милосердия", salary: 15, minAge: 13, minMagic: 25, desc: "Уход за ранеными." },
-      { title: "Священник-целитель", salary: 55, minAge: 18, minMagic: 95, desc: "Снятие проклятий." },
-      { title: "Епископ Исцеления", salary: 195, minAge: 28, minMagic: 280, desc: "Высшее исцеление." }
+      { title: "Брат милосердия", salary: 35, minAge: 13, minMagic: 25, desc: "Уход за ранеными." },
+      { title: "Священник-целитель", salary: 140, minAge: 18, minMagic: 95, desc: "Снятие проклятий." },
+      { title: "Епископ Исцеления", salary: 490, minAge: 28, minMagic: 280, desc: "Высшее исцеление." }
     ]}
   ],
   demon: [
     { id: "demon_hunter", name: "Охотники Пустошей", ranks: [
-      { title: "Сборщик чешуи", salary: 12, minAge: 12, minSword: 12, desc: "Кости чудовищ." },
-      { title: "Загонщик виверн", salary: 34, minAge: 16, minSword: 55, desc: "Охота на ящеров." },
-      { title: "Охотник Чёрных Руин", salary: 85, minAge: 21, minSword: 140, desc: "Гнёзда демонов." },
-      { title: "Палач Пустошей", salary: 210, minAge: 28, minSword: 350, desc: "Легендарный охотник." }
+      { title: "Сборщик чешуи", salary: 30, minAge: 12, minSword: 12, desc: "Кости чудовищ." },
+      { title: "Загонщик виверн", salary: 85, minAge: 16, minSword: 55, desc: "Охота на ящеров." },
+      { title: "Охотник Чёрных Руин", salary: 210, minAge: 21, minSword: 140, desc: "Гнёзда демонов." },
+      { title: "Палач Пустошей", salary: 525, minAge: 28, minSword: 350, desc: "Легендарный охотник." }
     ]}
   ],
   great_forest: [
     { id: "forest_ranger", name: "Дозор Клана Дорудиа", ranks: [
-      { title: "Дозорный ветвей", salary: 11, minAge: 12, minSword: 15, desc: "Охрана крон." },
-      { title: "Следопыт чащи", salary: 32, minAge: 16, minSword: 55, desc: "Сезон дождей." },
-      { title: "Хранитель Древа", salary: 90, minAge: 22, minSword: 150, desc: "Защита святилищ." },
-      { title: "Первый Клинок Леса", salary: 220, minAge: 30, minSword: 380, desc: "Лидер воинов леса." }
+      { title: "Дозорный ветвей", salary: 27, minAge: 12, minSword: 15, desc: "Охрана крон." },
+      { title: "Следопыт чащи", salary: 80, minAge: 16, minSword: 55, desc: "Сезон дождей." },
+      { title: "Хранитель Древа", salary: 220, minAge: 22, minSword: 150, desc: "Защита святилищ." },
+      { title: "Первый Клинок Леса", salary: 550, minAge: 30, minSword: 380, desc: "Лидер воинов леса." }
     ]}
   ],
   begaritt: [
     { id: "desert_caravan", name: "Гильдия Караван-Баши", ranks: [
-      { title: "Погонщик ящеров", salary: 14, minAge: 14, minInt: 12, desc: "Доставка воды." },
-      { title: "Страж каравана", salary: 38, minAge: 18, minSword: 70, desc: "Отражение налётов." },
-      { title: "Проводник Лабиринтов", salary: 95, minAge: 24, minInt: 80, desc: "Древние залы." },
-      { title: "Песчаный Барон", salary: 260, minAge: 32, minInt: 180, desc: "Владелец оазисов." }
+      { title: "Погонщик ящеров", salary: 35, minAge: 14, minInt: 12, desc: "Доставка воды." },
+      { title: "Страж каравана", salary: 95, minAge: 18, minSword: 70, desc: "Отражение налётов." },
+      { title: "Проводник Лабиринтов", salary: 240, minAge: 24, minInt: 80, desc: "Древние залы." },
+      { title: "Песчаный Барон", salary: 650, minAge: 32, minInt: 180, desc: "Владелец оазисов." }
     ]}
   ]
 };
 
 const UNDERGROUND_JOBS = {
   asura: { id: "underground_asura", name: "🗡️ Теневой Синдикат Роа", ranks: [
-    { title: "Карманник трущоб", salary: 22, minAge: 13, minNorth: 15, risk: 0.15 },
-    { title: "Скупщик реликвий", salary: 60, minAge: 17, minNorth: 40, risk: 0.22 },
-    { title: "Теневой ликвидатор", salary: 160, minAge: 22, minSword: 150, risk: 0.30 },
-    { title: "Глава Теней Асуры", salary: 420, minAge: 28, minSword: 320, risk: 0.35 }
+    { title: "Карманник трущоб", salary: 50, minAge: 13, minNorth: 15, risk: 0.15 },
+    { title: "Скупщик реликвий", salary: 130, minAge: 17, minNorth: 40, risk: 0.22 },
+    { title: "Теневой ликвидатор", salary: 350, minAge: 22, minSword: 150, risk: 0.30 },
+    { title: "Глава Теней Асуры", salary: 925, minAge: 28, minSword: 320, risk: 0.35 }
   ]},
   ranoa: { id: "underground_ranoa", name: "🔮 Контрабандисты Шарии", ranks: [
-    { title: "Курьер чёрного рынка", salary: 24, minAge: 13, minNorth: 15, risk: 0.14 },
-    { title: "Сбытчик кристаллов", salary: 65, minAge: 17, minMagic: 50, risk: 0.20 },
-    { title: "Фальшивомонетчик", salary: 170, minAge: 22, minInt: 95, risk: 0.28 },
-    { title: "Барон Чёрной Магии", salary: 410, minAge: 28, minMagic: 260, risk: 0.35 }
+    { title: "Курьер чёрного рынка", salary: 50, minAge: 13, minNorth: 15, risk: 0.14 },
+    { title: "Сбытчик кристаллов", salary: 140, minAge: 17, minMagic: 50, risk: 0.20 },
+    { title: "Фальшивомонетчик", salary: 370, minAge: 22, minInt: 95, risk: 0.28 },
+    { title: "Барон Чёрной Магии", salary: 900, minAge: 28, minMagic: 260, risk: 0.35 }
   ]},
   demon: { id: "underground_demon", name: "💀 Мародёры Пустошей", ranks: [
-    { title: "Мародёр руин", salary: 20, minAge: 12, minNorth: 15, risk: 0.16 },
-    { title: "Пустынный налётчик", salary: 55, minAge: 16, minSword: 55, risk: 0.24 },
-    { title: "Главарь перевала", salary: 150, minAge: 21, minSword: 160, risk: 0.32 },
-    { title: "Атаман Караванов", salary: 380, minAge: 27, minSword: 330, risk: 0.38 }
+    { title: "Мародёр руин", salary: 45, minAge: 12, minNorth: 15, risk: 0.16 },
+    { title: "Пустынный налётчик", salary: 120, minAge: 16, minSword: 55, risk: 0.24 },
+    { title: "Главарь перевала", salary: 330, minAge: 21, minSword: 160, risk: 0.32 },
+    { title: "Атаман Караванов", salary: 825, minAge: 27, minSword: 330, risk: 0.38 }
   ]},
   great_forest: { id: "underground_forest", name: "🌲 Браконьеры Чащи", ranks: [
-    { title: "Капканщик шкур", salary: 22, minAge: 12, minNorth: 18, risk: 0.15 },
-    { title: "Браконьер святилищ", salary: 58, minAge: 16, minSword: 60, risk: 0.22 },
-    { title: "Теневой ловец", salary: 160, minAge: 21, minSword: 170, risk: 0.34 },
-    { title: "Хозяин Подполья Леса", salary: 400, minAge: 28, minSword: 340, risk: 0.38 }
+    { title: "Капканщик шкур", salary: 50, minAge: 12, minNorth: 18, risk: 0.15 },
+    { title: "Браконьер святилищ", salary: 130, minAge: 16, minSword: 60, risk: 0.22 },
+    { title: "Теневой ловец", salary: 350, minAge: 21, minSword: 170, risk: 0.34 },
+    { title: "Хозяин Подполья Леса", salary: 875, minAge: 28, minSword: 340, risk: 0.38 }
   ]},
   milis: { id: "underground_milis", name: "🩸 Культ Чёрного Древа", ranks: [
-    { title: "Тайный святотатец", salary: 26, minAge: 14, minInt: 18, risk: 0.18 },
-    { title: "Скупщик реликвий", salary: 70, minAge: 18, minInt: 55, risk: 0.26 },
-    { title: "Ересиарх Культа", salary: 180, minAge: 23, minMagic: 150, risk: 0.33 },
-    { title: "Патриарх Теней", salary: 450, minAge: 30, minMagic: 300, risk: 0.40 }
+    { title: "Тайный святотатец", salary: 55, minAge: 14, minInt: 18, risk: 0.18 },
+    { title: "Скупщик реликвий", salary: 150, minAge: 18, minInt: 55, risk: 0.26 },
+    { title: "Ересиарх Культа", salary: 400, minAge: 23, minMagic: 150, risk: 0.33 },
+    { title: "Патриарх Теней", salary: 1000, minAge: 30, minMagic: 300, risk: 0.40 }
   ]},
   begaritt: { id: "underground_begaritt", name: "🏜️ Корсары Барханов", ranks: [
-    { title: "Вор колодцев", salary: 24, minAge: 13, minNorth: 18, risk: 0.15 },
-    { title: "Налётчик на оазисы", salary: 65, minAge: 17, minSword: 65, risk: 0.25 },
-    { title: "Хозяин тайного оазиса", salary: 175, minAge: 22, minSword: 180, risk: 0.32 },
-    { title: "Султан Разбойников", salary: 440, minAge: 29, minSword: 360, risk: 0.39 }
+    { title: "Вор колодцев", salary: 50, minAge: 13, minNorth: 18, risk: 0.15 },
+    { title: "Налётчик на оазисы", salary: 140, minAge: 17, minSword: 65, risk: 0.25 },
+    { title: "Хозяин тайного оазиса", salary: 380, minAge: 22, minSword: 180, risk: 0.32 },
+    { title: "Султан Разбойников", salary: 975, minAge: 29, minSword: 360, risk: 0.39 }
   ]}
 };
 
@@ -269,38 +272,38 @@ const FACTION_ENDGAMES = {
 };
 
 const ESTATES = [
-  { id: "cottage_buena", name: "🏡 Домик с садом в Буэне", cost: 45, income: 6, hpRegen: 8, desc: "+6🪙/г., +8 HP/г." },
-  { id: "townhouse_roa", name: "🏘️ Каменный особняк в Роа", cost: 180, income: 22, hpRegen: 18, desc: "+22🪙/г., +18 HP/г." },
-  { id: "milis_manor", name: "⛪ Усадьба в Милисионе", cost: 520, income: 65, hpRegen: 35, desc: "+65🪙/г., +35 HP/г." },
-  { id: "sharia_castle", name: "🏰 Замок-резиденция в Шарии", cost: 1400, income: 160, hpRegen: 65, desc: "+160🪙/г., +65 HP/г., +15 маны детям." },
-  { id: "asura_palace", name: "👑 Дворец в Асуре", cost: 3500, income: 420, hpRegen: 120, desc: "+420🪙/г., +120 HP/г., +25 к стилям детям." }
+  { id: "cottage_buena", name: "🏡 Домик с садом в Буэне", cost: 35, income: 15, hpRegen: 8, desc: "+6🪙/г., +8 HP/г." },
+  { id: "townhouse_roa", name: "🏘️ Каменный особняк в Роа", cost: 140, income: 55, hpRegen: 18, desc: "+22🪙/г., +18 HP/г." },
+  { id: "milis_manor", name: "⛪ Усадьба в Милисионе", cost: 390, income: 170, hpRegen: 35, desc: "+65🪙/г., +35 HP/г." },
+  { id: "sharia_castle", name: "🏰 Замок-резиденция в Шарии", cost: 1050, income: 420, hpRegen: 65, desc: "+160🪙/г., +65 HP/г., +15 маны детям." },
+  { id: "asura_palace", name: "👑 Дворец в Асуре", cost: 2600, income: 1100, hpRegen: 120, desc: "+420🪙/г., +120 HP/г., +25 к стилям детям." }
 ];
 
 const CASTLE_UPGRADES = [
-  { id: "crypt", name: "🕯️ Фамильный Склеп Предков", cost: 150, desc: "Молитва раз в 5 лет (+20 к Мечу/Магии, 100% сил)." },
-  { id: "training_yard", name: "⚔️ Воинский Полигон Меча", cost: 200, desc: "Дети рода получают +25 к Мечу, а тренировки на 25% эффективнее." },
-  { id: "alchemy_lab", name: "🧪 Алхимическая Оранжерея", cost: 140, desc: "Ежегодно производит +2 целебных зелья." },
-  { id: "grand_vault", name: "🪙 Неприступная Казна", cost: 260, desc: "+15% к прибыли караванов и -5% риска." },
-  { id: "trophy_hall", name: "🐉 Зал Трофеев Драконов", cost: 400, desc: "+50 Славы отряда и +1,200 БМ авторитета." }
+  { id: "crypt", name: "🕯️ Фамильный Склеп Предков", cost: 110, desc: "Молитва раз в 5 лет (+20 к Мечу/Магии, 100% сил)." },
+  { id: "training_yard", name: "⚔️ Воинский Полигон Меча", cost: 150, desc: "Дети рода получают +25 к Мечу, а тренировки на 25% эффективнее." },
+  { id: "alchemy_lab", name: "🧪 Алхимическая Оранжерея", cost: 100, desc: "Ежегодно производит +2 целебных зелья." },
+  { id: "grand_vault", name: "🪙 Неприступная Казна", cost: 200, desc: "+15% к прибыли караванов и -5% риска." },
+  { id: "trophy_hall", name: "🐉 Зал Трофеев Драконов", cost: 300, desc: "+50 Славы отряда и +1,200 БМ авторитета." }
 ];
 
 const CARAVAN_ROUTES = [
-  { id: "caravan_local", name: "🛒 Местный тракт Фитоа", cost: 35, reward: 65, risk: 0.10, desc: "Доставка зерна (+30🪙)." },
-  { id: "caravan_ranoa", name: "❄️ Снежный караван в Шарию", cost: 110, reward: 220, risk: 0.22, desc: "Перевозка мифрила (+110🪙)." },
-  { id: "caravan_milis", name: "⛪ Морской конвой в Милис", cost: 280, reward: 540, risk: 0.38, desc: "Шелка и реликвии (+260🪙)." },
-  { id: "caravan_begaritt", name: "🏜️ Золотой Караван Бегаритта", cost: 700, reward: 1450, risk: 0.50, desc: "Сквозь пустыню (+750🪙)!" }
+  { id: "caravan_local", name: "🛒 Местный тракт Фитоа", cost: 26, reward: 65, risk: 0.10, desc: "Доставка зерна (+30🪙)." },
+  { id: "caravan_ranoa", name: "❄️ Снежный караван в Шарию", cost: 80, reward: 220, risk: 0.22, desc: "Перевозка мифрила (+110🪙)." },
+  { id: "caravan_milis", name: "⛪ Морской конвой в Милис", cost: 210, reward: 540, risk: 0.38, desc: "Шелка и реликвии (+260🪙)." },
+  { id: "caravan_begaritt", name: "🏜️ Золотой Караван Бегаритта", cost: 525, reward: 1450, risk: 0.50, desc: "Сквозь пустыню (+750🪙)!" }
 ];
 
 // Испытания Хаос Брейкера. reqLine — какая сюжетная линия должна быть начата,
 // чтобы испытание открылось: путь в крепость идёт через историю, а не через БМ.
 const PERUGIUS_TRIALS = [
-  { rank: 1, name: "Испытание Первого Духа (Алхор)", reqCp: 5000, line: "pg_spirit",
+  { rank: 1, name: "Испытание Первого Духа (Алхор)", reqCp: 2500, line: "pg_spirit",
     reqText: "Начать путь: «🐉 Первый Дух Алхор»",
     rewardText: "Признание рыцарей небес (+80 Знаний, +40 макс. маны)" },
-  { rank: 2, name: "Поединок с Золотым Рыцарем Сильфидом", reqCp: 14000, line: "pg_sylph",
+  { rank: 2, name: "Поединок с Золотым Рыцарем Сильфидом", reqCp: 7000, line: "pg_sylph",
     reqText: "Начать путь: «⚔️ Золотой Рыцарь Сильфид»",
     rewardText: "Благословение Дракона (+300 макс. HP, +2,500 БМ)" },
-  { rank: 3, name: "Аудиенция у Перугиуса", reqCp: 32000, line: "pg_master",
+  { rank: 3, name: "Аудиенция у Перугиуса", reqCp: 14000, line: "pg_master",
     reqText: "Начать путь: «👑 Аудиенция у Перугиуса»",
     rewardText: "Драконье Имя и Фактор Лапласа (+1,000🪙, +2 к отношениям Сил)" }
 ];
@@ -369,24 +372,24 @@ const SHOP_ITEMS = [
   { id: "bronze_dagger", type: "weapon", name: "🗡️ Бронзовый кинжал", cost: 15, cp: 45, desc: "+45 БМ." },
   { id: "iron_sword", type: "weapon", name: "⚔️ Железный палаш", cost: 40, cp: 130, desc: "+130 БМ." },
   { id: "oak_staff", type: "weapon", name: "🪄 Посох из ветви Энта", cost: 65, cp: 210, desc: "+210 БМ." },
-  { id: "steel_rapier", type: "weapon", name: "🤺 Асурианская рапира", cost: 120, cp: 380, desc: "+380 БМ." },
-  { id: "heavy_claymore", type: "weapon", name: "🪓 Двуручный клеймор севера", cost: 220, cp: 680, desc: "+680 БМ." },
-  { id: "dragon_blade", type: "weapon", name: "🗡️ Клинок из кости Дракона", cost: 480, cp: 1400, desc: "+1,400 БМ." },
-  { id: "staff_arcane", type: "weapon", name: "🔮 Посох Магического Океана", cost: 850, cp: 2400, desc: "+2,400 БМ." },
-  { id: "phoenix_spear", type: "weapon", name: "🔱 Копьё Спардов", cost: 1300, cp: 3500, desc: "+3,500 БМ." },
-  { id: "aqua_heartia", type: "weapon", name: "🌟 Посох Водного Океана", cost: 1900, cp: 4800, desc: "+4,800 БМ." },
-  { id: "god_slayer_sword", type: "weapon", name: "⚡ Меч Рассекатель Света", cost: 3200, cp: 7500, desc: "Клинок школы Бога (+7,500 БМ)." },
+  { id: "steel_rapier", type: "weapon", name: "🤺 Асурианская рапира", cost: 100, cp: 380, desc: "+380 БМ." },
+  { id: "heavy_claymore", type: "weapon", name: "🪓 Двуручный клеймор севера", cost: 160, cp: 680, desc: "+680 БМ." },
+  { id: "dragon_blade", type: "weapon", name: "🗡️ Клинок из кости Дракона", cost: 340, cp: 1400, desc: "+1,400 БМ." },
+  { id: "staff_arcane", type: "weapon", name: "🔮 Посох Магического Океана", cost: 525, cp: 2400, desc: "+2,400 БМ." },
+  { id: "phoenix_spear", type: "weapon", name: "🔱 Копьё Спардов", cost: 800, cp: 3500, desc: "+3,500 БМ." },
+  { id: "aqua_heartia", type: "weapon", name: "🌟 Посох Водного Океана", cost: 1050, cp: 4800, desc: "+4,800 БМ." },
+  { id: "god_slayer_sword", type: "weapon", name: "⚡ Меч Рассекатель Света", cost: 1750, cp: 7500, desc: "Клинок школы Бога (+7,500 БМ)." },
   { id: "apprentice_robe", type: "armor", name: "🧥 Мантия ученика", cost: 12, cp: 35, hp: 10, desc: "+35 БМ, +10 макс. HP." },
   { id: "leather_armor", type: "armor", name: "🛡️ Кожаный доспех", cost: 35, cp: 110, hp: 25, desc: "+110 БМ, +25 макс. HP." },
-  { id: "steel_plate", type: "armor", name: "🛡️ Стальной нагрудник", cost: 130, cp: 420, hp: 55, desc: "+420 БМ, +55 макс. HP." },
-  { id: "mithril_chain", type: "armor", name: "⛓️ Мифриловая кольчуга", cost: 320, cp: 1000, hp: 100, desc: "+1,000 БМ, +100 макс. HP." },
-  { id: "dragon_scale", type: "armor", name: "🐉 Доспех Красного Дракона", cost: 1100, cp: 3200, hp: 220, desc: "+3,200 БМ, +220 макс. HP." },
-  { id: "royal_aegis", type: "armor", name: "👑 Королевский Эгид Асуры", cost: 2400, cp: 5800, hp: 380, desc: "+5,800 БМ, +380 макс. HP." },
-  { id: "magic_armor", type: "armor", name: "🤖 Магическая Броня «Версия 1»", cost: 4500, cp: 9500, hp: 650, desc: "Экзоскелет титанов (+9,500 БМ, +650 макс. HP)." },
-  { id: "ring_mana", type: "accessory", name: "💍 Кольцо Концентрации Маны", cost: 85, cp: 260, desc: "+260 БМ." },
-  { id: "boots_wind", type: "accessory", name: "👢 Сапоги Ветроступа", cost: 260, cp: 750, desc: "+750 БМ." },
-  { id: "laplace_gem", type: "accessory", name: "💎 Самоцвет Демон-Дракона", cost: 1100, cp: 2800, desc: "+2,800 БМ." },
-  { id: "prosthetic_arm", type: "accessory", name: "🦾 Протез из Сплава Зари", cost: 650, cp: 1600, desc: "Снимает штраф за потерю руки (+1,600 БМ)." },
+  { id: "steel_plate", type: "armor", name: "🛡️ Стальной нагрудник", cost: 110, cp: 420, hp: 55, desc: "+420 БМ, +55 макс. HP." },
+  { id: "mithril_chain", type: "armor", name: "⛓️ Мифриловая кольчуга", cost: 230, cp: 1000, hp: 100, desc: "+1,000 БМ, +100 макс. HP." },
+  { id: "dragon_scale", type: "armor", name: "🐉 Доспех Красного Дракона", cost: 675, cp: 3200, hp: 220, desc: "+3,200 БМ, +220 макс. HP." },
+  { id: "royal_aegis", type: "armor", name: "👑 Королевский Эгид Асуры", cost: 1325, cp: 5800, hp: 380, desc: "+5,800 БМ, +380 макс. HP." },
+  { id: "magic_armor", type: "armor", name: "🤖 Магическая Броня «Версия 1»", cost: 2500, cp: 9500, hp: 650, desc: "Экзоскелет титанов (+9,500 БМ, +650 макс. HP)." },
+  { id: "ring_mana", type: "accessory", name: "💍 Кольцо Концентрации Маны", cost: 70, cp: 260, desc: "+260 БМ." },
+  { id: "boots_wind", type: "accessory", name: "👢 Сапоги Ветроступа", cost: 190, cp: 750, desc: "+750 БМ." },
+  { id: "laplace_gem", type: "accessory", name: "💎 Самоцвет Демон-Дракона", cost: 675, cp: 2800, desc: "+2,800 БМ." },
+  { id: "prosthetic_arm", type: "accessory", name: "🦾 Протез из Сплава Зари", cost: 400, cp: 1600, desc: "Снимает штраф за потерю руки (+1,600 БМ)." },
   { id: "heal_potion", type: "potion", name: "🧪 Зелье Исцеления", cost: 15, heal: 60, desc: "+60 HP в бою или вне боя." }
 ];
 
@@ -403,15 +406,15 @@ const ALL_GUILD_QUESTS = [
   { id: "q_e1", rank: "E", name: "🐗 Клыкастые Кабаны", enemy: "Клыкастый Вепрь", cp: 260, hp: 110, reward: 25, gp: 15 },
   { id: "q_e2", rank: "E", name: "🍄 Кислотные Слизни", enemy: "Кислотный Слизень", cp: 320, hp: 130, reward: 32, gp: 18 },
   { id: "q_d1", rank: "D", name: "🐺 Двуглавые Волки", enemy: "Вожак Двуглавых", cp: 680, hp: 230, reward: 60, gp: 25 },
-  { id: "q_d2", rank: "D", name: "🧌 Набег гоблинов", enemy: "Гоблин-главарь", cp: 880, hp: 280, reward: 78, gp: 30 },
-  { id: "q_c1", rank: "C", name: "🐍 Багровые Кобры", enemy: "Багровая Кобра", cp: 1600, hp: 480, reward: 140, gp: 45 },
-  { id: "q_c2", rank: "C", name: "🧟 Зачистка склепа", enemy: "Рыцарь-скелет", cp: 2100, hp: 580, reward: 185, gp: 50 },
-  { id: "q_b1", rank: "B", name: "🗿 Каменный Энт", enemy: "Каменный Энт", cp: 4200, hp: 1100, reward: 320, gp: 80 },
-  { id: "q_b2", rank: "B", name: "🦂 Императорский Скорпион", enemy: "Императорский Скорпион", cp: 5500, hp: 1400, reward: 420, gp: 95 },
-  { id: "q_a1", rank: "A", name: "🦅 Ледяная Виверна", enemy: "Ледяная Виверна", cp: 9200, hp: 2600, reward: 680, gp: 150 },
-  { id: "q_a2", rank: "A", name: "🦍 Снежный Бегемот", enemy: "Пещерный Бегемот", cp: 11500, hp: 3400, reward: 850, gp: 180 },
-  { id: "q_s1", rank: "S", name: "🐉 Красный Дракон", enemy: "Красный Дракон", cp: 16000, hp: 6200, reward: 1400, gp: 300 },
-  { id: "q_s2", rank: "S", name: "💀 Архилич Бездны", enemy: "Архилич Бездны", cp: 19500, hp: 8200, reward: 1850, gp: 450 }
+  { id: "q_d2", rank: "D", name: "🧌 Набег гоблинов", enemy: "Гоблин-главарь", cp: 880, hp: 280, reward: 120, gp: 30 },
+  { id: "q_c1", rank: "C", name: "🐍 Багровые Кобры", enemy: "Багровая Кобра", cp: 1600, hp: 480, reward: 220, gp: 45 },
+  { id: "q_c2", rank: "C", name: "🧟 Зачистка склепа", enemy: "Рыцарь-скелет", cp: 2100, hp: 580, reward: 300, gp: 50 },
+  { id: "q_b1", rank: "B", name: "🗿 Каменный Энт", enemy: "Каменный Энт", cp: 4200, hp: 1100, reward: 675, gp: 80 },
+  { id: "q_b2", rank: "B", name: "🦂 Императорский Скорпион", enemy: "Императорский Скорпион", cp: 5500, hp: 1400, reward: 875, gp: 95 },
+  { id: "q_a1", rank: "A", name: "🦅 Ледяная Виверна", enemy: "Ледяная Виверна", cp: 9200, hp: 2600, reward: 1425, gp: 150 },
+  { id: "q_a2", rank: "A", name: "🦍 Снежный Бегемот", enemy: "Пещерный Бегемот", cp: 11500, hp: 3400, reward: 1775, gp: 180 },
+  { id: "q_s1", rank: "S", name: "🐉 Красный Дракон", enemy: "Красный Дракон", cp: 16000, hp: 6200, reward: 2950, gp: 300 },
+  { id: "q_s2", rank: "S", name: "💀 Архилич Бездны", enemy: "Архилич Бездны", cp: 19500, hp: 8200, reward: 3900, gp: 450 }
 ];
 
 const CANON_NPCS = [
@@ -591,7 +594,7 @@ const ACTIVITIES = [
   { id: "catch_insects", category: "childhood", name: "🦗 Ловля сверчков", minAge: 3, maxAge: 7, cost: 0, apCost: 1, desc: "Реакция глаз и ловкость.", action: (p) => { p.northGodExp += 6; return "Вы перехватывали жуков (+6 Севера)."; } },
   { id: "read_scrolls", category: "life", name: "📜 Изучение свитков и летописей", minAge: 4, maxAge: 100, cost: 3, apCost: 1, desc: "Книги дают Знания (удваивается у Любознательных).", action: (p) => {
     const bonus = p.trait.id === "curious" ? 10 : 6;
-    p.coins -= 3; p.intellect += bonus;
+    p.coins = Math.max(0, p.coins - 3); p.intellect += bonus;
     return `Вы изучили древние трактаты (+${bonus} Знаний).`;
   }},
   { id: "magic_circle_study", category: "magic", name: "✨ Изучение магических кругов", minAge: 7, maxAge: 100, cost: 0, apCost: 1, desc: "Формулы стихий и призыва.", action: (p) => {
@@ -630,9 +633,65 @@ const ACTIVITIES = [
   }},
   { id: "street_sparring", category: "youth", name: "🥊 Уличные дуэли", minAge: 11, maxAge: 17, cost: 0, apCost: 1, desc: "Опыт уличных стычек.", action: (p) => { p.swordGodExp += 10; p.northGodExp += 10; return "Поединок на окраине (+10 Мечу и Севера)."; } },
   { id: "youth_debate", category: "youth", name: "📚 Диспуты о природе маны", minAge: 12, maxAge: 25, cost: 0, apCost: 1, desc: "Споры об устройстве мира.", action: (p) => { p.intellect += 8; return "Вы блестяще отстояли тезисы (+8 Знаний)."; } },
-  { id: "tavern_rest", category: "life", name: "🛌 Отдых в таверне (100% HP)", minAge: 6, maxAge: 100, cost: 6, apCost: 1, desc: "Снять комнату и восстановить HP.", action: (p) => { p.coins -= 6; p.hp = p.maxHp; return "Горячий ужин и сон полностью восстановили здоровье!"; } },
-  { id: "high_society_ball", category: "life", name: "🎭 Дворянский бал", minAge: 16, maxAge: 100, cost: 18, apCost: 1, desc: "Связи среди знати Асуры.", action: (p) => { p.coins -= 18; p.asuraInfluence += 12; return "Полезные знакомства (+12 влияния)."; } },
-  { id: "write_memoirs", category: "elder", name: "✍️ Родовые хроники", minAge: 45, maxAge: 100, cost: 0, apCost: 1, desc: "Мудрость для потомков.", action: (p) => { p.intellect += 12; return "Мемуары занесены в архив (+12 Знаний)."; } },
+  { id: "tavern_rest", category: "life", name: "🛌 Отдых в таверне (100% HP)", minAge: 6, maxAge: 100, cost: 6, apCost: 1, desc: "Снять комнату и восстановить HP.", action: (p) => { p.coins = Math.max(0, p.coins - 6); p.hp = p.maxHp; return "Горячий ужин и сон полностью восстановили здоровье!"; } },
+  { id: "high_society_ball", category: "life", name: "🎭 Дворянский бал", minAge: 16, maxAge: 100, cost: 18, apCost: 1, desc: "Связи среди знати Асуры.", action: (p) => { p.coins = Math.max(0, p.coins - 18); p.asuraInfluence += 12; return "Полезные знакомства (+12 влияния)."; } },
+  { id: "rest_at_home", category: "life", name: "🛏️ Отдохнуть дома", minAge: 0, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Сон в своей постели. Бесплатно, но лечит не полностью.",
+    action: (p) => { const heal = Math.round(p.maxHp * 0.35); p.hp = Math.min(p.maxHp, p.hp + heal); p.mana = Math.min(p.maxMana, (p.mana || 0) + p.maxMana); return `Вы проспали сутки. Силы вернулись частично (+${heal} HP, мана восстановлена).`; } },
+
+  { id: "healer_visit", category: "life", name: "⚕️ Лекарь и травы", minAge: 4, maxAge: 120, cost: 35, apCost: 1,
+    desc: "Заплатить лекарю: лечение, снятие ран, восстановление.",
+    action: (p) => { p.hp = p.maxHp; const before = (p.injuries || []).length; if (p.injuries) p.injuries = p.injuries.filter(i => (i.severity || 1) > 2); const cured = before - (p.injuries || []).length; return `Лекарь осмотрел вас, вправил кости и дал отвар. Здоровье полностью восстановлено${cured ? `, залечено ран: ${cured}` : ""}.`; } },
+
+  { id: "temple_blessing", category: "life", name: "⛪ Благословение в храме", minAge: 6, maxAge: 120, cost: 120, apCost: 1,
+    desc: "Пожертвование храму: полное исцеление, снятие всех ран, +репутация.",
+    action: (p) => { p.hp = p.maxHp; p.injuries = []; p.reputation += 6; return `Жрецы возложили руки. Тело цело, раны закрыты (+6 репутации).`; } },
+
+  { id: "field_medicine", category: "life", name: "🌿 Травы в дороге", minAge: 8, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Собрать травы самому. Бесплатно, немного лечит и даёт знания.",
+    action: (p) => { const heal = Math.round(p.maxHp * 0.18); p.hp = Math.min(p.maxHp, p.hp + heal); p.intellect += 2; return `Вы нашли подорожник, тысячелистник и что-то горькое (+${heal} HP, +2 Знаний).`; } },
+
+  { id: "elder_grandkids", category: "elder", name: "👶 Нянчить внуков", minAge: 38, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Провести год с внуками: здоровье, тепло и репутация рода.",
+    action: (p) => { p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.15)); p.maxHp += 5; p.reputation += 5; return "Внуки таскали вас за бороду и требовали сказок. Вы неожиданно помолодели (+5 макс. HP, +5 репутации)."; } },
+
+  { id: "elder_teach_craft", category: "elder", name: "🧶 Передать ремесло", minAge: 40, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Обучить наследника тому, что умеете сами.",
+    action: (p) => { p.squadFame += 15; p.reputation += 8; if (p.children && p.children.length) { p.children.forEach(c => { c.cp = (c.cp || 0) + 150; }); } return "Ваши навыки ушли дальше: дети стали крепче (+150 БМ каждому, +8 репутации)."; } },
+
+  { id: "elder_council", category: "elder", name: "⚖️ Сидеть в совете старейшин", minAge: 45, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Ваш голос теперь что-то значит в чужих спорах.",
+    action: (p) => { p.intellect += 8; p.coins += 40; p.reputation += 10; return "Спор о меже решён вашим словом. Вам принесли благодарность и кувшин вина (+40🪙, +8 Знаний)."; } },
+
+  { id: "elder_healing_hands", category: "elder", name: "🌿 Лечить соседей", minAge: 35, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Травы и опыт вместо денег: люди приходят к вам, а не к лекарю.",
+    action: (p) => { p.reputation += 14; p.hp = Math.min(p.maxHp, p.hp + 10); p.intellect += 3; return "Вы приняли шестерых за неделю. Одна женщина назвала ребёнка вашим именем (+14 репутации)."; } },
+
+  { id: "elder_memoirs", category: "elder", name: "📖 Писать мемуары", minAge: 45, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Записать всё, что было. Наследники будут читать это, когда вас не станет.",
+    action: (p) => {
+      const pages = 20 + Math.floor((p.intellect || 0) / 4);
+      p.intellect += 6; p.reputation += 10; p.memoirPages = (p.memoirPages || 0) + pages;
+      // Наследник получит знания из книги
+      if (p.children) p.children.forEach(c => { c.memoirBonus = (c.memoirBonus || 0) + 3; });
+      return `Вы исписали ${pages} страниц. Про чужую войну — половину. Про себя — всю (+6 Знаний, +10 репутации, глава добавлена в книгу рода).`;
+    } },
+
+  { id: "elder_pass_trade", category: "elder", name: "🏛️ Передать дело", minAge: 45, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Отдать имение или ремесло в руки детей — и получать с этого долю.",
+    action: (p) => {
+      const heir = (p.children || []).find(c => !c.isDead && (c.age || childAge(c)) >= 16);
+      if (!heir) { p.reputation += 2; return "Передавать пока некому. Вы посидели в кресле и подумали, кому вообще это нужно."; }
+      heir.cp = (heir.cp || 0) + 250;
+      const income = 60 + Math.floor((p.coins || 0) * 0.02);
+      p.coins += income; p.reputation += 8;
+      return `${heir.name} принял(а) дела и сразу нашёл(ла) лишние траты. Дело работает без вас (+${income}🪙, +250 БМ наследнику).`;
+    } },
+
+  { id: "elder_watch_sunset", category: "elder", name: "🌇 Смотреть на закат", minAge: 50, maxAge: 120, cost: 0, apCost: 1,
+    desc: "Ничего не делать. Иногда это самое важное.",
+    action: (p) => { p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.2)); return "Год прошёл тихо. Вы никуда не спешили и всё успели (+20% HP)."; } },
+
   { id: "mentor_young", category: "elder", name: "🥋 Наставлять учеников", minAge: 40, maxAge: 100, cost: 0, apCost: 1, desc: "Передача секретов клинка.", action: (p) => { p.squadFame += 20; p.coins += 25; return "Ученики внимали урокам (+20 Славы, +25🪙)."; } }
 ];
 
@@ -674,7 +733,7 @@ const RANDOM_EVENTS = [
     choices: [
       { text: "Оплатить ритуал (300🪙 — лечит все травмы и 100% HP)", action: (p) => {
         if (p.coins < 300) return "У вас нет 300 монет на священные реагенты!";
-        p.coins -= 300; p.injuries = []; p.hp = p.maxHp;
+        p.coins = Math.max(0, p.coins - 300); p.injuries = []; p.hp = p.maxHp;
         return "Ослепительный свет восстановил ваше тело полностью!";
       }},
       { text: "Простое благословение (+20 HP)", action: (p) => { p.hp = Math.min(p.maxHp, p.hp + 20); return "Мягкое сияние согрело душу (+20 HP)."; } }
@@ -710,7 +769,7 @@ const RANDOM_EVENTS = [
     choices: [
       { text: "Отдать 35 монет за Демонический Глаз", action: (p) => {
         if (p.coins < 35) return "Нет 35 монет! Киширика обиженно сбежала.";
-        p.coins -= 35;
+        p.coins = Math.max(0, p.coins - 35);
         const keys = Object.keys(DEMON_EYES);
         const eye = DEMON_EYES[keys[Math.floor(Math.random() * keys.length)]];
         p.demonEyes = p.demonEyes || { left: null, right: null };
@@ -725,7 +784,7 @@ const RANDOM_EVENTS = [
   { id: "wandering_bard", minAge: 7, chance: 0.18, icon: "🪕", title: "Песнь Странствующего Барда",
     desc: "В таверне бард поёт баллады о героях прошлых лет.",
     choices: [
-      { text: "Угостить элем (3🪙) и расспросить о слухах", action: (p) => { if (p.coins < 3) return "Не хватило монет."; p.coins -= 3; p.intellect += 6; return "Бард раскрыл древние легенды (+6 Знаний)."; } },
+      { text: "Угостить элем (3🪙) и расспросить о слухах", action: (p) => { if (p.coins < 3) return "Не хватило монет."; p.coins = Math.max(0, p.coins - 3); p.intellect += 6; return "Бард раскрыл древние легенды (+6 Знаний)."; } },
       { text: "Просто послушать музыку (+10 HP)", action: (p) => { p.hp = Math.min(p.maxHp, p.hp + 10); return "Мелодия успокоила сердце (+10 HP)."; } }
     ]
   },
